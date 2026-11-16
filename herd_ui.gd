@@ -4,9 +4,7 @@
 class_name HerdUI
 extends CanvasLayer
 
-const CALF_PRICE := 400
 const CALF_KG := 220.0
-const PRICE_PER_KG := 1.6
 const CALF_SPOT := Vector3(8, 0, 16)  # calves arrive in front of the barn
 const HAY_LOT := 10                   # bales per harvest or purchase
 const HARVEST_COST := 80              # farmhands' wages for cutting and baling a lot
@@ -14,6 +12,7 @@ const HAY_PRICE := [250, 250, 300, 400]  # per lot by season: dearer as winter n
 
 var herd: Herd
 var builder: Builder
+var market: Market
 var _panel: PanelContainer
 var _dim: ColorRect
 var _stats := UiTheme.label("", 25)
@@ -55,7 +54,7 @@ func _ready() -> void:
 	btns.alignment = BoxContainer.ALIGNMENT_END
 	col.add_child(btns)
 	_sell = builder._button(Button.new(), "", sell, "place")
-	_buy = builder._button(Button.new(), "خرید گوساله  %s دلار" % UiTheme.fa(CALF_PRICE), buy, "cow")
+	_buy = builder._button(Button.new(), "", buy, "cow")
 	btns.add_child(_sell)
 	btns.add_child(_buy)
 	var hay_btns := HBoxContainer.new()
@@ -89,19 +88,19 @@ func toggle() -> void:
 
 
 func buy() -> void:
-	if builder.money < CALF_PRICE:
+	if builder.money < market.calf_price():
 		return
-	builder.add_money(-CALF_PRICE)
+	builder.add_money(-market.calf_price())
 	herd.add_cow(herd.free_spot(CALF_SPOT, 5.0), CALF_KG)
 	_refresh()
 
 
 func sell() -> void:
-	var n := herd.ready_count()
-	if n == 0:
+	if herd.ready_count() == 0:
 		return
-	var cash := int(herd.sell_ready() * PRICE_PER_KG)
-	builder.add_money(cash)
+	var r := market.sell_ready()
+	var n: int = r[0]
+	var cash: int = r[1]
 	notify("%s گاو فروخته شد:  %s+ دلار" % [UiTheme.fa(n), UiTheme.fa(cash)])
 	_refresh()
 
@@ -154,7 +153,7 @@ func _refresh() -> void:
 		"میانگین وزن:  %s کیلو" % UiTheme.fa(int(avg)),
 		"آماده‌ی فروش (%s کیلو به بالا):  %s" % [UiTheme.fa(int(Herd.READY_KG)), UiTheme.fa(ready)],
 		"گرسنه:  %s      تشنه:  %s" % [UiTheme.fa(hungry), UiTheme.fa(thirsty)],
-		"قیمت بازار:  هر کیلو %s دلار" % UiTheme.fa(PRICE_PER_KG).replace(".", "٫"),
+		"قیمت امروز بازار:  هر کیلو %s دلار" % UiTheme.fa_price(market.price),
 		"یونجه‌ی انبار:  %s از %s عدل" % [UiTheme.fa(int(herd.hay)), UiTheme.fa(herd.hay_cap)],
 		"جای زمستونی طویله:  %s برای %s گاو" % [UiTheme.fa(herd.shelter), UiTheme.fa(n)],
 	])
@@ -163,9 +162,10 @@ func _refresh() -> void:
 	_cut.disabled = winter or builder.money < HARVEST_COST or herd.hay_cap - herd.hay < 1.0
 	_buy_hay.text = "خرید %s عدل یونجه  %s دلار" % [UiTheme.fa(HAY_LOT), UiTheme.fa(price)]
 	_buy_hay.disabled = builder.money < price or herd.hay_cap - herd.hay < HAY_LOT
-	_sell.text = "فروش آماده‌ها  %s دلار" % UiTheme.fa(int(ready_kg * PRICE_PER_KG))
+	_sell.text = "فروش آماده‌ها  %s دلار" % UiTheme.fa(int(ready_kg * market.price))
+	_buy.text = "خرید گوساله  %s دلار" % UiTheme.fa(market.calf_price())
 	_sell.disabled = ready == 0
-	_buy.disabled = builder.money < CALF_PRICE or n >= Herd.MAX_COWS
+	_buy.disabled = builder.money < market.calf_price() or n >= Herd.MAX_COWS
 
 
 func _process(delta: float) -> void:

@@ -299,6 +299,16 @@ def hay(d, k):  # square bale with twine and straw ends
         d.line([k(x), k(18), k(x - 2), k(11)], fill=INK, width=k(2))
 
 
+def market(d, k):  # money bag tied at the neck, with a coin
+    d.ellipse([k(10), k(22), k(50), k(60)], fill=CREAM, outline=INK, width=k(3))
+    shape(d, [(22, 24), (18, 10), (30, 14), (42, 10), (38, 24)], k)
+    d.line([k(20), k(24), k(40), k(24)], fill=(150, 50, 35, 255), width=k(4))
+    d.line([k(30), k(32), k(30), k(52)], fill=INK, width=k(3))  # $ stroke
+    d.arc([k(23), k(33), k(37), k(43)], 90, 300, fill=INK, width=k(3))
+    d.arc([k(23), k(41), k(37), k(51)], 270, 120, fill=INK, width=k(3))
+    d.ellipse([k(44), k(44), k(60), k(60)], fill=(225, 180, 80, 255), outline=INK, width=k(3))
+
+
 def build(d, k):  # hammer
     shape(d, [(28, 24), (36, 24), (36, 60), (28, 60)], k)
     shape(d, [(12, 10), (46, 10), (54, 18), (46, 26), (12, 26)], k)
@@ -324,6 +334,6 @@ def place(d, k):
 
 button()
 panel()
-for n, f in dict(hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place).items():
+for n, f in dict(market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place).items():
     icon(n, f)
 print("ok")

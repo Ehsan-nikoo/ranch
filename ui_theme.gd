@@ -11,6 +11,11 @@ static func apply() -> void:
 	base.default_font = load("res://ui/fonts/Vazirmatn-Bold.ttf")
 
 
+## Price like 1.65 with Persian digits and decimal sign.
+static func fa_price(p: float) -> String:
+	return fa("%.2f" % p).replace(".", "٫")
+
+
 ## Number with Persian digits.
 static func fa(n: Variant) -> String:
 	var s := str(n)

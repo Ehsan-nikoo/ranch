@@ -14,6 +14,8 @@ var grass_nodes: Array[Node3D] = []
 var grass_mat := ShaderMaterial.new()
 var ground_mat := ShaderMaterial.new()
 var herd_ui := HerdUI.new()
+var market := Market.new()
+var market_ui := MarketUI.new()
 # per season (spring, summer, autumn, winter): grass blade tint, ground grass tint, ground lush tint, snow
 const LOOK := [
 	[Color(0.66, 0.86, 0.5), Color(0.52, 0.64, 0.4), Color(0.42, 0.6, 0.32), 0.0],
@@ -92,9 +94,22 @@ func _ready() -> void:
 		_clear_grass(r)
 		_save()
 	add_child(builder)
+	market.day = day
+	market.herd = herd
+	market.builder = builder
+	market.notify = herd_ui.notify
+	if not saved.is_empty() and saved.has("market"):
+		market.from_save(saved.market)
+	add_child(market)
 	herd_ui.herd = herd
 	herd_ui.builder = builder
+	herd_ui.market = market
 	add_child(herd_ui)
+	market_ui.market = market
+	market_ui.builder = builder
+	add_child(market_ui)
+	if _arg("market", "") != "":
+		market_ui.toggle()
 	day.speed = float(_arg("speed", "1"))
 	if _arg("herd", "") != "":
 		herd_ui.toggle()
@@ -108,6 +123,7 @@ func _ready() -> void:
 	_test_build()
 	if _arg("debug", "") != "":
 		_debug_herd()
+		market.notify = func(t): print("   NOTE ", t)
 
 
 func _debug_herd() -> void:
@@ -124,8 +140,16 @@ func _debug_herd() -> void:
 			h += c.hunger
 			w += c.weight
 		var n := maxf(cows.size(), 1)
-		print("%s  cows %d  hunger %.2f kg %d  hay %d/%d  shelter %d  money %d  wander/graze/water/drink/idle/tofeed/feed %s" % [
-			DayCycle.SEASON_NAMES[day.season()], cows.size(), h / n, w / n, herd.hay, herd.hay_cap, herd.shelter, builder.money, st])
+		if _arg("contract", "") != "":  # test: take every offer, deliver as soon as possible
+			for o in market.offers.duplicate():
+				market.accept(o)
+			for c in market.active.duplicate():
+				if _arg("contract", "") != "skip":  # skip = never deliver, to test the fine
+					market.deliver(c)
+			if herd.alive().size() < 15 and builder.money > 2000:
+				herd_ui.buy()
+		print("%s  price %.2f  active %d  cows %d  hunger %.2f kg %d  hay %d/%d  shelter %d  money %d  wander/graze/water/drink/idle/tofeed/feed %s" % [
+			DayCycle.SEASON_NAMES[day.season()], market.price, market.active.size(), cows.size(), h / n, w / n, herd.hay, herd.hay_cap, herd.shelter, builder.money, st])
 
 
 ## Test hook for renders: `--ghost=<catalog index>@x,z` opens placement there, `--place` confirms.
@@ -207,6 +231,7 @@ func _on_hour(_h: float) -> void:
 func _on_day(d: int) -> void:
 	if d % DayCycle.DAYS_PER_SEASON == 0:
 		herd_ui.notify(SEASON_NEWS[day.season()])
+	market.new_day(d)
 	_save()
 
 
@@ -222,7 +247,7 @@ func _save() -> void:
 	for n in get_children():
 		if n is Building and not n.has_node("Marker"):
 			buildings.append([n.get_script().resource_path, n.position.x, n.position.z, n.rotation_degrees.y])
-	SaveGame.write({money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save()})
+	SaveGame.write({money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save()})
 
 
 # ---------- ground & grass ----------

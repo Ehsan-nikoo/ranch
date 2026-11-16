@@ -109,10 +109,12 @@ func ready_count() -> int:
 	return alive().filter(func(c): return c.weight >= READY_KG).size()
 
 
-## Removes cows at sale weight and returns their total kg.
-func sell_ready() -> float:
+## Removes up to `n` cows of at least `min_kg`, heaviest first, and returns their total kg.
+func sell(n: int, min_kg: float) -> float:
+	var pick := alive().filter(func(c): return c.weight >= min_kg)
+	pick.sort_custom(func(a, b): return a.weight > b.weight)
 	var kg := 0.0
-	for c in alive().filter(func(c): return c.weight >= READY_KG):
+	for c in pick.slice(0, n):
 		kg += c.weight
 		cows.erase(c)
 	return kg
