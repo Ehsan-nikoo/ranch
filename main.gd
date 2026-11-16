@@ -14,6 +14,13 @@ var grass_nodes: Array[Node3D] = []
 var grass_mat := ShaderMaterial.new()
 var crickets: AudioStreamPlayer
 var mask_img: Image
+# building, position, yaw in degrees, grass-free footprint in world x/z
+var layout := [
+	[Barn, Vector3(0, 0, 0), 0.0, Rect2(-6, -7.8, 15.8, 15.6)],
+	[RanchHouse, Vector3(-13, 0, 26), 90.0, Rect2(-17, 21, 11, 10)],
+	[Windmill, Vector3(17, 0, -5), -30.0, Rect2(14.5, -8.5, 8.5, 8)],
+	[Silo, Vector3(-2, 0, -11), 0.0, Rect2(-4.6, -13.6, 5.2, 5.2)],
+]
 
 
 func _ready() -> void:
@@ -23,7 +30,11 @@ func _ready() -> void:
 	if mask_img.is_compressed():
 		mask_img.decompress()
 	_ground()
-	add_child(Barn.new())
+	for b in layout:
+		var node: Node3D = b[0].new()
+		node.position = b[1]
+		node.rotation_degrees.y = b[2]
+		add_child(node)
 	_grass()
 	_props()
 	MeshMerge.boxes(self)
@@ -46,15 +57,24 @@ func _arg(key: String, def: String) -> String:
 
 
 func _shot(shot: String) -> void:
-	if shot == "close":
-		rig.target = Vector3(2, 0, 6)
-		rig.dist = 15.0
-		rig.yaw = 0.45
+	match shot:  # target, dist, yaw
+		"close":
+			rig.target = Vector3(2, 0, 6)
+			rig.dist = 15.0
+			rig.yaw = 0.45
+		"house":
+			rig.target = Vector3(-11, 0, 26)
+			rig.dist = 16.0
+			rig.yaw = 1.1
+		"mill":
+			rig.target = Vector3(18, 2, -3)
+			rig.dist = 17.0
+			rig.yaw = 0.3
 	rig.snap()
 
 
 func _on_hour(_h: float) -> void:
-	var night := Barn.window_mat.emission_energy_multiplier / 2.5
+	var night := Building.window_mat.emission_energy_multiplier / 2.5
 	crickets.volume_db = linear_to_db(maxf(night, 0.001)) - 8.0
 	grass_mat.set_shader_parameter("to_sun", day.light.global_basis.z)
 
@@ -113,8 +133,8 @@ func _grass() -> void:
 	var placed := 0
 	while placed < GRASS_COUNT:
 		var p := Vector2(r.randf_range(-70, 70), r.randf_range(-70, 70))
-		if p.x > -6.0 and p.x < 9.8 and absf(p.y) < 7.8:
-			continue  # barn + lean-to footprint
+		if layout.any(func(b): return b[3].has_point(p)):
+			continue
 		var m := _mask(p)
 		if r.randf() < smoothstep(0.1, 0.4, m.r) or r.randf() > 1.0 - smoothstep(38.0, 68.0, p.length()):
 			continue

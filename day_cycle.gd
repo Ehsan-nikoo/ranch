@@ -14,8 +14,9 @@ const KEYS := [
 	[8.0, Color(1.0, 0.88, 0.72), 2.0, Color(0.3, 0.5, 0.8), Color(0.82, 0.8, 0.75), Color(0.55, 0.65, 0.85), 0.55, Color(0.78, 0.76, 0.72), 0.0],
 	[12.5, Color(1.0, 0.96, 0.88), 2.0, Color(0.24, 0.47, 0.85), Color(0.72, 0.8, 0.88), Color(0.55, 0.68, 0.9), 0.5, Color(0.62, 0.7, 0.8), 0.0],
 	[16.5, Color(1.0, 0.85, 0.62), 2.3, Color(0.25, 0.42, 0.75), Color(0.92, 0.75, 0.55), Color(0.5, 0.6, 0.85), 0.5, Color(0.88, 0.74, 0.58), 0.0],
-	[18.0, Color(1.0, 0.68, 0.42), 2.0, Color(0.22, 0.32, 0.6), Color(0.99, 0.6, 0.35), Color(0.45, 0.55, 0.85), 0.45, Color(0.92, 0.64, 0.45), 0.2],
-	[19.2, Color(0.9, 0.42, 0.3), 0.6, Color(0.12, 0.14, 0.32), Color(0.65, 0.32, 0.3), Color(0.35, 0.4, 0.7), 0.4, Color(0.45, 0.3, 0.32), 0.8],
+	[18.0, Color(1.0, 0.7, 0.45), 2.0, Color(0.22, 0.32, 0.6), Color(0.99, 0.62, 0.38), Color(0.45, 0.55, 0.85), 0.45, Color(0.9, 0.68, 0.52), 0.2],
+	# dusk leans blue-violet, not red: the old red key tinted the whole ranch maroon
+	[19.2, Color(0.85, 0.52, 0.48), 0.5, Color(0.14, 0.17, 0.38), Color(0.72, 0.46, 0.44), Color(0.4, 0.46, 0.78), 0.45, Color(0.4, 0.37, 0.48), 0.8],
 	[20.5, Color(0.55, 0.65, 1.0), 0.28, Color(0.03, 0.04, 0.1), Color(0.1, 0.1, 0.2), Color(0.3, 0.4, 0.7), 0.35, Color(0.1, 0.1, 0.18), 1.0],
 	[24.0, Color(0.55, 0.65, 1.0), 0.28, Color(0.02, 0.03, 0.08), Color(0.08, 0.1, 0.18), Color(0.3, 0.4, 0.7), 0.35, Color(0.08, 0.1, 0.16), 1.0],
 ]
@@ -111,7 +112,7 @@ func _apply() -> void:
 	env.ambient_light_energy = lerpf(a[6], b[6], t)
 	env.fog_light_color = fog
 	var glow: float = lerpf(a[8], b[8], t)
-	Barn.window_mat.emission_energy_multiplier = glow * 2.5
+	Building.window_mat.emission_energy_multiplier = glow * 2.5
 	lamp.light_energy = glow * 2.0
 	lamp.visible = glow > 0.01
 	hour_changed.emit(hour)
