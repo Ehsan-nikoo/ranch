@@ -14,23 +14,63 @@ W, H = 240, 120
 INSET = 20  # straw sticks out this far past the plank
 
 
+def streaks(w, h, rows, blur_x, blur_y):
+    # noise stretched along x: long horizontal grain streaks
+    n = Image.fromarray((rng.random((rows, max(2, w // 40))) * 255).astype(np.uint8)).resize((w, h), Image.BICUBIC)
+    return np.asarray(n.filter(ImageFilter.BoxBlur(1)), np.float32) / 255
+
+
 def wood(w, h):
-    y, x = np.mgrid[0:h, 0:w].astype(np.float32)
-    warp = np.sin(x / w * 7 + rng.random() * 6) * 6 + np.sin(x / w * 23) * 2
-    grain = np.sin((y + warp) * 0.32) * 0.5 + 0.5
-    grain = grain ** 3
-    fine = rng.random((h, w)).astype(np.float32)
-    fine = np.asarray(Image.fromarray((fine * 255).astype(np.uint8)).resize((w, h)).filter(ImageFilter.GaussianBlur(1)), np.float32) / 255
-    streak = np.asarray(Image.fromarray((rng.random((h // 6 + 1, 4)) * 255).astype(np.uint8)).resize((w, h), Image.BICUBIC), np.float32) / 255
-    base = np.array([0.56, 0.36, 0.2])
-    dark = np.array([0.36, 0.21, 0.1])
-    t = (grain * 0.55 + fine * 0.2 + streak * 0.35)[..., None]
-    rgb = base * (1 - t * 0.6) + dark * t * 0.6
-    # two boards: seam across the middle
-    seam = np.abs(y - h * 0.5) < 1.2 * SS
-    rgb[seam] *= 0.45
-    rgb[(y > h * 0.5 + 1.2 * SS) & (y < h * 0.5 + 3 * SS)] *= 1.15
+    """Weathered honey-tan board: fine wavy grain lines, long sun-bleached streaks, faint grime."""
+    blot = np.asarray(Image.fromarray((rng.random((4, 8)) * 255).astype(np.uint8)).resize((w, h), Image.BICUBIC), np.float32) / 255
+    base = np.array([0.76, 0.55, 0.30])
+    rgb = base * (0.9 + 0.2 * blot[..., None])
+    # grain: many thin, slightly wavy lines running the length of the board
+    gl = Image.new("L", (w, h), 0)
+    gd = ImageDraw.Draw(gl)
+    y = -2.0 * SS
+    while y < h + 2 * SS:
+        y += rng.uniform(0.8, 2.6) * SS
+        ph, amp = rng.uniform(0, 6), rng.uniform(0.3, 2.0) * SS
+        pts = [(x, y + math.sin(x / w * rng.uniform(2, 5) + ph) * amp) for x in np.linspace(-10, w + 10, 24)]
+        gd.line(pts, fill=int(rng.uniform(25, 140)), width=max(1, int(rng.uniform(0.4, 1.1) * SS)))
+    grain = np.asarray(gl.filter(ImageFilter.GaussianBlur(0.35 * SS)), np.float32)[..., None] / 255
+    rgb = rgb * (1 - grain * 0.55) + np.array([0.42, 0.25, 0.1]) * grain * 0.55
+    # pale bleached streaks along the grain
+    sc = Image.new("L", (w, h), 0)
+    sd = ImageDraw.Draw(sc)
+    for _ in range(int(w * h / (500 * SS * SS))):
+        x0, y0 = rng.uniform(-40, w), rng.uniform(0, h)
+        ln = rng.uniform(25, 150) * SS
+        pts = [(x0 + ln * k / 8, y0 + math.sin(k * 0.8 + rng.random()) * SS * 0.8) for k in range(9)]
+        sd.line(pts, fill=int(rng.uniform(60, 210)), width=max(1, int(rng.uniform(0.4, 1.6) * SS)))
+    pale = np.asarray(sc.filter(ImageFilter.GaussianBlur(0.5 * SS)), np.float32)[..., None] / 255
+    rgb = rgb * (1 - pale * 0.75) + np.array([0.95, 0.86, 0.7]) * pale * 0.75
+    # faint dark grime patches
+    gr = np.asarray(Image.fromarray((rng.random((18, 5)) * 255).astype(np.uint8)).resize((w, h), Image.BICUBIC), np.float32) / 255
+    rgb *= (1 - np.clip(gr - 0.6, 0, 1) * 0.55)[..., None]  # stretched along x so grime follows the grain
     return np.clip(rgb, 0, 1)
+
+
+def chipped_mask(w, h, radius):
+    """Rounded board outline with a few splintered notches on the edges, like old boards."""
+    m = Image.new("L", (w, h), 0)
+    md = ImageDraw.Draw(m)
+    md.rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, fill=255)
+    for _ in range(7):
+        side = rng.integers(4)
+        d = rng.uniform(2, 5) * SS
+        if side < 2:  # left/right ends get V-shaped splinters
+            x = 0 if side == 0 else w - 1
+            y = rng.uniform(0.15, 0.85) * h
+            s = 1 if side == 0 else -1
+            md.polygon([(x, y - d * 1.6), (x + s * d, y), (x, y + d * 0.8)], fill=0)
+        else:
+            y = 0 if side == 2 else h - 1
+            x = rng.uniform(0.1, 0.9) * w
+            s = 1 if side == 2 else -1
+            md.polygon([(x - d * 2.2, y), (x, y + s * d * 0.7), (x + d * 1.4, y)], fill=0)
+    return m
 
 
 def straw(d, cx, cy, ang, spread, n, length, front=False):
@@ -78,22 +118,41 @@ def button():
     for y in (h * 0.4, h * 0.6):
         straw(d, i + 4 * SS, y, 3.14, 0.6, 6, 18)
         straw(d, w - i - 4 * SS, y, 0.0, 0.6, 6, 18)
-    # plank with rounded corners, dark rim and a lit top edge
+    # weathered board: drop shadow, darker side for thickness, chipped face, raised inner frame, screws
     pw, ph = w - 2 * i, h - 2 * i
-    tex = (wood(pw, ph) * 255).astype(np.uint8)
-    plank = Image.fromarray(tex).convert("RGBA")
-    mask = Image.new("L", (pw, ph), 0)
-    ImageDraw.Draw(mask).rounded_rectangle([0, 0, pw - 1, ph - 1], radius=9 * SS, fill=255)
-    rim = Image.new("RGBA", (pw, ph), (0, 0, 0, 0))
-    rd = ImageDraw.Draw(rim)
-    rd.rounded_rectangle([0, 0, pw - 1, ph - 1], radius=9 * SS, outline=(45, 25, 10, 255), width=3 * SS)
-    rd.rounded_rectangle([3 * SS, 3 * SS, pw - 3 * SS, ph * 0.5], radius=7 * SS, outline=(255, 220, 160, 70), width=SS * 2)
-    plank = Image.alpha_composite(plank, rim)
-    pd = ImageDraw.Draw(plank)
-    for nx, ny in [(12, 12), (pw / SS - 12, 12), (12, ph / SS - 12), (pw / SS - 12, ph / SS - 12)]:  # nails
-        r = 3.2 * SS
-        pd.ellipse([nx * SS - r, ny * SS - r, nx * SS + r, ny * SS + r], fill=(70, 62, 55, 255), outline=(30, 25, 20, 255), width=SS)
-        pd.ellipse([nx * SS - r * 0.4, ny * SS - r * 0.6, nx * SS, ny * SS - r * 0.1], fill=(170, 160, 150, 255))
+    thick = 4 * SS
+    fh = ph - thick
+    mask = chipped_mask(pw, fh, 7 * SS)
+    shadow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    shadow.paste((25, 15, 5, 120), (i, i + thick + 2 * SS), mask)
+    img.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(3 * SS)))
+    side = Image.fromarray((wood(pw, fh) * 0.45 * 255).astype(np.uint8)).convert("RGBA")
+    img.paste(side, (i, i + thick), mask)
+
+    face = wood(pw, fh)
+    m = np.asarray(mask, np.float32) / 255
+    soft = np.asarray(mask.filter(ImageFilter.GaussianBlur(2.5 * SS)), np.float32) / 255
+    face *= (0.72 + 0.28 * soft)[..., None]  # edges a touch darker, worn
+    yy = np.arange(fh)[:, None] / fh
+    face *= (1.06 - 0.12 * yy)[..., None]  # light from above
+    plank = Image.fromarray((np.clip(face, 0, 1) * 255).astype(np.uint8)).convert("RGBA")
+    pd = ImageDraw.Draw(plank, "RGBA")
+    fi = 9 * SS  # inner frame inset
+    box = [fi, fi * 0.85, pw - fi, fh - fi * 0.85]
+    pd.rounded_rectangle([box[0] + SS, box[1] + SS, box[2] + SS, box[3] + SS], radius=4 * SS, outline=(255, 235, 200, 45), width=int(1.6 * SS))
+    pd.rounded_rectangle(box, radius=4 * SS, outline=(70, 40, 15, 170), width=int(1.6 * SS))
+    for sx in (box[0] + 7 * SS, box[2] - 7 * SS):  # screws at the top corners, like the reference board
+        sy = box[1] + 7 * SS
+        r = 3.4 * SS
+        pd.ellipse([sx - r + SS, sy - r + SS, sx + r + SS, sy + r + SS], fill=(30, 18, 8, 110))
+        for k in range(8):  # radial gradient: brushed steel head lit from the top-left
+            f = 1 - k / 8
+            c = int(120 + 120 * (1 - f))
+            pd.ellipse([sx - r * f - (1 - f) * SS, sy - r * f - (1 - f) * SS, sx + r * f - (1 - f) * SS, sy + r * f - (1 - f) * SS], fill=(c, c, c + 4, 255))
+        pd.ellipse([sx - r, sy - r, sx + r, sy + r], outline=(70, 70, 72, 255), width=int(0.6 * SS))
+        a = rng.uniform(0, math.pi)
+        dx, dy = math.cos(a) * r * 0.7, math.sin(a) * r * 0.7
+        pd.line([sx - dx, sy - dy, sx + dx, sy + dy], fill=(60, 60, 64, 255), width=int(0.9 * SS))
     img.paste(plank, (i, i), mask)
     # a few stalks in front so the straw wraps around the board
     for (cx, cy, ang) in [(i + 4 * SS, i + 18 * SS, -2.9), (w - i - 4 * SS, h - i - 16 * SS, 0.3)]:

@@ -32,7 +32,7 @@ static func make() -> Theme:
 		var sb := StyleBoxTexture.new()
 		sb.texture = tex
 		sb.set_texture_margin_all(38.0)  # straw border + plank corner and nails stay unstretched
-		sb.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_TILE_FIT
+		# stretch, not tile: tiling the middle would repeat the inner frame line in a visible pattern
 		sb.modulate_color = tint[state]
 		sb.content_margin_left = 34.0
 		sb.content_margin_right = 34.0
@@ -40,12 +40,13 @@ static func make() -> Theme:
 		sb.content_margin_bottom = 18.0 if state == "pressed" else 22.0
 		t.set_stylebox(state, "Button", sb)
 	t.set_stylebox("focus", "Button", StyleBoxEmpty.new())
-	var cream := Color(1.0, 0.94, 0.8)
+	# dark brown letters that look burned into the board, like the reference sign
+	var ink := Color(0.24, 0.12, 0.05)
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
-		t.set_color(c, "Button", cream)
-	t.set_color("font_disabled_color", "Button", Color(0.75, 0.7, 0.62))
-	t.set_color("font_outline_color", "Button", Color(0.2, 0.11, 0.04))
-	t.set_constant("outline_size", "Button", 7)
+		t.set_color(c, "Button", ink)
+	t.set_color("font_disabled_color", "Button", Color(0.35, 0.25, 0.17, 0.7))
+	t.set_color("font_outline_color", "Button", Color(1.0, 0.85, 0.6, 0.35))  # faint light edge = engraved
+	t.set_constant("outline_size", "Button", 3)
 	t.set_constant("h_separation", "Button", 8)
 	t.set_constant("icon_max_width", "Button", 62)  # icons carry padding for their drop shadow
 	return t
