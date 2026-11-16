@@ -279,6 +279,16 @@ def windmill(d, k):
     d.ellipse([k(28), k(18), k(36), k(26)], fill=INK)
 
 
+def cow(d, k):
+    for x in (14, 21, 37, 44):  # legs behind the body
+        d.rectangle([k(x), k(38), k(x + 5), k(58)], fill=CREAM, outline=INK, width=k(3))
+    d.line([k(9), k(28), k(5), k(46)], fill=INK, width=k(3))  # tail
+    d.rounded_rectangle([k(8), k(22), k(48), k(44)], radius=k(9), fill=CREAM, outline=INK, width=k(3))
+    d.line([k(48), k(24), k(46), k(14)], fill=INK, width=k(3))  # horns
+    d.line([k(55), k(25), k(60), k(16)], fill=INK, width=k(3))
+    shape(d, [(44, 22), (58, 24), (61, 38), (53, 44), (45, 34)], k)
+
+
 def build(d, k):  # hammer
     shape(d, [(28, 24), (36, 24), (36, 60), (28, 60)], k)
     shape(d, [(12, 10), (46, 10), (54, 18), (46, 26), (12, 26)], k)
@@ -304,6 +314,6 @@ def place(d, k):
 
 button()
 panel()
-for n, f in dict(barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place).items():
+for n, f in dict(cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place).items():
     icon(n, f)
 print("ok")

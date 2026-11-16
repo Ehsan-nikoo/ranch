@@ -63,9 +63,10 @@ func _foot() -> Rect2:
 	return Rect2(-2, -2, 4, 4)
 
 
-## Footprint in world x/z (bounding box of the rotated local footprint).
-func world_footprint() -> Rect2:
-	var f := _foot()
+## Footprint in world x/z (bounding box of the rotated local footprint), or of `f` if given.
+func world_footprint(f := Rect2()) -> Rect2:
+	if f.size == Vector2.ZERO:
+		f = _foot()
 	var r := Rect2()
 	for i in 4:
 		var c := Vector2(f.end.x if i in [1, 2] else f.position.x, f.end.y if i >= 2 else f.position.y)

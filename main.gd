@@ -15,6 +15,8 @@ var grass_mat := ShaderMaterial.new()
 var crickets: AudioStreamPlayer
 var mask_img: Image
 var builder := Builder.new()
+var herd := Herd.new()
+const CORRAL := Rect2(-24.5, -6.5, 16, 19)
 # starting ranch: building, position, yaw in degrees
 var layout := [
 	[Barn, Vector3(0, 0, 0), 0.0],
@@ -31,8 +33,9 @@ func _ready() -> void:
 	mask_img = (load(TEX + "ground_mask.png") as Texture2D).get_image()
 	if mask_img.is_compressed():
 		mask_img.decompress()
+	herd.init_grass(mask_img)
 	_ground()
-	builder.occupied.append(Rect2(-24.5, -6.5, 16, 19))  # corral
+	builder.occupied.append(CORRAL)
 	for b in layout:
 		var node: Building = b[0].new()
 		node.position = b[1]
@@ -42,6 +45,13 @@ func _ready() -> void:
 	_grass()
 	_props()
 	MeshMerge.boxes(self)
+	herd.day = day
+	herd.world = self
+	herd.extra_blocked = [CORRAL]
+	add_child(herd)
+	herd._rescan()
+	for i in int(_arg("cows", "8")):
+		herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), randf_range(260.0, 520.0))
 	_audio()
 	_shot(_arg("shot", "wide"))
 	add_child(rig)
@@ -54,8 +64,33 @@ func _ready() -> void:
 	builder.world = self
 	builder.on_placed = _clear_grass
 	add_child(builder)
+	var herd_ui := HerdUI.new()
+	herd_ui.herd = herd
+	herd_ui.builder = builder
+	add_child(herd_ui)
+	day.speed = float(_arg("speed", "1"))
+	if _arg("herd", "") != "":
+		herd_ui.toggle()
 	day.hour_changed.connect(_on_hour)
 	_test_build()
+	if _arg("debug", "") != "":
+		_debug_herd()
+
+
+func _debug_herd() -> void:
+	while true:
+		await get_tree().create_timer(2.0).timeout
+		var st := [0, 0, 0, 0, 0]
+		var h := 0.0
+		var t := 0.0
+		var w := 0.0
+		for c in herd.cows:
+			st[c.state] += 1
+			h += c.hunger
+			t += c.thirst
+			w += c.weight
+		var n := maxf(herd.cows.size(), 1)
+		print("day %.1f  cows %d  hunger %.2f thirst %.2f kg %d  wander/graze/water/drink/idle %s" % [day.hour, herd.cows.size(), h / n, t / n, w / n, st])
 
 
 ## Test hook for renders: `--ghost=<catalog index>@x,z` opens placement there, `--place` confirms.
@@ -105,6 +140,10 @@ func _shot(shot: String) -> void:
 			rig.target = Vector3(-11, 0, 26)
 			rig.dist = 16.0
 			rig.yaw = 1.1
+		"herd":
+			rig.target = Vector3(20, 0, 16)
+			rig.dist = 20.0
+			rig.yaw = 0.5
 		"mill":
 			rig.target = Vector3(18, 2, -3)
 			rig.dist = 17.0
@@ -128,6 +167,7 @@ func _ground() -> void:
 			["mask", "ground_mask.png"], ["macro", "macro_noise.png"]]:
 		sm.set_shader_parameter(p[0], load(TEX + p[1]))
 	sm.set_shader_parameter("span", MASK_SPAN)
+	sm.set_shader_parameter("grazed", herd.grass_tex)
 	var pm := PlaneMesh.new()
 	pm.size = Vector2(800, 800)
 	var mi := MeshInstance3D.new()
@@ -150,7 +190,7 @@ func _tuft_mesh() -> ArrayMesh:
 	r.seed = 3
 	for i in 7:
 		var ang := r.randf() * TAU
-		var h := r.randf_range(0.3, 0.75)
+		var h := r.randf_range(0.22, 0.55)  # knee height next to the cattle
 		var base := Vector3(r.randf_range(-0.1, 0.1), 0, r.randf_range(-0.1, 0.1))
 		var side := Vector3(cos(ang), 0, sin(ang)) * 0.035
 		var tip := base + Vector3(-sin(ang), 0, cos(ang)) * r.randf_range(0.08, 0.3) + Vector3.UP * h
@@ -164,6 +204,8 @@ func _tuft_mesh() -> ArrayMesh:
 func _grass() -> void:
 	var mat := grass_mat
 	mat.shader = load("res://grass.gdshader")
+	mat.set_shader_parameter("grazed", herd.grass_tex)
+	mat.set_shader_parameter("span", MASK_SPAN)
 	var mesh := _tuft_mesh()
 	var r := RandomNumberGenerator.new()
 	r.seed = 11

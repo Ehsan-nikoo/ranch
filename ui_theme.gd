@@ -19,6 +19,58 @@ static func fa(n: Variant) -> String:
 	return s
 
 
+const INK := Color(0.24, 0.12, 0.05)
+
+
+## Right-aligned Persian label in dark "burned into wood" ink.
+static func label(text: String, size: int, color := INK) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", color)
+	return l
+
+
+## Big wooden board centered on screen, hidden until shown.
+static func board() -> PanelContainer:
+	var p := PanelContainer.new()
+	var sb := StyleBoxTexture.new()
+	sb.texture = load("res://ui/wood_panel.png")
+	sb.set_texture_margin_all(72.0)
+	sb.content_margin_left = 64.0
+	sb.content_margin_right = 64.0
+	sb.content_margin_top = 52.0
+	sb.content_margin_bottom = 56.0
+	p.add_theme_stylebox_override("panel", sb)
+	p.set_anchors_preset(Control.PRESET_CENTER)
+	p.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	p.grow_vertical = Control.GROW_DIRECTION_BOTH
+	p.visible = false
+	return p
+
+
+## Full-screen dimmer behind a board; tapping it calls `on_tap` (usually close).
+static func dim(on_tap: Callable) -> ColorRect:
+	var d := ColorRect.new()
+	d.color = Color(0.05, 0.03, 0.01, 0.55)
+	d.set_anchors_preset(Control.PRESET_FULL_RECT)
+	d.visible = false
+	d.gui_input.connect(func(e): if e is InputEventMouseButton and e.pressed or e is InputEventScreenTouch and e.pressed: on_tap.call())
+	return d
+
+
+## Board header: close button on the left, title on the right.
+static func header(title: String, close: Button) -> HBoxContainer:
+	var head := HBoxContainer.new()
+	head.add_child(close)
+	var gap := Control.new()
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(gap)
+	head.add_child(label(title, 44))
+	return head
+
+
 static func make() -> Theme:
 	var t := Theme.new()
 	var tex: Texture2D = load("res://ui/wood_button.png")

@@ -10,7 +10,6 @@ var CATALOG := [
 	["سیلو", Silo, 1500, "silo", "انبار غله و علوفه برای زمستون، که دام‌ها تو فصل سرما گرسنه نمونن."],
 	["آسیاب بادی", Windmill, 800, "windmill", "با نیروی باد آب رو از زیر زمین بالا میاره و آبشخور دام‌ها رو پر می‌کنه."],
 ]
-const INK := Color(0.24, 0.12, 0.05)
 const BOUNDS := Rect2(-62, -62, 124, 124)
 
 var money := 6000
@@ -30,8 +29,8 @@ var _place_bar := HBoxContainer.new()
 var _place_btn := Button.new()
 var _items: Array[Button] = []
 var _cards: Array[Control] = []
-var _panel := PanelContainer.new()
-var _dim := ColorRect.new()
+var _panel: PanelContainer
+var _dim: ColorRect
 
 
 func _ready() -> void:
@@ -79,47 +78,16 @@ func _button(b: Button, text: String, cb: Callable, icon: String) -> Button:
 	return b
 
 
-func _label(text: String, size: int, color := INK) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_color", color)
-	return l
-
-
 ## Wooden board in the middle of the screen with one card per building: picture, name, use, price.
 func _build_panel() -> void:
-	var sb := StyleBoxTexture.new()
-	sb.texture = load("res://ui/wood_panel.png")
-	sb.set_texture_margin_all(72.0)
-	sb.content_margin_left = 64.0
-	sb.content_margin_right = 64.0
-	sb.content_margin_top = 52.0
-	sb.content_margin_bottom = 56.0
-	_panel.add_theme_stylebox_override("panel", sb)
-	_panel.set_anchors_preset(Control.PRESET_CENTER)
-	_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
-	_panel.visible = false
-	# dim the ranch behind the menu; tapping outside the board closes it
-	_dim.color = Color(0.05, 0.03, 0.01, 0.55)
-	_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_dim.visible = false
-	_dim.gui_input.connect(func(e): if e is InputEventMouseButton and e.pressed or e is InputEventScreenTouch and e.pressed: _toggle_menu())
+	_panel = UiTheme.board()
+	_dim = UiTheme.dim(_toggle_menu)
 	add_child(_dim)
 	add_child(_panel)
-
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 14)
 	_panel.add_child(col)
-	var head := HBoxContainer.new()
-	head.add_child(_button(Button.new(), "بستن", _toggle_menu, "cancel"))
-	var gap := Control.new()
-	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(gap)
-	head.add_child(_label("ساخت و ساز", 44))
-	col.add_child(head)
+	col.add_child(UiTheme.header("ساخت و ساز", _button(Button.new(), "بستن", _toggle_menu, "cancel")))
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 16)
@@ -143,8 +111,8 @@ func _build_panel() -> void:
 		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		pic.custom_minimum_size = Vector2(270, 180)
 		v.add_child(pic)
-		v.add_child(_label(it[0], 32))
-		var desc := _label(it[4], 21, Color(0.32, 0.18, 0.08))
+		v.add_child(UiTheme.label(it[0], 32))
+		var desc := UiTheme.label(it[4], 21, Color(0.32, 0.18, 0.08))
 		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		desc.custom_minimum_size = Vector2(270, 104)
 		desc.vertical_alignment = VERTICAL_ALIGNMENT_TOP
@@ -155,6 +123,18 @@ func _build_panel() -> void:
 		row.add_child(card)
 		_items.push_front(b)
 		_cards.push_front(card)
+
+
+## Adds a button to the bottom bar next to «ساخت» (hidden with it during placement).
+func bar_button(text: String, cb: Callable, icon: String) -> Button:
+	var b := _button(Button.new(), text, cb, icon)
+	_menu.add_child(b)
+	return b
+
+
+func add_money(delta: int) -> void:
+	money += delta
+	_refresh()
 
 
 func _toggle_menu() -> void:

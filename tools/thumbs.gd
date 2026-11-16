@@ -4,7 +4,7 @@
 extends Node
 
 # file name, building, camera distance, aim height
-var LIST := [["barn", Barn, 40.0, 3.5], ["house", RanchHouse, 26.0, 2.0], ["silo", Silo, 34.0, 6.5], ["windmill", Windmill, 29.0, 5.0]]
+var LIST := [["barn", Barn, 40.0, 3.5], ["house", RanchHouse, 26.0, 2.0], ["silo", Silo, 34.0, 6.5], ["windmill", Windmill, 29.0, 5.0], ["cow", null, 7.5, 0.8]]
 
 
 func _ready() -> void:
@@ -41,9 +41,18 @@ func _ready() -> void:
 
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://ui/thumbs"))
 	for item in LIST:
-		var b: Building = item[1].new()
-		vp.add_child(b)
-		var f := b._foot()
+		var b: Node3D
+		var f := Rect2(-1.2, -1.2, 2.4, 2.4)
+		if item[1] == null:  # the cow: same mesh and shader as the herd, standing still
+			b = MeshInstance3D.new()
+			b.mesh = CowMesh.mesh()
+			b.material_override = CowMesh.material()
+			b.rotation.y = -0.5
+			vp.add_child(b)
+		else:
+			b = item[1].new()
+			vp.add_child(b)
+			f = b._foot()
 		var c := Vector3(f.get_center().x, 0, f.get_center().y)
 		# round patch of dirt so the building stands on something
 		var disc := MeshInstance3D.new()

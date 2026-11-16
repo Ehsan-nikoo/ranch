@@ -6,6 +6,9 @@ const TOP := 9.0
 const BASE := 1.3   # half width of the footprint
 const HEAD := 0.35  # half width at the top
 
+const TANK := Vector3(3.6, 0, 1.2)  # stock tank center, local
+const TANK_R := 2.2
+
 var wheel := Node3D.new()
 
 
@@ -70,8 +73,8 @@ func _head() -> void:
 
 
 func _tank() -> void:
-	var c := Vector3(3.6, 0, 1.2)
-	_cyl(2.2, 0.85, c + Vector3(0, 0.42, 0), steel, 32)
+	var c := TANK
+	_cyl(TANK_R, 0.85, c + Vector3(0, 0.42, 0), steel, 32)
 	# water sits just above the closed cylinder top so the tank reads as brim-full
 	_cyl(2.1, 0.02, c + Vector3(0, 0.86, 0), water, 32)
 	_beam(Vector3(0.2, 0.5, 0.1), c + Vector3(-1.9, 1.0, -0.6), 0.07, iron)  # outlet pipe
