@@ -44,7 +44,6 @@ func _ready() -> void:
 	wood = _tex("trim_white_diff.jpg", "distressed_painted_planks", 2.6, true)
 	wood.albedo_color = Color(0.62, 0.5, 0.38)
 	roof = _tex("roof_rusty_diff.jpg", "corrugated_iron", 2.0)
-	roof.metallic = 0.2
 	_walls()
 	_roof()
 	_trim()

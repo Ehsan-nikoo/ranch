@@ -5,11 +5,13 @@ extends Node3D
 const TEX := "res://textures/"
 const MASK_SPAN := 160.0
 const GRASS_CHUNK := 20.0
-const GRASS_COUNT := 26000
+const GRASS_COUNT := 20000
 
 var day := DayCycle.new()
 var rig := CameraRig.new()
 var grass_chunks: Array[MultiMesh] = []
+var grass_nodes: Array[Node3D] = []
+var grass_mat := ShaderMaterial.new()
 var crickets: AudioStreamPlayer
 var mask_img: Image
 
@@ -31,6 +33,7 @@ func _ready() -> void:
 	var hud := Hud.new()
 	hud.day = day
 	hud.grass = grass_chunks
+	hud.grass_nodes = grass_nodes
 	add_child(hud)
 	day.hour_changed.connect(_on_hour)
 
@@ -53,6 +56,7 @@ func _shot(shot: String) -> void:
 func _on_hour(_h: float) -> void:
 	var night := Barn.window_mat.emission_energy_multiplier / 2.5
 	crickets.volume_db = linear_to_db(maxf(night, 0.001)) - 8.0
+	grass_mat.set_shader_parameter("to_sun", day.light.global_basis.z)
 
 
 # ---------- ground & grass ----------
@@ -99,9 +103,8 @@ func _tuft_mesh() -> ArrayMesh:
 
 
 func _grass() -> void:
-	var mat := ShaderMaterial.new()
+	var mat := grass_mat
 	mat.shader = load("res://grass.gdshader")
-	mat.set_shader_parameter("gust_noise", load(TEX + "macro_noise.png"))
 	var mesh := _tuft_mesh()
 	var r := RandomNumberGenerator.new()
 	r.seed = 11
@@ -138,9 +141,10 @@ func _grass() -> void:
 		mmi.multimesh = mm
 		mmi.material_override = mat
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mmi.visibility_range_end = 110.0
+		mmi.visibility_range_end = 100.0
 		add_child(mmi)
 		grass_chunks.append(mm)
+		grass_nodes.append(mmi)
 
 
 # ---------- props ----------
@@ -190,7 +194,6 @@ func _props() -> void:
 	var wmat := StandardMaterial3D.new()
 	wmat.albedo_color = Color(0.15, 0.22, 0.25)
 	wmat.roughness = 0.05
-	wmat.metallic = 0.3
 	water.material_override = wmat
 	water.position = Vector3(-11.5, 0.58, 2)
 	add_child(water)

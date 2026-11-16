@@ -34,11 +34,12 @@ func _ready() -> void:
 	sky_mat.sun_angle_max = 25.0
 	var sky := Sky.new()
 	sky.sky_material = sky_mat
-	sky.process_mode = Sky.PROCESS_MODE_REALTIME  # cheap enough for a procedural sky, needed as colors change
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_sky_contribution = 0.45
+	# Sky is background only: lighting from a sky whose colors change every frame forces a
+	# radiance-map rebuild every frame, which was the biggest GPU cost on phones.
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
 	env.tonemap_exposure = 1.05
 	env.glow_enabled = true
@@ -56,8 +57,6 @@ func _ready() -> void:
 
 	light.shadow_enabled = true
 	light.shadow_blur = 1.5
-	light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
-	light.directional_shadow_max_distance = 80.0
 	add_child(light)
 
 	# lantern over the barn doors, lit at night

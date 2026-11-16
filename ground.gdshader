@@ -1,9 +1,9 @@
 // Prairie ground: grass texture blended with dirt by a painted mask, plus large-scale color variation.
 shader_type spatial;
 
-uniform sampler2D grass_alb : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D grass_alb : source_color, filter_linear_mipmap, repeat_enable;
 uniform sampler2D grass_nrm : hint_normal, filter_linear_mipmap, repeat_enable;
-uniform sampler2D dirt_alb : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D dirt_alb : source_color, filter_linear_mipmap, repeat_enable;
 uniform sampler2D dirt_nrm : hint_normal, filter_linear_mipmap, repeat_enable;
 uniform sampler2D mask : filter_linear, repeat_disable;     // R dirt, G lush; covers [-span/2, span/2]
 uniform sampler2D macro : filter_linear, repeat_enable;

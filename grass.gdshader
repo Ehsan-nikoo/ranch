@@ -1,24 +1,26 @@
 // Grass tufts: vertex-colored blades that sway, with gust waves rolling across the prairie.
+// Lit per vertex (not per pixel) because grass covers most of the screen and phone GPUs are fill-rate bound.
 shader_type spatial;
-render_mode cull_disabled, world_vertex_coords, specular_disabled, diffuse_lambert_wrap;
+render_mode cull_disabled, world_vertex_coords, specular_disabled, vertex_lighting;
 
-uniform sampler2D gust_noise : filter_linear, repeat_enable;
 uniform vec2 wind_dir = vec2(0.94, 0.33);
 uniform float strength = 0.35;
+uniform vec3 to_sun = vec3(0.0, 1.0, 0.0);  // set by main.gd as the sun moves
 
 void vertex() {
 	float h = max(VERTEX.y, 0.0);
-	float gust = textureLod(gust_noise, VERTEX.xz / 40.0 - wind_dir * TIME * 0.06, 0.0).r;
+	float along = dot(VERTEX.xz, wind_dir);
+	float gust = sin(along * 0.12 - TIME * 1.4) * 0.5 + 0.5;
+	gust *= sin(along * 0.05 + VERTEX.z * 0.03 - TIME * 0.6) * 0.3 + 0.7;
 	float sway = sin(TIME * 2.3 + VERTEX.x * 0.9 + VERTEX.z * 0.7) * 0.25;
 	vec2 off = wind_dir * (gust * 1.4 + sway) * strength * h * h;
 	VERTEX.xz += off;
 	VERTEX.y -= length(off) * 0.3;
+	// lean normals toward the sun: thin blades catch low evening light instead of going dull
+	NORMAL = normalize(vec3(0.0, 1.0, 0.0) + to_sun * 0.9);
 }
 
 void fragment() {
 	ALBEDO = COLOR.rgb;
 	ROUGHNESS = 1.0;
-	BACKLIGHT = COLOR.rgb * 0.5;  // thin blades glow when the low sun is behind them
-	// world-up normal on both faces so blades never go dark when seen from behind
-	NORMAL = normalize((VIEW_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
 }
