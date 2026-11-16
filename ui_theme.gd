@@ -3,6 +3,22 @@
 class_name UiTheme
 
 
+## Installs the theme and Persian font on the default theme. CanvasLayers cut the window theme
+## chain, so the default theme is the one place every Control falls back to.
+static func apply() -> void:
+	var base := ThemeDB.get_default_theme()
+	base.merge_with(make())
+	base.default_font = load("res://ui/fonts/Vazirmatn-Bold.ttf")
+
+
+## Number with Persian digits.
+static func fa(n: Variant) -> String:
+	var s := str(n)
+	for d in 10:
+		s = s.replace(str(d), "۰۱۲۳۴۵۶۷۸۹"[d])
+	return s
+
+
 static func make() -> Theme:
 	var t := Theme.new()
 	var tex: Texture2D = load("res://ui/wood_button.png")
@@ -31,5 +47,5 @@ static func make() -> Theme:
 	t.set_color("font_outline_color", "Button", Color(0.2, 0.11, 0.04))
 	t.set_constant("outline_size", "Button", 7)
 	t.set_constant("h_separation", "Button", 8)
-	t.set_constant("icon_max_width", "Button", 44)
+	t.set_constant("icon_max_width", "Button", 62)  # icons carry padding for their drop shadow
 	return t

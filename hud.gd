@@ -5,9 +5,9 @@ extends CanvasLayer
 const SPEEDS := [1.0, 10.0, 60.0]
 # name, 3D render scale, shadows (0 off, 1 cheap, 2 full), share of grass drawn, glow, MSAA
 const QUALITY := [
-	["High", 0.9, 2, 1.0, true, Viewport.MSAA_2X],
-	["Medium", 0.75, 1, 0.55, false, Viewport.MSAA_DISABLED],
-	["Low", 0.6, 0, 0.3, false, Viewport.MSAA_DISABLED],
+	["بالا", 0.9, 2, 1.0, true, Viewport.MSAA_2X],
+	["متوسط", 0.75, 1, 0.55, false, Viewport.MSAA_DISABLED],
+	["پایین", 0.6, 0, 0.3, false, Viewport.MSAA_DISABLED],
 ]
 
 var day: DayCycle
@@ -42,13 +42,13 @@ func _ready() -> void:
 	_grass_btn.pressed.connect(_toggle_grass)
 	_set_speed(0)
 	_set_quality(1)
-	_grass_btn.text = "Grass: on"
+	_grass_btn.text = "علف: روشن"
 
 
 func _set_speed(i: int) -> void:
 	_speed = i % SPEEDS.size()
 	day.speed = SPEEDS[_speed]
-	_speed_btn.text = "Time %dx" % SPEEDS[_speed]
+	_speed_btn.text = "زمان ×%s" % UiTheme.fa(int(SPEEDS[_speed]))
 
 
 func _set_quality(i: int) -> void:
@@ -65,14 +65,14 @@ func _set_quality(i: int) -> void:
 	day.env.glow_enabled = q[4]
 	for mm in grass:
 		mm.visible_instance_count = int(mm.instance_count * q[3])
-	_quality_btn.text = "Quality: %s" % q[0]
+	_quality_btn.text = "کیفیت: %s" % q[0]
 
 
 func _toggle_grass() -> void:
 	var on := not grass_nodes[0].visible
 	for n in grass_nodes:
 		n.visible = on
-	_grass_btn.text = "Grass: %s" % ("on" if on else "off")
+	_grass_btn.text = "علف: %s" % ("روشن" if on else "خاموش")
 
 
 func _process(delta: float) -> void:
@@ -81,9 +81,9 @@ func _process(delta: float) -> void:
 		return
 	_tick = 0.25  # relabeling every frame costs text shaping on a slow CPU
 	var rid := get_viewport().get_viewport_rid()
-	_label.text = "%d FPS   CPU %.1f ms   GPU %.1f ms   draws %d\n%02d:%02d" % [
+	_label.text = "%d FPS   CPU %.1f ms   GPU %.1f ms   draws %d\nساعت %s" % [
 		Engine.get_frames_per_second(),
 		RenderingServer.viewport_get_measured_render_time_cpu(rid) + RenderingServer.get_frame_setup_time_cpu(),
 		RenderingServer.viewport_get_measured_render_time_gpu(rid),
 		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
-		int(day.hour), int(fmod(day.hour, 1.0) * 60)]
+		UiTheme.fa("%02d:%02d" % [int(day.hour), int(fmod(day.hour, 1.0) * 60)])]

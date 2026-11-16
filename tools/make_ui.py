@@ -35,24 +35,38 @@ def wood(w, h):
 
 def straw(d, cx, cy, ang, spread, n, length, front=False):
     for _ in range(n):
-        a = ang + rng.uniform(-spread, spread)
+        # walk the stalk in small steps, turning more toward the tip so it curls instead of poking straight out
+        heading = ang + rng.uniform(-spread, spread)
         ln = length * rng.uniform(0.55, 1.0) * SS
-        bend = rng.uniform(-0.25, 0.25)
-        pts = []
-        for k in range(6):
-            t = k / 5
-            aa = a + bend * t
-            pts.append((cx + math.cos(aa) * ln * t, cy + math.sin(aa) * ln * t))
-        c = [(242, 212, 120), (222, 182, 88), (190, 148, 66), (250, 228, 150)][rng.integers(4)]
-        wdt = int(rng.uniform(1.6, 3.0) * SS)
-        d.line(pts, fill=(60, 40, 15, 255), width=wdt + SS)  # dark outline reads on any background
-        d.line(pts, fill=c + (255,), width=wdt)
+        curl = rng.uniform(0.3, 1.0) * rng.choice([-1, 1])
+        kink = rng.random() < 0.3
+        steps = 16
+        x, y = cx, cy
+        pts = [(x, y)]
+        for k in range(steps):
+            t = k / steps
+            heading += curl / steps * (0.5 + 1.5 * t)
+            if kink and k == steps // 2:
+                heading += rng.uniform(-0.8, 0.8)  # a bent, broken-looking stalk
+            x += math.cos(heading) * ln / steps
+            y += math.sin(heading) * ln / steps
+            pts.append((x, y))
+        c = [(232, 200, 120), (214, 176, 92), (196, 156, 74), (240, 214, 140), (176, 138, 62)][rng.integers(5)]
+        hi = tuple(min(255, v + 35) for v in c)
+        w0 = rng.uniform(2.2, 3.4) * SS
+        for layer, (off, col, scale) in enumerate([(SS, (45, 28, 10, 110), 1.25), (0, c + (255,), 1.0), (-0.5 * SS, hi + (200,), 0.35)]):
+            for k in range(steps):
+                wd = max(1, int(w0 * scale * (1.0 - 0.8 * k / steps)))  # taper toward the tip
+                a, b = pts[k], pts[k + 1]
+                d.line([(a[0] + off, a[1] + off), (b[0] + off, b[1] + off)], fill=col, width=wd)
+                r = wd / 2  # round joints so the curve stays smooth
+                d.ellipse([b[0] + off - r, b[1] + off - r, b[0] + off + r, b[1] + off + r], fill=col)
 
 
 def button():
     w, h = W * SS, H * SS
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
+    d = ImageDraw.Draw(img, "RGBA")  # blend mode, so the soft stalk shadows stay translucent
     i = INSET * SS
     # straw behind the plank: tufts at the corners, a few along the long edges
     for (cx, cy, ang) in [(i + 10 * SS, i + 8 * SS, -2.4), (w - i - 10 * SS, i + 8 * SS, -0.75),
@@ -83,7 +97,7 @@ def button():
     img.paste(plank, (i, i), mask)
     # a few stalks in front so the straw wraps around the board
     for (cx, cy, ang) in [(i + 4 * SS, i + 18 * SS, -2.9), (w - i - 4 * SS, h - i - 16 * SS, 0.3)]:
-        straw(d := ImageDraw.Draw(img), cx, cy, ang, 0.4, 5, 24)
+        straw(ImageDraw.Draw(img, "RGBA"), cx, cy, ang, 0.4, 5, 24)
     img = img.resize((W, H), Image.LANCZOS)
     img.save(OUT / "wood_button.png")
 
@@ -94,11 +108,54 @@ CREAM = (250, 236, 200, 255)
 INK = (55, 30, 12, 255)
 
 
+BRASS = np.array([0.80, 0.62, 0.32])
+IRON = np.array([0.20, 0.15, 0.10])
+PAD = 16 * SS  # room for the drop shadow
+
+
+def blur(a, r):
+    return np.asarray(Image.fromarray((np.clip(a, 0, 1) * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(r)), np.float32) / 255
+
+
 def icon(name, draw_fn):
+    # 1. flat drawing: cream = raised plate, dark ink = engraved grooves, colored = painted parts
     img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    draw_fn(d, lambda v: v * SS)
-    img.resize((64, 64), Image.LANCZOS).save(OUT / "icons" / f"{name}.png")
+    draw_fn(ImageDraw.Draw(img), lambda v: v * SS)
+    a = np.pad(np.asarray(img, np.float32) / 255, ((PAD, PAD), (PAD, PAD), (0, 0)))
+    rgb, alpha = a[..., :3], a[..., 3]
+    sat = rgb.max(-1) - rgb.min(-1)
+    ink = (rgb.mean(-1) < 0.35) & (sat < 0.25) & (alpha > 0)
+    painted = (sat > 0.25) & ~ink
+    # 2. height map -> normals -> light from the top-left: gives the stamped-metal relief
+    height = blur(alpha * np.where(ink, 0.35, 1.0), 2.2 * SS)
+    gy, gx = np.gradient(height * 90)
+    n = np.dstack([-gx, -gy, np.ones_like(gx)])
+    n /= np.linalg.norm(n, axis=-1, keepdims=True)
+    light = np.array([-0.55, -0.6, 0.58])
+    shade = np.clip(n @ (light / np.linalg.norm(light)), 0, 1)
+    # 3. worn brass: blotchy patina, fine grain and scratches; painted parts keep their color, chipped
+    h, w = alpha.shape
+    blotch = blur(rng.random((h, w)), 9 * SS)
+    blotch = (blotch - blotch.min()) / (np.ptp(blotch) + 1e-6)
+    grain = blur(rng.random((h, w)), 0.8 * SS)
+    col = np.where(painted[..., None], rgb * 0.85, BRASS * (0.6 + 0.65 * blotch[..., None]))
+    col = np.where(ink[..., None], IRON, col)
+    col *= (0.72 + 0.5 * grain[..., None])
+    col *= (0.55 + 0.45 * blur(alpha, 2.5 * SS))[..., None]  # grime collects toward the edges
+    scratches = Image.new("L", (w, h), 0)
+    sd = ImageDraw.Draw(scratches)
+    for _ in range(26):
+        x0, y0 = rng.uniform(0, w), rng.uniform(0, h)
+        r, t = rng.uniform(6, 22) * SS, rng.uniform(0, math.pi)
+        sd.line([x0, y0, x0 + math.cos(t) * r, y0 + math.sin(t) * r], fill=255, width=max(1, SS // 2))
+    col = col * (1 - 0.45 * (np.asarray(scratches, np.float32) / 255)[..., None])
+    col = col * (0.45 + 0.85 * shade[..., None]) + (shade ** 14)[..., None] * 0.35  # diffuse + glint
+    # 4. soft drop shadow under the plate
+    sh = np.roll(np.roll(blur(alpha, 3 * SS), 3 * SS, 0), 2 * SS, 1) * 0.6
+    out_a = alpha + sh * (1 - alpha)
+    out_rgb = np.where(alpha[..., None] > 0, col, 0.05) * (alpha / np.maximum(out_a, 1e-4))[..., None]
+    out = np.dstack([np.clip(out_rgb, 0, 1), np.clip(out_a, 0, 1)])
+    Image.fromarray((out * 255).astype(np.uint8)).resize((96, 96), Image.LANCZOS).save(OUT / "icons" / f"{name}.png")
 
 
 def shape(d, pts, k):

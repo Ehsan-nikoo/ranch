@@ -3,7 +3,8 @@
 class_name Builder
 extends CanvasLayer
 
-var CATALOG := [["Barn", Barn, 3000], ["House", RanchHouse, 2500], ["Silo", Silo, 1500], ["Windmill", Windmill, 800]]
+# label, building, cost, icon
+var CATALOG := [["طویله", Barn, 3000, "barn"], ["خانه", RanchHouse, 2500, "house"], ["سیلو", Silo, 1500, "silo"], ["آسیاب بادی", Windmill, 800, "windmill"]]
 const BOUNDS := Rect2(-62, -62, 124, 124)
 
 var money := 6000
@@ -50,16 +51,15 @@ func _ready() -> void:
 		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(bar)
 
-	_menu.add_child(_button(_build_btn, "Build", _toggle_menu, "build"))
+	_menu.add_child(_button(_build_btn, "ساخت", _toggle_menu, "build"))
 	for i in CATALOG.size():
-		var n: String = CATALOG[i][0]
-		var b := _button(Button.new(), "%s  $%d" % [n, CATALOG[i][2]], choose.bind(i), n.to_lower())
+		var b := _button(Button.new(), "%s  %s$" % [CATALOG[i][0], UiTheme.fa(CATALOG[i][2])], choose.bind(i), CATALOG[i][3])
 		b.visible = false
 		_items.append(b)
 		_menu.add_child(b)
-	_place_bar.add_child(_button(Button.new(), "Rotate", rotate_ghost, "rotate"))
-	_place_bar.add_child(_button(Button.new(), "Cancel", cancel, "cancel"))
-	_place_bar.add_child(_button(_place_btn, "Place", place, "place"))
+	_place_bar.add_child(_button(Button.new(), "چرخش", rotate_ghost, "rotate"))
+	_place_bar.add_child(_button(Button.new(), "لغو", cancel, "cancel"))
+	_place_bar.add_child(_button(_place_btn, "بساز", place, "place"))
 	_place_bar.visible = false
 	_refresh()
 
@@ -67,6 +67,7 @@ func _ready() -> void:
 func _button(b: Button, text: String, cb: Callable, icon: String) -> Button:
 	b.text = text
 	b.icon = load("res://ui/icons/%s.png" % icon)
+	b.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT  # Persian reads right to left
 	b.custom_minimum_size = Vector2(190, 104)
 	b.add_theme_font_size_override("font_size", 26)
 	b.pressed.connect(cb)
@@ -77,12 +78,12 @@ func _toggle_menu() -> void:
 	var open := not _items[0].visible
 	for b in _items:
 		b.visible = open
-	_build_btn.text = "Close" if open else "Build"
+	_build_btn.text = "بستن" if open else "ساخت"
 	_refresh()
 
 
 func _refresh() -> void:
-	_money.text = "$ %d" % money
+	_money.text = "%s دلار" % UiTheme.fa(money)
 	for i in _items.size():
 		_items[i].disabled = money < CATALOG[i][2]
 
@@ -107,7 +108,7 @@ func choose(i: int) -> void:
 	_place_bar.visible = true
 	for b in _items:  # leave the menu collapsed for when placement ends
 		b.visible = false
-	_build_btn.text = "Build"
+	_build_btn.text = "ساخت"
 
 
 func rotate_ghost() -> void:

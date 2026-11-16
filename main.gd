@@ -25,8 +25,7 @@ var layout := [
 
 
 func _ready() -> void:
-	# CanvasLayers cut the window theme chain, so extend the default theme every Control falls back to
-	ThemeDB.get_default_theme().merge_with(UiTheme.make())
+	UiTheme.apply()
 	day.hour = float(_arg("hour", "17.2"))
 	add_child(day)
 	mask_img = (load(TEX + "ground_mask.png") as Texture2D).get_image()
