@@ -52,6 +52,8 @@ func _ready() -> void:
 	_buy = builder._button(Button.new(), "خرید گوساله  %s دلار" % UiTheme.fa(CALF_PRICE), buy, "cow")
 	btns.add_child(_sell)
 	btns.add_child(_buy)
+	# CC-BY 4.0 requires crediting the cow model's author
+	col.add_child(UiTheme.label("مدل گاو: «Farm Cow Animated Dairy cattle» ساخته‌ی Rukh3D، با مجوز CC-BY 4.0", 17, Color(0.36, 0.22, 0.1)))
 
 	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
@@ -96,7 +98,7 @@ func notify(text: String) -> void:
 
 
 func _refresh() -> void:
-	var cows := herd.cows
+	var cows := herd.cows.filter(func(c): return not c.has("dying"))
 	var n := cows.size()
 	var avg := 0.0
 	var ready_kg := 0.0

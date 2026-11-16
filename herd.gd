@@ -75,7 +75,7 @@ func add_cow(pos: Vector3, weight: float) -> void:
 		pos = pos, yaw = _rng.randf() * TAU, target = pos, state = IDLE, timer = _rng.randf_range(1, 4),
 		hunger = _rng.randf_range(0.2, 0.5), thirst = _rng.randf_range(0.1, 0.4), weight = weight,
 		phase = 0.0, head = 0.0, walk = 0.0,
-		coat = _rng.randi_range(0, 2) / 3.0 + _rng.randf() * 0.33,  # type in the integer part of coat*3
+		coat = (_rng.randi_range(0, 3) + _rng.randf() * 0.99) / 4.0,  # type in the integer part of coat*4, see cow.gdshader
 	})
 
 
@@ -89,13 +89,13 @@ func free_spot(p: Vector3, radius: float) -> Vector3:
 
 
 func ready_count() -> int:
-	return cows.filter(func(c): return c.weight >= READY_KG).size()
+	return cows.filter(func(c): return c.weight >= READY_KG and not c.has("dying")).size()
 
 
 ## Removes cows at sale weight and returns their total kg.
 func sell_ready() -> float:
 	var kg := 0.0
-	for c in cows.filter(func(c): return c.weight >= READY_KG):
+	for c in cows.filter(func(c): return c.weight >= READY_KG and not c.has("dying")):
 		kg += c.weight
 		cows.erase(c)
 	return kg
@@ -135,12 +135,18 @@ func _process(delta: float) -> void:
 		_rescan()
 	var hours := delta * day.speed / DayCycle.SECONDS_PER_HOUR
 	for c in cows:
+		if c.has("dying"):  # plays the model's death clip, lies there a moment, then is gone
+			c.dying += delta
+			c.walk = 0.0
+			continue
 		_needs(c, hours)
 		_act(c, delta, hours)
+		if c.weight < 180.0:
+			c.dying = 0.0
+			died.emit("thirst" if c.thirst > c.hunger else "hunger")
 	_separate()
-	for c in cows.filter(func(c): return c.weight < 180.0):
+	for c in cows.filter(func(c): return c.has("dying") and c.dying > 5.0):
 		cows.erase(c)
-		died.emit("thirst" if c.thirst > c.hunger else "hunger")
 	for i in N * N:  # grass regrows to full in about four days
 		grass[i] = minf(grass_cap[i], grass[i] + hours / 96.0)
 	_tex_t -= delta
@@ -235,7 +241,7 @@ func _act(c: Dictionary, delta: float, hours: float) -> void:
 	c.walk = lerpf(c.walk, 1.0 if moving else 0.0, k)
 	c.head = lerpf(c.head, 1.0 if c.state in [GRAZE, DRINK] else 0.0, minf(1.0, delta * 2.0))
 	if moving:
-		c.phase = fmod(c.phase + delta * WALK * minf(day.speed, 3.0) * 4.2, TAU)  # legs capped, or they blur
+		c.phase = fmod(c.phase + delta * WALK * minf(day.speed, 3.0) * 3.6, TAU)  # legs capped, or they blur
 
 
 ## Cows keep a little personal space instead of standing inside each other.
@@ -259,4 +265,5 @@ func _draw() -> void:
 		var c: Dictionary = cows[i]
 		var s := lerpf(0.68, 1.05, clampf((c.weight - 180.0) / 520.0, 0.0, 1.0))  # calves are smaller
 		_mm.set_instance_transform(i, Transform3D(Basis(Vector3.UP, c.yaw).scaled(Vector3.ONE * s), c.pos))
-		_mm.set_instance_custom_data(i, Color(c.phase, c.head, c.coat, c.walk))
+		var head: float = 2.0 + minf(c.dying / 1.2, 1.0) if c.has("dying") else c.head
+		_mm.set_instance_custom_data(i, Color(c.phase / TAU, head, c.coat, c.walk))

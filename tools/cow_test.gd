@@ -34,10 +34,12 @@ func _ready() -> void:
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_custom_data = true
 	mm.mesh = CowMesh.mesh()
-	mm.instance_count = 3
-	# x, yaw, phase, head, coat, walk
-	var cows := [[-3.2, 1.3, 0.0, 0.0, 0.2, 0.0], [0.0, 0.9, 1.2, 0.0, 0.5, 1.0], [3.2, 2.2, 0.0, 1.0, 0.85, 0.0]]
-	for i in 3:
+	# x, yaw, walk cycle, head, coat, walk; one of each coat: standing, walking, grazing, walking
+	var cows := [[-4.8, 1.3, 0.0, 0.0, 0.05, 0.0], [-1.6, 0.9, 0.3, 0.0, 0.3, 1.0], [1.6, 2.2, 0.0, 1.0, 0.55, 0.0], [4.8, 1.6, 0.7, 0.0, 0.8, 1.0]]
+	if OS.get_cmdline_user_args().has("--walk"):  # side view of the walk cycle at four moments
+		cows = [[-4.8, PI / 2, 0.0, 0.0, 0.3, 1.0], [-1.6, PI / 2, 0.25, 0.0, 0.3, 1.0], [1.6, PI / 2, 0.5, 0.0, 0.3, 1.0], [4.8, PI / 2, 0.75, 0.0, 0.3, 1.0]]
+	mm.instance_count = cows.size()
+	for i in cows.size():
 		var c: Array = cows[i]
 		mm.set_instance_transform(i, Transform3D(Basis(Vector3.UP, c[1]), Vector3(c[0], 0, 0)))
 		mm.set_instance_custom_data(i, Color(c[2], c[3], c[4], c[5]))
@@ -48,7 +50,7 @@ func _ready() -> void:
 
 	var cam := Camera3D.new()
 	cam.fov = 32
-	cam.position = Vector3(2.5, 3.2, 10.5)
+	cam.position = Vector3(0, 1.0, 13.0) if OS.get_cmdline_user_args().has("--walk") else Vector3(2.5, 3.6, 13.5)
 	add_child(cam)
 	cam.look_at(Vector3(0, 0.9, 0))
 	for k in 4:
