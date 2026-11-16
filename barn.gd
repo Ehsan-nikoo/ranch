@@ -12,6 +12,10 @@ const OVER := 0.5     # roof overhang
 var vane := Node3D.new()
 
 
+func _foot() -> Rect2:
+	return Rect2(-5.6, -7.8, 15.4, 15.6)  # includes the lean-to on +x
+
+
 func _process(_delta: float) -> void:
 	# weathervane drifts with the wind
 	vane.rotation.y = 0.6 + sin(Time.get_ticks_msec() * 0.0004) * 0.5 + sin(Time.get_ticks_msec() * 0.0011) * 0.15

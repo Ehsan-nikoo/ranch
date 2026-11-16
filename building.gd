@@ -58,6 +58,22 @@ func _init() -> void:
 	water = _mats.water
 
 
+## Ground area the building occupies, in its own x/z. Subclasses override.
+func _foot() -> Rect2:
+	return Rect2(-2, -2, 4, 4)
+
+
+## Footprint in world x/z (bounding box of the rotated local footprint).
+func world_footprint() -> Rect2:
+	var f := _foot()
+	var r := Rect2()
+	for i in 4:
+		var c := Vector2(f.end.x if i in [1, 2] else f.position.x, f.end.y if i >= 2 else f.position.y)
+		var w := transform * Vector3(c.x, 0, c.y)
+		r = Rect2(w.x, w.z, 0, 0) if i == 0 else r.expand(Vector2(w.x, w.z))
+	return r
+
+
 # ---------- materials ----------
 
 static func _window_mat() -> StandardMaterial3D:

@@ -14,12 +14,13 @@ var grass_nodes: Array[Node3D] = []
 var grass_mat := ShaderMaterial.new()
 var crickets: AudioStreamPlayer
 var mask_img: Image
-# building, position, yaw in degrees, grass-free footprint in world x/z
+var builder := Builder.new()
+# starting ranch: building, position, yaw in degrees
 var layout := [
-	[Barn, Vector3(0, 0, 0), 0.0, Rect2(-6, -7.8, 15.8, 15.6)],
-	[RanchHouse, Vector3(-13, 0, 26), 90.0, Rect2(-17, 21, 11, 10)],
-	[Windmill, Vector3(17, 0, -5), -30.0, Rect2(14.5, -8.5, 8.5, 8)],
-	[Silo, Vector3(-2, 0, -11), 0.0, Rect2(-4.6, -13.6, 5.2, 5.2)],
+	[Barn, Vector3(0, 0, 0), 0.0],
+	[RanchHouse, Vector3(-13, 0, 26), 90.0],
+	[Windmill, Vector3(17, 0, -5), -30.0],
+	[Silo, Vector3(-2, 0, -11), 0.0],
 ]
 
 
@@ -30,11 +31,13 @@ func _ready() -> void:
 	if mask_img.is_compressed():
 		mask_img.decompress()
 	_ground()
+	builder.occupied.append(Rect2(-24.5, -6.5, 16, 19))  # corral
 	for b in layout:
-		var node: Node3D = b[0].new()
+		var node: Building = b[0].new()
 		node.position = b[1]
 		node.rotation_degrees.y = b[2]
 		add_child(node)
+		builder.occupied.append(node.world_footprint())
 	_grass()
 	_props()
 	MeshMerge.boxes(self)
@@ -46,7 +49,40 @@ func _ready() -> void:
 	hud.grass = grass_chunks
 	hud.grass_nodes = grass_nodes
 	add_child(hud)
+	builder.rig = rig
+	builder.world = self
+	builder.on_placed = _clear_grass
+	add_child(builder)
 	day.hour_changed.connect(_on_hour)
+	_test_build()
+
+
+## Test hook for renders: `--ghost=<catalog index>@x,z` opens placement there, `--place` confirms.
+func _test_build() -> void:
+	var g := _arg("ghost", "")
+	if g == "":
+		return
+	var xz := g.get_slice("@", 1).split(",")
+	rig.target = Vector3(float(xz[0]), 0, float(xz[1]))
+	rig.snap()
+	builder.choose(int(g.get_slice("@", 0)))
+	if _arg("place", "") != "":
+		for i in 2:  # let Builder._process validate the spot first
+			await get_tree().process_frame
+		builder.place()
+
+
+## Hides grass tufts inside a newly placed building's footprint.
+func _clear_grass(r: Rect2) -> void:
+	var gone := Transform3D(Basis().scaled(Vector3.ZERO), Vector3.ZERO)
+	for mm in grass_chunks:
+		var a := mm.get_aabb()
+		if not r.intersects(Rect2(a.position.x, a.position.z, a.size.x, a.size.z)):
+			continue
+		for i in mm.instance_count:
+			var o := mm.get_instance_transform(i).origin
+			if r.has_point(Vector2(o.x, o.z)):
+				mm.set_instance_transform(i, gone)
 
 
 func _arg(key: String, def: String) -> String:
@@ -133,7 +169,7 @@ func _grass() -> void:
 	var placed := 0
 	while placed < GRASS_COUNT:
 		var p := Vector2(r.randf_range(-70, 70), r.randf_range(-70, 70))
-		if layout.any(func(b): return b[3].has_point(p)):
+		if builder.occupied.any(func(r): return r.has_point(p)):
 			continue
 		var m := _mask(p)
 		if r.randf() < smoothstep(0.1, 0.4, m.r) or r.randf() > 1.0 - smoothstep(38.0, 68.0, p.length()):

@@ -6,6 +6,10 @@ const R := 2.2
 const H := 11.0
 
 
+func _foot() -> Rect2:
+	return Rect2(-R - 0.4, -R - 0.4, R * 2 + 0.8, R * 2 + 0.8)
+
+
 func _ready() -> void:
 	_cyl(R + 0.3, 0.5, Vector3(0, 0.25, 0), stone, 32)  # footing
 	_cyl(R, H, Vector3(0, 0.5 + H * 0.5, 0), concrete, 32)

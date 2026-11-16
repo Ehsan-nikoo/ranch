@@ -13,6 +13,10 @@ func _process(delta: float) -> void:
 	wheel.rotation.z += delta * 2.2
 
 
+func _foot() -> Rect2:
+	return Rect2(-1.6, -3.3, 7.8, 7.0)  # tower, tail swing and stock tank
+
+
 func _ready() -> void:
 	_tower()
 	_head()

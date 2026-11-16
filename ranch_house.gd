@@ -10,6 +10,10 @@ const OVER := 0.45
 const PORCH := 2.4
 
 
+func _foot() -> Rect2:
+	return Rect2(-W - 0.4, -D - 0.4, W * 2 + 0.8, D * 2 + PORCH + 1.4)  # porch and steps on +z
+
+
 func _ready() -> void:
 	eave = EAVE
 	_walls()
