@@ -12,6 +12,21 @@ var rig := CameraRig.new()
 var grass_chunks: Array[MultiMesh] = []
 var grass_nodes: Array[Node3D] = []
 var grass_mat := ShaderMaterial.new()
+var ground_mat := ShaderMaterial.new()
+var herd_ui := HerdUI.new()
+# per season (spring, summer, autumn, winter): grass blade tint, ground grass tint, ground lush tint, snow
+const LOOK := [
+	[Color(0.66, 0.86, 0.5), Color(0.52, 0.64, 0.4), Color(0.42, 0.6, 0.32), 0.0],
+	[Color(1.0, 1.0, 1.0), Color(0.7, 0.68, 0.5), Color(0.52, 0.62, 0.36), 0.0],
+	[Color(1.0, 0.8, 0.58), Color(0.68, 0.57, 0.42), Color(0.6, 0.5, 0.36), 0.0],
+	[Color(0.78, 0.76, 0.72), Color(0.58, 0.54, 0.46), Color(0.52, 0.5, 0.42), 0.7],
+]
+const SEASON_NEWS := [
+	"بهار شد: علف دوباره سبز می‌شه و تند رشد می‌کنه",
+	"تابستون شد: وقت درو و انبار کردن یونجه‌ست",
+	"پاییز شد: علف کند رشد می‌کنه؛ برای زمستون یونجه جمع کن",
+	"زمستون شد: علف رشد نمی‌کنه و گاوها از انبار یونجه می‌خورن",
+]
 var crickets: AudioStreamPlayer
 var mask_img: Image
 var builder := Builder.new()
@@ -28,7 +43,14 @@ var layout := [
 
 func _ready() -> void:
 	UiTheme.apply()
+	var saved := SaveGame.read()
 	day.hour = float(_arg("hour", "17.2"))
+	day.day = int(_arg("day", "0"))
+	if not saved.is_empty():
+		day.day = saved.day
+		day.hour = saved.hour
+		builder.money = saved.money
+		layout = saved.buildings.map(func(b): return [load(b[0]), Vector3(b[1], 0, b[2]), b[3]])
 	add_child(day)
 	mask_img = (load(TEX + "ground_mask.png") as Texture2D).get_image()
 	if mask_img.is_compressed():
@@ -50,21 +72,26 @@ func _ready() -> void:
 	herd.extra_blocked = [CORRAL]
 	add_child(herd)
 	herd._rescan()
-	for i in int(_arg("cows", "8")):
-		herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), randf_range(260.0, 520.0))
+	if saved.is_empty():
+		for i in int(_arg("cows", "8")):
+			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), randf_range(260.0, 520.0))
+	else:
+		herd.from_save(saved.herd)
 	_audio()
 	_shot(_arg("shot", "wide"))
 	add_child(rig)
 	var hud := Hud.new()
 	hud.day = day
+	hud.herd = herd
 	hud.grass = grass_chunks
 	hud.grass_nodes = grass_nodes
 	add_child(hud)
 	builder.rig = rig
 	builder.world = self
-	builder.on_placed = _clear_grass
+	builder.on_placed = func(r: Rect2):
+		_clear_grass(r)
+		_save()
 	add_child(builder)
-	var herd_ui := HerdUI.new()
 	herd_ui.herd = herd
 	herd_ui.builder = builder
 	add_child(herd_ui)
@@ -72,25 +99,33 @@ func _ready() -> void:
 	if _arg("herd", "") != "":
 		herd_ui.toggle()
 	day.hour_changed.connect(_on_hour)
+	day.day_changed.connect(_on_day)
+	var autosave := Timer.new()  # also catches buys and sales between day changes
+	autosave.wait_time = 60.0
+	autosave.autostart = true
+	autosave.timeout.connect(_save)
+	add_child(autosave)
 	_test_build()
 	if _arg("debug", "") != "":
 		_debug_herd()
 
 
 func _debug_herd() -> void:
+	herd.died.connect(func(cause):
+		print("   DIED of %s" % cause))
 	while true:
-		await get_tree().create_timer(2.0).timeout
-		var st := [0, 0, 0, 0, 0]
+		await get_tree().create_timer(4.0).timeout
+		var st := [0, 0, 0, 0, 0, 0, 0]
 		var h := 0.0
-		var t := 0.0
 		var w := 0.0
-		for c in herd.cows:
+		var cows := herd.alive()
+		for c in cows:
 			st[c.state] += 1
 			h += c.hunger
-			t += c.thirst
 			w += c.weight
-		var n := maxf(herd.cows.size(), 1)
-		print("day %.1f  cows %d  hunger %.2f thirst %.2f kg %d  wander/graze/water/drink/idle %s" % [day.hour, herd.cows.size(), h / n, t / n, w / n, st])
+		var n := maxf(cows.size(), 1)
+		print("%s  cows %d  hunger %.2f kg %d  hay %d/%d  shelter %d  money %d  wander/graze/water/drink/idle/tofeed/feed %s" % [
+			DayCycle.SEASON_NAMES[day.season()], cows.size(), h / n, w / n, herd.hay, herd.hay_cap, herd.shelter, builder.money, st])
 
 
 ## Test hook for renders: `--ghost=<catalog index>@x,z` opens placement there, `--place` confirms.
@@ -155,12 +190,45 @@ func _on_hour(_h: float) -> void:
 	var night := Building.window_mat.emission_energy_multiplier / 2.5
 	crickets.volume_db = linear_to_db(maxf(night, 0.001)) - 8.0
 	grass_mat.set_shader_parameter("to_sun", day.light.global_basis.z)
+	# the new season's look fades in over the first quarter of it
+	var s := day.season()
+	var k := smoothstep(0.0, 0.25, day.season_progress())
+	var a: Array = LOOK[(s + 3) % 4]
+	var b: Array = LOOK[s]
+	grass_mat.set_shader_parameter("tint", a[0].lerp(b[0], k))
+	ground_mat.set_shader_parameter("grass_tint", a[1].lerp(b[1], k))
+	ground_mat.set_shader_parameter("lush_tint", a[2].lerp(b[2], k))
+	var snow := lerpf(a[3], b[3], k)
+	ground_mat.set_shader_parameter("snow", snow)
+	grass_mat.set_shader_parameter("snow", snow)
+	crickets.stream_paused = s == DayCycle.WINTER  # no crickets in the snow
+
+
+func _on_day(d: int) -> void:
+	if d % DayCycle.DAYS_PER_SEASON == 0:
+		herd_ui.notify(SEASON_NEWS[day.season()])
+	_save()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_save()  # phone apps get killed in the background without warning
+
+
+func _save() -> void:
+	if not is_node_ready():
+		return
+	var buildings := []
+	for n in get_children():
+		if n is Building and not n.has_node("Marker"):
+			buildings.append([n.get_script().resource_path, n.position.x, n.position.z, n.rotation_degrees.y])
+	SaveGame.write({money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save()})
 
 
 # ---------- ground & grass ----------
 
 func _ground() -> void:
-	var sm := ShaderMaterial.new()
+	var sm := ground_mat
 	sm.shader = load("res://ground.gdshader")
 	for p in [["grass_alb", "grass_ground_diff.jpg"], ["grass_nrm", "grass_ground_nor_gl.jpg"],
 			["dirt_alb", "dirt_diff.jpg"], ["dirt_nrm", "dirt_nor_gl.jpg"],

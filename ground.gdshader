@@ -11,6 +11,7 @@ uniform sampler2D grazed : filter_linear, repeat_disable;  // herd grass grid, 1
 uniform float span = 160.0;
 uniform vec3 grass_tint : source_color = vec3(0.7, 0.68, 0.5);
 uniform vec3 lush_tint : source_color = vec3(0.52, 0.62, 0.36);
+uniform float snow = 0.0;  // winter cover 0..1, set by main.gd per season
 
 varying vec3 wpos;
 
@@ -32,4 +33,8 @@ void fragment() {
 	ALBEDO = mix(g, d, k);
 	NORMAL_MAP = mix(texture(grass_nrm, uv).rgb, texture(dirt_nrm, uv * 1.3).rgb, k);
 	ROUGHNESS = 0.95;
+	// patchy snow: thinner on dirt tracks and in the noise lows, so the ground still reads under it
+	float cover = snow * smoothstep(0.3, 0.75, mac + 0.3 - k * 0.35 + (texture(grass_alb, uv * 0.5).g - 0.3));
+	ALBEDO = mix(ALBEDO, vec3(0.66, 0.68, 0.72) * (0.9 + 0.1 * mac), cover);  // snow in shade-friendly grey-white, not paper white
+	ROUGHNESS = mix(ROUGHNESS, 0.6, cover);
 }

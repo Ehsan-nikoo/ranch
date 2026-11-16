@@ -3,8 +3,12 @@ class_name DayCycle
 extends Node
 
 signal hour_changed(hour: float)
+signal day_changed(day: int)
 
 const SECONDS_PER_HOUR := 20.0  # full day = 8 real minutes at 1x
+const DAYS_PER_SEASON := 3       # a season is 24 real minutes at 1x, a year about an hour and a half
+enum { SPRING, SUMMER, AUTUMN, WINTER }
+const SEASON_NAMES := ["بهار", "تابستان", "پاییز", "زمستان"]
 
 # hour, sun color, sun energy, sky top, sky horizon, ambient color, ambient energy, fog color, window glow
 const KEYS := [
@@ -22,6 +26,7 @@ const KEYS := [
 ]
 
 var hour := 17.2
+var day := 0  # days since the ranch started; day 0 is the first day of spring
 var speed := 1.0
 var env := Environment.new()
 var sky_mat := ShaderMaterial.new()
@@ -73,7 +78,11 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	hour = fmod(hour + delta * speed / SECONDS_PER_HOUR, 24.0)
+	hour += delta * speed / SECONDS_PER_HOUR
+	if hour >= 24.0:
+		hour -= 24.0
+		day += 1
+		day_changed.emit(day)
 	var cam := get_viewport().get_camera_3d()
 	if cam:
 		dome.global_position = cam.global_position
@@ -116,3 +125,17 @@ func _apply() -> void:
 	lamp.light_energy = glow * 2.0
 	lamp.visible = glow > 0.01
 	hour_changed.emit(hour)
+
+
+func season() -> int:
+	return (day / DAYS_PER_SEASON) % 4
+
+
+## 0..1 through the current season.
+func season_progress() -> float:
+	return (float(day % DAYS_PER_SEASON) + hour / 24.0) / DAYS_PER_SEASON
+
+
+## e.g. «پاییز، روز ۲ - سال ۱»
+func date_text() -> String:
+	return "%s، روز %s - سال %s" % [SEASON_NAMES[season()], UiTheme.fa(day % DAYS_PER_SEASON + 1), UiTheme.fa(day / (DAYS_PER_SEASON * 4) + 1)]

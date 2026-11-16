@@ -8,12 +8,14 @@ uniform float strength = 0.35;
 uniform vec3 to_sun = vec3(0.0, 1.0, 0.0);  // set by main.gd as the sun moves
 uniform sampler2D grazed : filter_linear, repeat_disable;  // herd grass grid, 1 = full
 uniform float span = 160.0;
+uniform vec3 tint = vec3(1.0);   // season color, set by main.gd
+uniform float snow = 0.0;        // winter: blades flattened and frosted
 
 void vertex() {
 	// grazed-down cells shrink the tufts toward stubble
 	vec3 root = MODEL_MATRIX[3].xyz;
 	float g = textureLod(grazed, root.xz / span + 0.5, 0.0).r;
-	VERTEX = root + (VERTEX - root) * vec3(1.0, mix(0.12, 1.0, g), 1.0);
+	VERTEX = root + (VERTEX - root) * vec3(1.0, mix(0.12, 1.0, g) * (1.0 - 0.35 * snow), 1.0);
 	float h = max(VERTEX.y, 0.0);
 	float along = dot(VERTEX.xz, wind_dir);
 	float gust = sin(along * 0.12 - TIME * 1.4) * 0.5 + 0.5;
@@ -27,6 +29,6 @@ void vertex() {
 }
 
 void fragment() {
-	ALBEDO = COLOR.rgb;
+	ALBEDO = mix(COLOR.rgb * tint, vec3(0.7, 0.72, 0.75), snow * 0.35);
 	ROUGHNESS = 1.0;
 }

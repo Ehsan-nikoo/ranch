@@ -6,6 +6,10 @@ const R := 2.2
 const H := 11.0
 
 
+func hay_room() -> int:
+	return 60
+
+
 func _foot() -> Rect2:
 	return Rect2(-R - 0.4, -R - 0.4, R * 2 + 0.8, R * 2 + 0.8)
 

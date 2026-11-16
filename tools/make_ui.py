@@ -289,6 +289,16 @@ def cow(d, k):
     shape(d, [(44, 22), (58, 24), (61, 38), (53, 44), (45, 34)], k)
 
 
+def hay(d, k):  # square bale with twine and straw ends
+    d.rounded_rectangle([k(6), k(18), k(58), k(50)], radius=k(4), fill=CREAM, outline=INK, width=k(3))
+    for y in (24, 31, 38, 45):
+        d.line([k(9), k(y), k(55), k(y)], fill=INK, width=k(1))
+    for x in (22, 42):
+        d.line([k(x), k(18), k(x), k(50)], fill=(150, 50, 35, 255), width=k(3))
+    for x in (8, 14, 50, 56):
+        d.line([k(x), k(18), k(x - 2), k(11)], fill=INK, width=k(2))
+
+
 def build(d, k):  # hammer
     shape(d, [(28, 24), (36, 24), (36, 60), (28, 60)], k)
     shape(d, [(12, 10), (46, 10), (54, 18), (46, 26), (12, 26)], k)
@@ -314,6 +324,6 @@ def place(d, k):
 
 button()
 panel()
-for n, f in dict(cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place).items():
+for n, f in dict(hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place).items():
     icon(n, f)
 print("ok")

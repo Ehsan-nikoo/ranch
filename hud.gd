@@ -11,6 +11,7 @@ const QUALITY := [
 ]
 
 var day: DayCycle
+var herd: Herd
 var grass: Array[MultiMesh] = []
 var grass_nodes: Array[Node3D] = []
 var _label := Label.new()
@@ -81,9 +82,12 @@ func _process(delta: float) -> void:
 		return
 	_tick = 0.25  # relabeling every frame costs text shaping on a slow CPU
 	var rid := get_viewport().get_viewport_rid()
-	_label.text = "%d FPS   CPU %.1f ms   GPU %.1f ms   draws %d\nساعت %s" % [
+	# herd = the cattle simulation's own time per frame, which the render CPU number doesn't include
+	_label.text = "%d FPS   herd %.1f ms   CPU %.1f ms   GPU %.1f ms   draws %d\n%s   ساعت %s" % [
 		Engine.get_frames_per_second(),
+		herd.cost_ms,
 		RenderingServer.viewport_get_measured_render_time_cpu(rid) + RenderingServer.get_frame_setup_time_cpu(),
 		RenderingServer.viewport_get_measured_render_time_gpu(rid),
 		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
+		day.date_text(),
 		UiTheme.fa("%02d:%02d" % [int(day.hour), int(fmod(day.hour, 1.0) * 60)])]

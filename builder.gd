@@ -189,7 +189,9 @@ func place() -> void:
 	var r := ghost.world_footprint()
 	money -= _cost
 	occupied.append(r)
-	ghost.get_node("Marker").queue_free()
+	var marker := ghost.get_node("Marker")
+	ghost.remove_child(marker)  # right away: on_placed saves the game and must see a real building
+	marker.queue_free()
 	on_placed.call(r)
 	_end()
 

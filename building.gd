@@ -63,6 +63,22 @@ func _foot() -> Rect2:
 	return Rect2(-2, -2, 4, 4)
 
 
+## Hay bales this building stores (barns and silos). Subclasses override.
+func hay_room() -> int:
+	return 0
+
+
+## Cows this building shelters through winter. Subclasses override.
+func shelter_room() -> int:
+	return 0
+
+
+## Where cows stand to eat stored hay: just past the front of the footprint.
+func feed_spot() -> Vector3:
+	var f := _foot()
+	return to_global(Vector3(f.get_center().x, 0, f.end.y + 2.0))
+
+
 ## Footprint in world x/z (bounding box of the rotated local footprint), or of `f` if given.
 func world_footprint(f := Rect2()) -> Rect2:
 	if f.size == Vector2.ZERO:

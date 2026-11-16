@@ -12,6 +12,14 @@ const OVER := 0.5     # roof overhang
 var vane := Node3D.new()
 
 
+func hay_room() -> int:
+	return 40
+
+
+func shelter_room() -> int:
+	return 15
+
+
 func _foot() -> Rect2:
 	return Rect2(-5.6, -7.8, 15.4, 15.6)  # includes the lean-to on +x
 
