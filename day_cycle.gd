@@ -23,21 +23,25 @@ const KEYS := [
 var hour := 17.2
 var speed := 1.0
 var env := Environment.new()
-var sky_mat := ProceduralSkyMaterial.new()
+var sky_mat := ShaderMaterial.new()
+var dome := MeshInstance3D.new()
 var light := DirectionalLight3D.new()
 var lamp := OmniLight3D.new()
 
 
 func _ready() -> void:
-	sky_mat.sky_curve = 0.09
-	sky_mat.ground_bottom_color = Color(0.15, 0.12, 0.09)
-	sky_mat.sun_angle_max = 25.0
-	var sky := Sky.new()
-	sky.sky_material = sky_mat
-	env.background_mode = Environment.BG_SKY
-	env.sky = sky
-	# Sky is background only: lighting from a sky whose colors change every frame forces a
-	# radiance-map rebuild every frame, which was the biggest GPU cost on phones.
+	# no engine Sky at all, see sky_dome.gdshader for why
+	sky_mat.shader = load("res://sky_dome.gdshader")
+	var sphere := SphereMesh.new()
+	sphere.radius = 300.0
+	sphere.height = 600.0
+	sphere.radial_segments = 32
+	sphere.rings = 16
+	dome.mesh = sphere
+	dome.material_override = sky_mat
+	dome.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(dome)
+	env.background_mode = Environment.BG_COLOR
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
@@ -47,7 +51,6 @@ func _ready() -> void:
 	env.glow_bloom = 0.04
 	env.fog_enabled = true
 	env.fog_density = 0.0022
-	env.fog_sky_affect = 0.15
 	env.adjustment_enabled = true
 	env.adjustment_saturation = 1.05
 	env.adjustment_contrast = 1.06
@@ -70,6 +73,9 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	hour = fmod(hour + delta * speed / SECONDS_PER_HOUR, 24.0)
+	var cam := get_viewport().get_camera_3d()
+	if cam:
+		dome.global_position = cam.global_position
 	_apply()
 
 
@@ -93,12 +99,17 @@ func _apply() -> void:
 		energy *= clampf(inverse_lerp(-4.0, -12.0, elev), 0.0, 1.0)
 	light.light_color = a[1].lerp(b[1], t)
 	light.light_energy = energy
-	sky_mat.sky_top_color = a[3].lerp(b[3], t)
-	sky_mat.sky_horizon_color = a[4].lerp(b[4], t)
-	sky_mat.ground_horizon_color = a[4].lerp(b[4], t).darkened(0.25)
+	var fog: Color = a[7].lerp(b[7], t)
+	sky_mat.set_shader_parameter("top_color", a[3].lerp(b[3], t))
+	sky_mat.set_shader_parameter("horizon_color", a[4].lerp(b[4], t))
+	sky_mat.set_shader_parameter("below_color", fog)
+	sky_mat.set_shader_parameter("sun_dir", light.global_basis.z)
+	sky_mat.set_shader_parameter("sun_color", light.light_color)
+	sky_mat.set_shader_parameter("sun_visible", 1.0 if is_sun and elev > -1.0 else 0.0)
+	env.background_color = fog
 	env.ambient_light_color = a[5].lerp(b[5], t)
 	env.ambient_light_energy = lerpf(a[6], b[6], t)
-	env.fog_light_color = a[7].lerp(b[7], t)
+	env.fog_light_color = fog
 	var glow: float = lerpf(a[8], b[8], t)
 	Barn.window_mat.emission_energy_multiplier = glow * 2.5
 	lamp.light_energy = glow * 2.0
