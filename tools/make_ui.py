@@ -103,6 +103,45 @@ def straw(d, cx, cy, ang, spread, n, length, front=False):
                 d.ellipse([b[0] + off - r, b[1] + off - r, b[0] + off + r, b[1] + off + r], fill=col)
 
 
+def draw_board(img, i, pw, ph, all_corners=False, frame=9):
+    """Weathered honey board pasted at (i, i): shadow, thickness, chipped face, inner frame, screws."""
+    # weathered board: drop shadow, darker side for thickness, chipped face, raised inner frame, screws
+    thick = 4 * SS
+    fh = ph - thick
+    mask = chipped_mask(pw, fh, 7 * SS)
+    shadow = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    shadow.paste((25, 15, 5, 120), (i, i + thick + 2 * SS), mask)
+    img.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(3 * SS)))
+    side = Image.fromarray((wood(pw, fh) * 0.45 * 255).astype(np.uint8)).convert("RGBA")
+    img.paste(side, (i, i + thick), mask)
+
+    face = wood(pw, fh)
+    m = np.asarray(mask, np.float32) / 255
+    soft = np.asarray(mask.filter(ImageFilter.GaussianBlur(2.5 * SS)), np.float32) / 255
+    face *= (0.72 + 0.28 * soft)[..., None]  # edges a touch darker, worn
+    yy = np.arange(fh)[:, None] / fh
+    face *= (1.06 - 0.12 * yy)[..., None]  # light from above
+    plank = Image.fromarray((np.clip(face, 0, 1) * 255).astype(np.uint8)).convert("RGBA")
+    pd = ImageDraw.Draw(plank, "RGBA")
+    fi = frame * SS  # inner frame inset
+    box = [fi, fi * 0.85, pw - fi, fh - fi * 0.85]
+    pd.rounded_rectangle([box[0] + SS, box[1] + SS, box[2] + SS, box[3] + SS], radius=4 * SS, outline=(255, 235, 200, 45), width=int(1.6 * SS))
+    pd.rounded_rectangle(box, radius=4 * SS, outline=(70, 40, 15, 170), width=int(1.6 * SS))
+    rows = (box[1] + 7 * SS, box[3] - 7 * SS) if all_corners else (box[1] + 7 * SS,)
+    for sx, sy in [(x, y) for x in (box[0] + 7 * SS, box[2] - 7 * SS) for y in rows]:  # screws, like the reference board
+        r = 3.4 * SS
+        pd.ellipse([sx - r + SS, sy - r + SS, sx + r + SS, sy + r + SS], fill=(30, 18, 8, 110))
+        for k in range(8):  # radial gradient: brushed steel head lit from the top-left
+            f = 1 - k / 8
+            c = int(120 + 120 * (1 - f))
+            pd.ellipse([sx - r * f - (1 - f) * SS, sy - r * f - (1 - f) * SS, sx + r * f - (1 - f) * SS, sy + r * f - (1 - f) * SS], fill=(c, c, c + 4, 255))
+        pd.ellipse([sx - r, sy - r, sx + r, sy + r], outline=(70, 70, 72, 255), width=int(0.6 * SS))
+        a = rng.uniform(0, math.pi)
+        dx, dy = math.cos(a) * r * 0.7, math.sin(a) * r * 0.7
+        pd.line([sx - dx, sy - dy, sx + dx, sy + dy], fill=(60, 60, 64, 255), width=int(0.9 * SS))
+    img.paste(plank, (i, i), mask)
+
+
 def button():
     w, h = W * SS, H * SS
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
@@ -118,47 +157,31 @@ def button():
     for y in (h * 0.4, h * 0.6):
         straw(d, i + 4 * SS, y, 3.14, 0.6, 6, 18)
         straw(d, w - i - 4 * SS, y, 0.0, 0.6, 6, 18)
-    # weathered board: drop shadow, darker side for thickness, chipped face, raised inner frame, screws
-    pw, ph = w - 2 * i, h - 2 * i
-    thick = 4 * SS
-    fh = ph - thick
-    mask = chipped_mask(pw, fh, 7 * SS)
-    shadow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    shadow.paste((25, 15, 5, 120), (i, i + thick + 2 * SS), mask)
-    img.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(3 * SS)))
-    side = Image.fromarray((wood(pw, fh) * 0.45 * 255).astype(np.uint8)).convert("RGBA")
-    img.paste(side, (i, i + thick), mask)
-
-    face = wood(pw, fh)
-    m = np.asarray(mask, np.float32) / 255
-    soft = np.asarray(mask.filter(ImageFilter.GaussianBlur(2.5 * SS)), np.float32) / 255
-    face *= (0.72 + 0.28 * soft)[..., None]  # edges a touch darker, worn
-    yy = np.arange(fh)[:, None] / fh
-    face *= (1.06 - 0.12 * yy)[..., None]  # light from above
-    plank = Image.fromarray((np.clip(face, 0, 1) * 255).astype(np.uint8)).convert("RGBA")
-    pd = ImageDraw.Draw(plank, "RGBA")
-    fi = 9 * SS  # inner frame inset
-    box = [fi, fi * 0.85, pw - fi, fh - fi * 0.85]
-    pd.rounded_rectangle([box[0] + SS, box[1] + SS, box[2] + SS, box[3] + SS], radius=4 * SS, outline=(255, 235, 200, 45), width=int(1.6 * SS))
-    pd.rounded_rectangle(box, radius=4 * SS, outline=(70, 40, 15, 170), width=int(1.6 * SS))
-    for sx in (box[0] + 7 * SS, box[2] - 7 * SS):  # screws at the top corners, like the reference board
-        sy = box[1] + 7 * SS
-        r = 3.4 * SS
-        pd.ellipse([sx - r + SS, sy - r + SS, sx + r + SS, sy + r + SS], fill=(30, 18, 8, 110))
-        for k in range(8):  # radial gradient: brushed steel head lit from the top-left
-            f = 1 - k / 8
-            c = int(120 + 120 * (1 - f))
-            pd.ellipse([sx - r * f - (1 - f) * SS, sy - r * f - (1 - f) * SS, sx + r * f - (1 - f) * SS, sy + r * f - (1 - f) * SS], fill=(c, c, c + 4, 255))
-        pd.ellipse([sx - r, sy - r, sx + r, sy + r], outline=(70, 70, 72, 255), width=int(0.6 * SS))
-        a = rng.uniform(0, math.pi)
-        dx, dy = math.cos(a) * r * 0.7, math.sin(a) * r * 0.7
-        pd.line([sx - dx, sy - dy, sx + dx, sy + dy], fill=(60, 60, 64, 255), width=int(0.9 * SS))
-    img.paste(plank, (i, i), mask)
+    draw_board(img, i, w - 2 * i, h - 2 * i)
     # a few stalks in front so the straw wraps around the board
     for (cx, cy, ang) in [(i + 4 * SS, i + 18 * SS, -2.9), (w - i - 4 * SS, h - i - 16 * SS, 0.3)]:
         straw(ImageDraw.Draw(img, "RGBA"), cx, cy, ang, 0.4, 5, 24)
     img = img.resize((W, H), Image.LANCZOS)
     img.save(OUT / "wood_button.png")
+
+
+PW, PH = 360, 280
+PIN = 26
+
+
+def panel():
+    """Big board for the build menu (9-slice): straw tufts at the corners, four screws."""
+    w, h = PW * SS, PH * SS
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img, "RGBA")
+    i = PIN * SS
+    for (cx, cy, ang) in [(i + 14 * SS, i + 10 * SS, -2.4), (w - i - 14 * SS, i + 10 * SS, -0.75),
+                          (i + 14 * SS, h - i - 10 * SS, 2.4), (w - i - 14 * SS, h - i - 10 * SS, 0.75)]:
+        straw(d, cx, cy, ang, 0.85, 34, 44)
+    draw_board(img, i, w - 2 * i, h - 2 * i, all_corners=True, frame=14)
+    for (cx, cy, ang) in [(i + 4 * SS, i + 26 * SS, -2.9), (w - i - 4 * SS, h - i - 24 * SS, 0.3)]:
+        straw(ImageDraw.Draw(img, "RGBA"), cx, cy, ang, 0.4, 6, 30)
+    img.resize((PW, PH), Image.LANCZOS).save(OUT / "wood_panel.png")
 
 
 # ---------- icons: cream fill, dark brown outline, drawn at 4x ----------
@@ -280,6 +303,7 @@ def place(d, k):
 
 
 button()
+panel()
 for n, f in dict(barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place).items():
     icon(n, f)
 print("ok")
