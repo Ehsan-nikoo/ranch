@@ -25,6 +25,8 @@ var layout := [
 
 
 func _ready() -> void:
+	# CanvasLayers cut the window theme chain, so extend the default theme every Control falls back to
+	ThemeDB.get_default_theme().merge_with(UiTheme.make())
 	day.hour = float(_arg("hour", "17.2"))
 	add_child(day)
 	mask_img = (load(TEX + "ground_mask.png") as Texture2D).get_image()
@@ -59,6 +61,8 @@ func _ready() -> void:
 
 ## Test hook for renders: `--ghost=<catalog index>@x,z` opens placement there, `--place` confirms.
 func _test_build() -> void:
+	if _arg("menu", "") != "":
+		builder._toggle_menu()
 	var g := _arg("ghost", "")
 	if g == "":
 		return

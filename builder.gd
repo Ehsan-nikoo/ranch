@@ -44,28 +44,30 @@ func _ready() -> void:
 		bar.anchor_top = 1.0
 		bar.anchor_bottom = 1.0
 		bar.offset_left = 24
-		bar.offset_top = -100
-		bar.offset_bottom = -24
+		bar.offset_top = -122
+		bar.offset_bottom = -12
 		bar.add_theme_constant_override("separation", 12)
 		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(bar)
 
-	_menu.add_child(_button(_build_btn, "Build", _toggle_menu))
+	_menu.add_child(_button(_build_btn, "Build", _toggle_menu, "build"))
 	for i in CATALOG.size():
-		var b := _button(Button.new(), "%s  $%d" % [CATALOG[i][0], CATALOG[i][2]], choose.bind(i))
+		var n: String = CATALOG[i][0]
+		var b := _button(Button.new(), "%s  $%d" % [n, CATALOG[i][2]], choose.bind(i), n.to_lower())
 		b.visible = false
 		_items.append(b)
 		_menu.add_child(b)
-	_place_bar.add_child(_button(Button.new(), "Rotate", rotate_ghost))
-	_place_bar.add_child(_button(Button.new(), "Cancel", cancel))
-	_place_bar.add_child(_button(_place_btn, "Place", place))
+	_place_bar.add_child(_button(Button.new(), "Rotate", rotate_ghost, "rotate"))
+	_place_bar.add_child(_button(Button.new(), "Cancel", cancel, "cancel"))
+	_place_bar.add_child(_button(_place_btn, "Place", place, "place"))
 	_place_bar.visible = false
 	_refresh()
 
 
-func _button(b: Button, text: String, cb: Callable) -> Button:
+func _button(b: Button, text: String, cb: Callable, icon: String) -> Button:
 	b.text = text
-	b.custom_minimum_size = Vector2(170, 76)
+	b.icon = load("res://ui/icons/%s.png" % icon)
+	b.custom_minimum_size = Vector2(190, 104)
 	b.add_theme_font_size_override("font_size", 26)
 	b.pressed.connect(cb)
 	return b

@@ -30,11 +30,11 @@ func _ready() -> void:
 	_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	add_child(_label)
 	var row := HBoxContainer.new()
-	row.position = Vector2(24, 120)
+	row.position = Vector2(16, 92)
 	row.add_theme_constant_override("separation", 12)
 	add_child(row)
 	for b: Button in [_speed_btn, _quality_btn, _grass_btn]:
-		b.custom_minimum_size = Vector2(190, 64)
+		b.custom_minimum_size = Vector2(210, 88)
 		b.add_theme_font_size_override("font_size", 24)
 		row.add_child(b)
 	_speed_btn.pressed.connect(func(): _set_speed(_speed + 1))
