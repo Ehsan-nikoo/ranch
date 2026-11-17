@@ -330,14 +330,14 @@ func _straw() -> StandardMaterial3D:
 
 ## Plank fence round a rectangle of half sizes hx, hz centred at c, with a gap of `gap` metres
 ## in the middle of the +z side (0 = closed).
-func _pen(c: Vector3, hx: float, hz: float, rail: Material, gap := 0.0) -> void:
+func _pen(c: Vector3, hx: float, hz: float, rail: Material, gap := 0.0, h := 1.6) -> void:
 	var corners := [Vector3(-hx, 0, -hz), Vector3(hx, 0, -hz), Vector3(hx, 0, hz), Vector3(-hx, 0, hz)]
 	for i in 4:
 		var a: Vector3 = c + corners[i]
 		var b: Vector3 = c + corners[(i + 1) % 4]
 		var n := maxi(1, int(ceilf(a.distance_to(b) / 2.4)))
 		for k in n + 1:
-			_box(Vector3(0.18, 1.6, 0.18), a.lerp(b, k / float(n)) + Vector3(0, 0.8, 0), wood)
+			_box(Vector3(0.18, h, 0.18), a.lerp(b, k / float(n)) + Vector3(0, h * 0.5, 0), wood)
 		var segs := [[a, b]]
 		if i == 2 and gap > 0.0:  # +z side runs from +x to -x
 			var m := (a + b) * 0.5
@@ -346,5 +346,5 @@ func _pen(c: Vector3, hx: float, hz: float, rail: Material, gap := 0.0) -> void:
 			var p: Vector3 = sg[0]
 			var q: Vector3 = sg[1]
 			var yaw := atan2(q.x - p.x, q.z - p.z)
-			for h in [0.55, 1.05, 1.5]:
-				_box(Vector3(0.06, 0.2, p.distance_to(q) + 0.1), (p + q) * 0.5 + Vector3(0, h, 0), rail, Vector3(0, yaw, 0))
+			for f in [0.34, 0.66, 0.94]:
+				_box(Vector3(0.06, 0.2, p.distance_to(q) + 0.1), (p + q) * 0.5 + Vector3(0, h * f, 0), rail, Vector3(0, yaw, 0))
