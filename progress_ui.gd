@@ -58,6 +58,7 @@ func toggle() -> void:
 
 func _refresh() -> void:
 	builder.level = progress.level()
+	builder.era = progress.era()
 	builder._refresh()
 	if not _panel.visible:
 		return
@@ -76,6 +77,8 @@ func _refresh() -> void:
 	var text := "%s (سال %s) - قیمت گاو %s برابر" % [Progress.ERAS[e][1], UiTheme.fa(progress.year() + 1), UiTheme.fa_price(Progress.ERAS[e][2])]
 	if e + 1 < Progress.ERAS.size():
 		text += "\nاز سال %s: %s" % [UiTheme.fa(Progress.ERAS[e + 1][0] + 1), Progress.ERAS[e + 1][1]]
+	if e < 1:
+		text += " (ایستگاه قطار باز می‌شه)"
 	_era.text = text
 	var g := ["هدف‌های الان (%s از %s تا انجام شده):" % [UiTheme.fa(goals.done.size()), UiTheme.fa(Goals.LIST.size())]]
 	for o in goals.open():

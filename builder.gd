@@ -3,15 +3,24 @@
 class_name Builder
 extends CanvasLayer
 
-# label, building, cost, icon/picture name, what it does, reputation level needed (see Progress)
+# label, building, cost, icon/picture name, what it does, reputation level needed (see Progress),
+# era needed (1 = once the railroad has come)
 var CATALOG := [
 	["طویله", Barn, 3000, "barn", "جای گاوها تو شب‌های سرد زمستون. یونجه و ابزار رنچ هم اینجا نگه داشته می‌شه."],
 	["خونه", RanchHouse, 2500, "house", "کارگرها اینجا زندگی می‌کنن. هر خونه جای ۳ تا کارگر داره."],
-	["سیلو", Silo, 1500, "silo", "انبار یونجه برای زمستون، که گاوها تو سرما گرسنه نمونن."],
+	["سیلو", Silo, 1500, "silo", "انبار یونجه برای زمستون، که گاوها تو سرما گرسنه نمونن. جای ۶۰ بسته."],
 	["آسیاب بادی", Windmill, 800, "windmill", "با باد، آب رو از زیر زمین میاره بالا و آب‌خوری گاوها رو پر می‌کنه."],
+	["آبگیر", Pond, 1200, "pond", "برکه‌ی بزرگ برای آب خوردن گاوها. هیچ‌وقت خراب نمی‌شه و تو خشکسالی به دادت می‌رسه."],
+	["انبار یونجه", HayShed, 2200, "hay", "یه انبار بزرگ و سقف‌دار برای ۱۵۰ بسته یونجه. بهار ارزون بخر، زمستون راحت باش."],
+	["سگدونی", Kennel, 1500, "kennel", "سگ‌های گله کمک می‌کنن: خودت ۱۰ تا و هر کارگر ۵ تا گاو بیشتر. گرگ‌ها هم فرار می‌کنن."],
+	["برج دیده‌بانی", Watchtower, 2500, "tower", "از بالاش دزدها رو از دور می‌بینن. دزد کمتر گاو می‌بره و کلانتر راحت‌تر می‌گیرتشون.", 2],
 	["اصطبل اسب", HorseStable, 4000, "stable", "کابوی‌ها سوار اسب می‌شن و هر کدوم ۱۰ گاو بیشتر رو می‌چرخونن.", 2],
+	["آغل چاق‌کنی", Feedlot, 4500, "feedlot", "گاوهای فروشی ۳۰ درصد زودتر چاق می‌شن، ولی ۲۰ درصد بیشتر علف و یونجه می‌خورن.", 2],
+	["دامپزشکی", VetClinic, 3500, "vet", "دامپزشک تو رنچ می‌مونه: مریض‌ها زودتر خوب می‌شن و دامپزشک و واکسن نصف قیمته.", 2],
 	["آهنگری", Blacksmith, 5000, "smithy", "آهنگر آسیاب‌ها رو سالم نگه می‌داره و خرج هر گاو روزی ۳ دلار کمتر می‌شه.", 3],
+	["کافه", Saloon, 6000, "saloon", "همسایه‌ها و مسافرها میان اینجا. هر فصل پول میاره و رنچت رو معروف‌تر می‌کنه.", 3],
 	["میدون گاوسواری", RodeoArena, 9000, "rodeo", "هر فصل مسابقه‌ی گاوسواری راه می‌ندازی: پول بلیت میاد و رنچت معروف‌تر می‌شه.", 4],
+	["ایستگاه قطار", Station, 12000, "train", "گاوها با قطار می‌رن شهر: هر فروش ۱۰ درصد گرون‌تر و یه خریدار بیشتر.", 1, 1],
 ]
 
 var money := 6000
@@ -21,6 +30,7 @@ var land: Land
 var occupied: Array[Rect2] = []
 var on_placed: Callable  # (world footprint) -> void
 var level := 1           # reputation level, set by Progress
+var era := 0             # historical era, set by Progress
 
 var ghost: Building
 var _cost := 0
@@ -119,7 +129,7 @@ func _build_panel() -> void:
 		v.add_child(UiTheme.label(it[0], 32))
 		var desc := UiTheme.label(it[4], 21, Color(0.32, 0.18, 0.08))
 		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		desc.custom_minimum_size = Vector2(270, 104)
+		desc.custom_minimum_size = Vector2(270, 134)  # room for four lines, so the price buttons line up
 		desc.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		v.add_child(desc)
 		var b := _button(Button.new(), "%s دلار" % UiTheme.fa(it[2]), choose.bind(i), it[3])
@@ -157,9 +167,15 @@ func _refresh() -> void:
 	UiTheme.fit(_money.get_parent())  # plank fits the new number
 	for i in _items.size():
 		var need: int = CATALOG[i][5] if CATALOG[i].size() > 5 else 1
-		var short: bool = money < CATALOG[i][2] or level < need
+		var need_era: int = CATALOG[i][6] if CATALOG[i].size() > 6 else 0
+		var short: bool = money < CATALOG[i][2] or level < need or era < need_era
 		_items[i].disabled = short
-		_items[i].text = "%s دلار" % UiTheme.fa(CATALOG[i][2]) if level >= need else "وقتی «%s» بشی" % Progress.NAMES[need - 1]
+		if era < need_era:
+			_items[i].text = "وقتی راه‌آهن بیاد"
+		elif level < need:
+			_items[i].text = "وقتی «%s» بشی" % Progress.NAMES[need - 1]
+		else:
+			_items[i].text = "%s دلار" % UiTheme.fa(CATALOG[i][2])
 		_cards[i].modulate = Color(1, 1, 1, 0.55) if short else Color.WHITE
 
 

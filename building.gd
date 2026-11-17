@@ -58,6 +58,11 @@ func _init() -> void:
 	water = _mats.water
 
 
+## True when a finished building of `kind` stands on the ranch (a ghost being placed doesn't count).
+static func built(world: Node, kind: Script) -> bool:
+	return world.get_children().any(func(n): return n.get_script() == kind and not n.has_node("Marker"))
+
+
 ## Ground area the building occupies, in its own x/z. Subclasses override.
 func _foot() -> Rect2:
 	return Rect2(-2, -2, 4, 4)
@@ -269,3 +274,77 @@ func _window(at: Vector3, n: Vector3, frame: Material = null, shutter: Material 
 	if shutter:
 		for s in [-1.0, 1.0]:
 			_box(Vector3(0.42, 1.15, 0.05), at + n * 0.06 + side * s * 0.74, shutter, rot)
+
+
+## Walls and a gable roof over a w x d (half sizes) box, ridge along x; gable ends face +-x.
+func _gabled(w: float, d: float, eave_h: float, ridge: float, over: float, wall: StandardMaterial3D, lap := false) -> void:
+	eave = eave_h
+	var st := _st()
+	var t: float = wall.get_meta("tile")
+	for s in [-1.0, 1.0]:
+		_wall(st, Vector3(-w * s, 0, d * s), Vector3(w * s, 0, d * s), eave_h, Vector3(0, 0, s), t, true, lap)
+		var x: float = w * s
+		_wall(st, Vector3(x, 0, d * s), Vector3(x, 0, -d * s), eave_h, Vector3(s, 0, 0), t, false, lap)
+		_poly(st, [Vector3(x, eave_h, -d), Vector3(x, eave_h, d), Vector3(x, ridge, 0)], Vector3(s, 0, 0), Vector3.DOWN, Vector3.BACK, t)
+	_commit(st, wall)
+	_roof_over(w, d, eave_h, ridge, over)
+
+
+## Just the roof sheets and ridge cap of a gable roof (for open sheds too).
+func _roof_over(w: float, d: float, eave_h: float, ridge: float, over: float) -> void:
+	var st := _st()
+	var along := Vector3(w + over, 0, 0)
+	var top := Vector3(0, ridge, 0)
+	for s in [-1.0, 1.0]:
+		var e := Vector3(0, eave_h, d * s)
+		e += (e - top).normalized() * over
+		_slab(st, top, e, along, roof.get_meta("tile"))
+	_commit(st, roof)
+	_box(Vector3(along.x * 2, 0.12, 0.36), Vector3(0, ridge + THICK + 0.02, 0), roof)
+
+
+## Bare packed dirt (pens, rings), shared.
+static var _mud_mat: StandardMaterial3D
+
+
+func _mud() -> StandardMaterial3D:
+	if _mud_mat == null:
+		_mud_mat = StandardMaterial3D.new()
+		_mud_mat.albedo_texture = load(TEX + "dirt_diff.jpg")
+		_mud_mat.uv1_triplanar = true
+		_mud_mat.uv1_scale = Vector3(0.25, 0.25, 0.25)
+		_mud_mat.albedo_color = Color(0.8, 0.68, 0.52)
+		_mud_mat.roughness = 1.0
+	return _mud_mat
+
+
+## Straw colour for bales and feed.
+static var _hay_mat: StandardMaterial3D
+
+
+func _straw() -> StandardMaterial3D:
+	if _hay_mat == null:
+		_hay_mat = _plain(Color(0.78, 0.64, 0.34), 1.0)
+	return _hay_mat
+
+
+## Plank fence round a rectangle of half sizes hx, hz centred at c, with a gap of `gap` metres
+## in the middle of the +z side (0 = closed).
+func _pen(c: Vector3, hx: float, hz: float, rail: Material, gap := 0.0) -> void:
+	var corners := [Vector3(-hx, 0, -hz), Vector3(hx, 0, -hz), Vector3(hx, 0, hz), Vector3(-hx, 0, hz)]
+	for i in 4:
+		var a: Vector3 = c + corners[i]
+		var b: Vector3 = c + corners[(i + 1) % 4]
+		var n := maxi(1, int(ceilf(a.distance_to(b) / 2.4)))
+		for k in n + 1:
+			_box(Vector3(0.18, 1.6, 0.18), a.lerp(b, k / float(n)) + Vector3(0, 0.8, 0), wood)
+		var segs := [[a, b]]
+		if i == 2 and gap > 0.0:  # +z side runs from +x to -x
+			var m := (a + b) * 0.5
+			segs = [[a, m + Vector3(gap * 0.5, 0, 0)], [m - Vector3(gap * 0.5, 0, 0), b]]
+		for sg in segs:
+			var p: Vector3 = sg[0]
+			var q: Vector3 = sg[1]
+			var yaw := atan2(q.x - p.x, q.z - p.z)
+			for h in [0.55, 1.05, 1.5]:
+				_box(Vector3(0.06, 0.2, p.distance_to(q) + 0.1), (p + q) * 0.5 + Vector3(0, h, 0), rail, Vector3(0, yaw, 0))

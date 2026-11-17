@@ -26,6 +26,7 @@ var era_mul := 1.0         # set by Progress: the railroad and the cities lift p
 var max_offers := 2
 var premium := 1.0
 var upkeep_cut := 0        # the blacksmith keeps fences and tools mended
+var sale_bonus := 1.0      # the railroad station: cattle go to the city by train and fetch more
 var drift := 1.0
 var price := 1.6
 var history: Array = []    # per-kg price, oldest first
@@ -40,6 +41,11 @@ func _ready() -> void:
 		for i in HISTORY:
 			_reprice()
 		_offer()
+
+
+## What a kilo actually fetches when you sell: today's price, plus the train's bonus.
+func sale_price() -> float:
+	return price * sale_bonus
 
 
 func upkeep() -> int:
@@ -105,7 +111,7 @@ func _offer() -> bool:
 		count = _rng.randi_range(3, 8),
 		min_kg = [500, 525, 550][_rng.randi_range(0, 2)],  # past 550 growth tapers hard (Herd.MAX_KG)
 		# premium over the year-round average, so a contract made in cheap autumn is still worth it in winter
-		per_kg = snappedf(1.64 * drift * era_mul * premium * _rng.randf_range(1.12, 1.3), 0.01),
+		per_kg = snappedf(1.64 * drift * era_mul * premium * sale_bonus * _rng.randf_range(1.12, 1.3), 0.01),
 		due = (day.day / dps + 2) * dps - 1,  # last day of next season
 		until = day.day + 2,                  # the offer itself stands for two days
 	})
@@ -141,7 +147,7 @@ func deliver(c: Dictionary) -> void:
 ## Sell every cow at sale weight at today's price; returns [count, cash].
 func sell_ready() -> Array:
 	var n := herd.ready_count()
-	var cash := int(herd.sell(n, Herd.READY_KG) * price)
+	var cash := int(herd.sell(n, Herd.READY_KG) * sale_price())
 	builder.add_money(cash)
 	if n > 0:
 		sold.emit(cash, false)

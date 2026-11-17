@@ -89,8 +89,17 @@ func keep_heifer() -> void:
 	_refresh()
 
 
+## The vet's place on the ranch halves the bill.
+static func cut(world: Node) -> float:
+	return 0.5 if Building.built(world, VetClinic) else 1.0
+
+
+static func vaccine(world: Node) -> int:
+	return int(VACCINE * cut(world))
+
+
 func _vet_cost() -> int:
-	return VET_CALL + VET_PER_COW * herd.sick_count()
+	return int((VET_CALL + VET_PER_COW * herd.sick_count()) * cut(herd.world))
 
 
 func call_vet() -> void:
@@ -103,7 +112,7 @@ func call_vet() -> void:
 
 
 func vaccinate() -> void:
-	var cost := VACCINE * herd.unvaccinated().size()
+	var cost := vaccine(herd.world) * herd.unvaccinated().size()
 	if cost == 0 or builder.money < cost:
 		return
 	builder.add_money(-cost)
@@ -140,8 +149,8 @@ func _refresh() -> void:
 	_keep.disabled = keepable == 0
 	_vet.text = "دامپزشک  %s دلار" % UiTheme.fa(_vet_cost()) if sick > 0 else "دامپزشک (کسی مریض نیست)"
 	_vet.disabled = sick == 0 or builder.money < _vet_cost()
-	_vaccine.text = "واکسن %s گاو  %s دلار" % [UiTheme.fa(unvacc), UiTheme.fa(VACCINE * unvacc)] if unvacc > 0 else "همه واکسن زدن"
-	_vaccine.disabled = unvacc == 0 or builder.money < VACCINE * unvacc
+	_vaccine.text = "واکسن %s گاو  %s دلار" % [UiTheme.fa(unvacc), UiTheme.fa(vaccine(herd.world) * unvacc)] if unvacc > 0 else "همه واکسن زدن"
+	_vaccine.disabled = unvacc == 0 or builder.money < vaccine(herd.world) * unvacc
 
 
 func _process(delta: float) -> void:

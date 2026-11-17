@@ -5,7 +5,11 @@ extends Node
 
 # file name, building, camera distance, aim height
 var LIST := [["barn", Barn, 40.0, 3.5], ["house", RanchHouse, 26.0, 2.0], ["silo", Silo, 34.0, 6.5], ["windmill", Windmill, 29.0, 5.0], ["cow", null, 7.5, 0.8],
-	["stable", HorseStable, 36.0, 2.2], ["smithy", Blacksmith, 28.0, 2.2], ["rodeo", RodeoArena, 44.0, 1.0]]
+	["stable", HorseStable, 36.0, 2.2], ["smithy", Blacksmith, 28.0, 2.2], ["rodeo", RodeoArena, 44.0, 1.0],
+	["pond", Pond, 22.0, 0.0], ["hay", HayShed, 34.0, 2.5], ["kennel", Kennel, 20.0, 0.6], ["tower", Watchtower, 26.0, 4.5],
+	["feedlot", Feedlot, 32.0, 1.0], ["vet", VetClinic, 26.0, 2.0], ["saloon", Saloon, 30.0, 3.0], ["train", Station, 46.0, 2.0]]
+# --only=a,b renders just those
+var ONLY := []
 
 
 func _ready() -> void:
@@ -41,7 +45,12 @@ func _ready() -> void:
 	dirt.uv1_triplanar = true
 
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://ui/thumbs"))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--only="):
+			ONLY = Array(arg.get_slice("=", 1).split(","))
 	for item in LIST:
+		if not ONLY.is_empty() and not item[0] in ONLY:
+			continue
 		var b: Node3D
 		var f := Rect2(-1.2, -1.2, 2.4, 2.4)
 		if item[1] == null:  # the cow: same mesh and shader as the herd, standing still

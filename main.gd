@@ -86,6 +86,10 @@ func _ready() -> void:
 	add_child(land)
 	_ground()
 	builder.occupied.append(CORRAL)
+	if _arg("extras", "") != "":  # test: the newer buildings already standing
+		layout.append_array([[Pond, Vector3(38, 0, -16), 0.0], [HayShed, Vector3(-30, 0, -32), 0.0], [Kennel, Vector3(-40, 0, -10), 0.0],
+			[Watchtower, Vector3(40, 0, 8), 0.0], [Feedlot, Vector3(34, 0, 36), 0.0], [VetClinic, Vector3(-38, 0, 10), 90.0],
+			[Saloon, Vector3(-30, 0, 34), 0.0], [Station, Vector3(14, 0, -40), 180.0]])
 	for b in layout:
 		var node: Building = b[0].new()
 		node.position = b[1]
@@ -136,6 +140,7 @@ func _ready() -> void:
 	builder.world = self
 	builder.on_placed = func(r: Rect2):
 		_clear_grass(r)
+		progress._apply()  # a new building may bring its perk right away
 		_save()
 	add_child(builder)
 	market.day = day
@@ -363,6 +368,11 @@ func _debug_herd() -> void:
 func _test_build() -> void:
 	if _arg("menu", "") != "":
 		builder._toggle_menu()
+		var back := int(_arg("menu", ""))  # test: --menu=<pixels> scrolls the cards that far left of the start
+		if back > 1:
+			for i in 3:
+				await get_tree().process_frame
+			builder._scroll.scroll_horizontal = int(builder._scroll.get_h_scroll_bar().max_value) - back
 	var g := _arg("ghost", "")
 	if g == "":
 		return
@@ -434,6 +444,12 @@ func _shot(shot: String) -> void:
 			rig.target = Vector3(18, 2, -3)
 			rig.dist = 17.0
 			rig.yaw = 0.3
+	var look := _arg("look", "")  # test: --look=x,z,dist,yaw
+	if look != "":
+		var v := look.split(",")
+		rig.target = Vector3(float(v[0]), 0, float(v[1]))
+		rig.dist = float(v[2])
+		rig.yaw = float(v[3])
 	rig.snap()
 
 

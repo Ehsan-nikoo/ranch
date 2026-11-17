@@ -56,11 +56,14 @@ var thirst_mul := 1.0
 var cold_mul := 1.0
 var sick_mul := 1.0
 var cure_mul := 1.0
+var gain_mul := 1.0       # the fattening pen: sale cattle put on weight faster...
+var appetite_mul := 1.0   # ...and eat more
 
 var _mm := MultiMesh.new()
 var _buf := PackedFloat32Array()
 var _rects: Array[Rect2] = []
 var _tanks: Array[Vector3] = []
+var _tank_r: Array[float] = []        # radius of each water: windmill tank or pond
 var _feeders: Array[Vector3] = []
 var _scan := 0.0
 var _tex_t := 0.0
@@ -248,8 +251,8 @@ func _blocked(p: Vector3) -> bool:
 	for r in _rects:
 		if r.has_point(q):
 			return true
-	for t in _tanks:
-		if Vector2(t.x, t.z).distance_to(q) < Windmill.TANK_R + 0.6:
+	for i in _tanks.size():
+		if Vector2(_tanks[i].x, _tanks[i].z).distance_to(q) < _tank_r[i] + 0.6:
 			return true
 	return false
 
@@ -258,6 +261,7 @@ func _blocked(p: Vector3) -> bool:
 func _rescan() -> void:
 	_rects = extra_blocked.duplicate()
 	_tanks.clear()
+	_tank_r.clear()
 	_feeders.clear()
 	hay_cap = 0
 	shelter = 0
@@ -272,6 +276,10 @@ func _rescan() -> void:
 			_rects.append(n.world_footprint(Rect2(-1.6, -1.6, 3.2, 3.2)))  # tower only, tank is a circle
 			if not n.broken:
 				_tanks.append(n.to_global(Windmill.TANK))
+				_tank_r.append(Windmill.TANK_R)
+		elif n is Pond:  # round water, no fence: cows walk right up to the rim
+			_tanks.append(n.global_position)
+			_tank_r.append(Pond.R)
 		else:
 			_rects.append(n.world_footprint().grow(0.4))
 	hay = minf(hay, hay_cap)
@@ -349,13 +357,14 @@ func _process(delta: float) -> void:
 
 
 func _needs(c: Dictionary, hours: float, cold: float) -> void:
-	c.hunger = minf(1.0, c.hunger + hours / (13.0 if c.preg > 0.0 else 16.0))  # eating for two
+	var fat: bool = c.kind == FEEDER  # the fattening pen feeds the sale cattle
+	c.hunger = minf(1.0, c.hunger + hours / (13.0 if c.preg > 0.0 else 16.0) * (appetite_mul if fat else 1.0))  # eating for two
 	c.thirst = minf(1.0, c.thirst + hours / 18.0 * thirst_mul)
 	if c.sick >= 0.0:
 		c.weight -= 2.5 * hours  # off its feed: no gain while sick
 	elif c.hunger < 0.7 and c.thirst < 0.7:
 		var taper := 1.0 if c.weight < READY_KG else clampf((MAX_KG - c.weight) / (MAX_KG - READY_KG), 0.0, 1.0) ** 2
-		c.weight = minf(c.weight + GAIN * hours * (1.0 - c.hunger) * (1.0 - c.thirst) * taper, MAX_KG)
+		c.weight = minf(c.weight + GAIN * (gain_mul if fat else 1.0) * hours * (1.0 - c.hunger) * (1.0 - c.thirst) * taper, MAX_KG)
 	elif c.hunger > 0.85 or c.thirst > 0.85:
 		c.weight -= 4.0 * hours
 	c.weight -= cold * hours
@@ -407,9 +416,10 @@ func _decide(c: Dictionary) -> void:
 	var winter := day.season() == DayCycle.WINTER
 	if c.thirst > 0.55 and not _tanks.is_empty():
 		var t := _nearest(_tanks, c.pos)
+		var r := _tank_r[_tanks.find(t)]
 		for k in 16:  # a free spot on the rim of the tank (the tower side is taken by its footings)
 			var a := _rng.randf() * TAU
-			c.target = t + Vector3(cos(a), 0, sin(a)) * (Windmill.TANK_R + 0.9)
+			c.target = t + Vector3(cos(a), 0, sin(a)) * (r + 0.9)
 			if not _blocked(c.target):
 				break
 		c.look = t

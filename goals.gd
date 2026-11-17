@@ -11,22 +11,31 @@ const LIST := [
 	["sell1", "اولین بار گاوهای آماده رو بفروش", "sales", 1, 300, 5],
 	["hay", "انبار یونجه رو برسون به %s بسته", "hay", 60, 300, 5],
 	["hand1", "یه کارگر بیار سر کار", "hands", 1, 300, 5],
+	["pond", "یه آبگیر بساز", "pond", 1, 400, 5],
 	["calf1", "صبر کن اولین گوساله‌ت به دنیا بیاد", "births", 1, 500, 10],
 	["deal3", "%s تا قرارداد رو به موقع تحویل بده", "deals", 3, 1000, 15],
 	["herd25", "گله‌ت رو برسون به %s تا گاو", "herd", 25, 1000, 10],
 	["land1", "یه تیکه زمین تازه بخر", "land", 1, 1000, 10],
+	["kennel", "سگدونی بساز", "kennel", 1, 500, 5],
 	["stable", "اصطبل اسب بساز", "stable", 1, 800, 10],
+	["tower", "برج دیده‌بانی بساز", "tower", 1, 800, 10],
+	["feedlot", "آغل چاق‌کنی بساز", "feedlot", 1, 1200, 10],
 	["sell10", "%s بار گاو بفروش", "sales", 10, 1500, 15],
 	["hand3", "%s تا کارگر داشته باش", "hands", 3, 1000, 10],
 	["herd50", "گله‌ت رو برسون به %s تا گاو", "herd", 50, 2500, 20],
 	["deal10", "%s تا قرارداد رو به موقع تحویل بده", "deals", 10, 3000, 25],
 	["calf20", "%s تا گوساله تو رنچت به دنیا بیاد", "births", 20, 2500, 20],
+	["clinic", "دامپزشکی بساز", "clinic", 1, 1000, 10],
 	["rodeo", "میدون گاوسواری بساز", "rodeo", 1, 2000, 20],
+	["cafe", "کافه بساز", "cafe", 1, 1500, 15],
+	["station", "ایستگاه قطار بساز", "station", 1, 3000, 25],
 	["cash50", "%s دلار پول جمع کن", "money", 50000, 0, 50],
 	["herd100", "گله‌ت رو برسون به %s تا گاو", "herd", 100, 6000, 40],
 	["land4", "%s تیکه زمین تازه داشته باش", "land", 4, 5000, 30],
 ]
 const OPEN := 3
+var BUILT := {stable = HorseStable, rodeo = RodeoArena, pond = Pond, kennel = Kennel, tower = Watchtower,
+	feedlot = Feedlot, clinic = VetClinic, cafe = Saloon, station = Station}  # "build one" goals
 
 var herd: Herd
 var market: Market
@@ -59,12 +68,10 @@ func value(kind: String) -> int:
 			return workers.hired.size()
 		"land":
 			return land.owned.count(1) - 4   # the middle four come with the ranch
-		"stable":
-			return 1 if progress.has(HorseStable) else 0
-		"rodeo":
-			return 1 if progress.has(RodeoArena) else 0
 		"money":
 			return builder.money
+	if BUILT.has(kind):
+		return 1 if progress.has(BUILT[kind]) else 0
 	return count.get(kind, 0)
 
 

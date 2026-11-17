@@ -21,6 +21,8 @@ const NAMES := ["جیک", "هنک", "بیل", "وایت", "کالب", "دیزی"
 const OWNER_COWS := 10     # you look after this many yourself
 const COWS_PER_HAND := 20  # each hand; a herder handles more
 const BUNKS := 3           # hands per ranch house
+const DOG_COWS := 10       # the kennel's dogs: this many more cows for you to look after...
+const DOG_COWS_HAND := 5   # ...and this many more for each hand
 
 var day: DayCycle
 var herd: Herd
@@ -70,9 +72,10 @@ func best(skill: int) -> int:
 
 ## Cows the owner and the hands can look after.
 func capacity() -> int:
-	var c := OWNER_COWS
+	var dogs := Building.built(world, Kennel)
+	var c := OWNER_COWS + (DOG_COWS if dogs else 0)
 	for w in hired:
-		c += COWS_PER_HAND + (10 * w.level if w.skill == HERDER else 0) + (10 if mounted() else 0)
+		c += COWS_PER_HAND + (10 * w.level if w.skill == HERDER else 0) + (10 if mounted() else 0) + (DOG_COWS_HAND if dogs else 0)
 	return c
 
 
@@ -103,7 +106,7 @@ func _apply() -> void:
 	var over := maxf(0.0, float(n) / capacity() - 1.0)
 	var h := best(HERDER)
 	herd.sick_mul = (1.0 + over * 2.0) * (1.0 - 0.2 * h)
-	herd.cure_mul = 1.0 + h
+	herd.cure_mul = 1.0 + h + (2.0 if Building.built(world, VetClinic) else 0.0)
 
 
 func new_day(d: int) -> void:

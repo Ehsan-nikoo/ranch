@@ -57,7 +57,7 @@ func active(name: String) -> bool:
 
 func _process(_delta: float) -> void:
 	herd.growth_mul = 0.15 if active("drought") else 1.0
-	herd.thirst_mul = 1.6 if active("drought_dry") else 1.0
+	herd.thirst_mul = (1.15 if Building.built(world, Pond) else 1.6) if active("drought_dry") else 1.0  # a pond holds water longer
 	herd.cold_mul = 3.0 if active("blizzard") else 1.0
 	if effects.has("windmill") and not active("windmill"):
 		effects.erase("windmill")
@@ -170,7 +170,9 @@ func _wolves() -> void:
 
 
 func _resolve_wolves() -> void:
-	if _rng.randf() < 0.65:
+	if Building.built(world, Kennel) and _rng.randf() < 0.65:
+		notify.call("دیشب گرگ‌ها اومدن، ولی سگ‌ها انقدر پارس کردن که فرار کردن")
+	elif _rng.randf() < 0.65:
 		var n := herd.take(_rng.randi_range(1, 2), true)
 		notify.call("گرگ‌ها دیشب %s تا از گله رو بردن" % UiTheme.fa(n))
 	else:
@@ -189,7 +191,9 @@ func _rustlers() -> void:
 
 
 func _resolve_rustlers() -> void:
-	if _rng.randf() < 0.7:
+	if Building.built(world, Watchtower) and _rng.randf() < 0.6:
+		notify.call("دیشب از بالای برج دیده‌بانی دزدها رو از دور دیدن و دزدها پا به فرار گذاشتن")
+	elif _rng.randf() < 0.7:
 		var n := herd.take(_rng.randi_range(2, 4), false)
 		notify.call("دزدها دیشب %s تا از گاوهای چاق رو بردن" % UiTheme.fa(n))
 	else:
@@ -197,7 +201,7 @@ func _resolve_rustlers() -> void:
 
 
 func _resolve_sheriff() -> void:
-	if _rng.randf() < 0.5:
+	if _rng.randf() < (0.8 if Building.built(world, Watchtower) else 0.5):  # the tower tells the sheriff where they are
 		builder.add_money(150)
 		notify.call("کلانتر دزدها رو گرفت و ۱۵۰ دلار جایزه گرفتی")
 	else:
@@ -210,7 +214,7 @@ func _outbreak() -> void:
 		notify.call("تو رنچ‌های همسایه مریضی اومده؛ گاوهای تو واکسن زدن و چیزیشون نمی‌شه")
 		return
 	_ask("مریضی تو همسایه‌ها", "گاوهای رنچ‌های همسایه تب کردن و داره پخش می‌شه. %s تا از گاوهای تو واکسن نزدن و ممکنه بگیرن." % UiTheme.fa(n), [
-		["همین الان واکسن بزن", BreedUI.VACCINE * n, "vaccine", func(): notify.call("%s تا گاو واکسن زدن" % UiTheme.fa(herd.vaccinate()))],
+		["همین الان واکسن بزن", BreedUI.vaccine(world) * n, "vaccine", func(): notify.call("%s تا گاو واکسن زدن" % UiTheme.fa(herd.vaccinate()))],
 		["ریسک کن", 0, "cancel", func():
 			var sick := herd.outbreak(0.35)
 			notify.call("%s تا گاو مریض شدن؛ دامپزشک رو صدا کن" % UiTheme.fa(sick) if sick > 0 else "مریضی به گله‌ی تو نرسید")],

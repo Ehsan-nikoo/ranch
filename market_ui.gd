@@ -109,6 +109,8 @@ func _refresh() -> void:
 	var arrow: String = ["  ↓ داره ارزون می‌شه", "  ثابت", "  ↑ داره گرون می‌شه"][market.trend() + 1]
 	_price.text = "هر کیلو %s دلار%s" % [UiTheme.fa_price(market.price), arrow]
 	_calf.text = "قیمت گوساله امروز:  %s دلار" % UiTheme.fa(market.calf_price())
+	if market.sale_bonus > 1.0:
+		_calf.text += "\nبا قطار گاوهات %s درصد گرون‌تر فروش می‌رن" % UiTheme.fa(roundi(market.sale_bonus * 100.0 - 100.0))
 	_chart.data = market.history
 	_chart.queue_redraw()
 	for c in _list.get_children():

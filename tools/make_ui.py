@@ -404,8 +404,67 @@ def rodeo(d, k):  # lasso: a loop of rope with a trailing end
     d.ellipse([k(10), k(30), k(20), k(40)], fill=(150, 50, 35, 255), outline=INK, width=k(2))
 
 
+def pond(d, k):  # water drop over ripples
+    d.ellipse([k(6), k(42), k(58), k(60)], fill=CREAM, outline=INK, width=k(3))
+    d.ellipse([k(18), k(47), k(46), k(55)], outline=INK, width=k(2))
+    shape(d, [(32, 4), (44, 24), (46, 32), (40, 40), (32, 42), (24, 40), (18, 32), (20, 24)], k)
+    d.polygon([(k(32), k(10)), (k(40), k(25)), (k(41), k(32)), (k(36), k(37)), (k(32), k(38)), (k(26), k(35)), (k(23), k(30)), (k(25), k(24))], fill=(90, 150, 190, 255))
+
+
+def kennel(d, k):  # doghouse with a round door
+    shape(d, [(12, 58), (12, 30), (52, 30), (52, 58)], k)
+    shape(d, [(4, 32), (32, 8), (60, 32), (54, 36), (32, 16), (10, 36)], k)
+    d.polygon([(k(12), k(30)), (k(32), k(14)), (k(52), k(30))], fill=(150, 50, 35, 255), outline=INK)
+    d.pieslice([k(22), k(36), k(42), k(60)], 180, 360, fill=INK)
+    d.rectangle([k(22), k(48), k(42), k(58)], fill=INK)
+
+
+def tower(d, k):  # lookout tower with a pointed roof
+    d.line([k(18), k(60), k(25), k(28)], fill=INK, width=k(4))
+    d.line([k(46), k(60), k(39), k(28)], fill=INK, width=k(4))
+    for y in (38, 50):
+        d.line([k(22), k(y + 5), k(42), k(y - 5)], fill=INK, width=k(2))
+        d.line([k(42), k(y + 5), k(22), k(y - 5)], fill=INK, width=k(2))
+    shape(d, [(18, 22), (46, 22), (46, 30), (18, 30)], k)
+    d.line([k(21), k(22), k(21), k(13)], fill=INK, width=k(3))
+    d.line([k(43), k(22), k(43), k(13)], fill=INK, width=k(3))
+    shape(d, [(12, 15), (32, 3), (52, 15)], k)
+    d.rectangle([k(29), k(16), k(35), k(21)], fill=(230, 170, 60, 255))
+
+
+def feedlot(d, k):  # feed trough heaped with hay, on legs
+    for x in (12, 48):
+        d.line([k(x), k(44), k(x - 2), k(60)], fill=INK, width=k(4))
+        d.line([k(x + 4), k(44), k(x + 6), k(60)], fill=INK, width=k(4))
+    d.pieslice([k(12), k(8), k(52), k(48)], 180, 360, fill=(220, 180, 80, 255), outline=INK, width=k(2))
+    for x in (20, 28, 36, 44):
+        d.line([k(x), k(28), k(x - 3), k(18)], fill=INK, width=k(1))
+    shape(d, [(4, 28), (60, 28), (54, 46), (10, 46)], k)
+    d.line([k(8), k(37), k(56), k(37)], fill=INK, width=k(2))
+
+
+def saloon(d, k):  # coffee pot
+    shape(d, [(18, 58), (14, 28), (20, 18), (44, 18), (50, 28), (46, 58)], k)
+    shape(d, [(26, 18), (24, 10), (40, 10), (38, 18)], k)
+    d.ellipse([k(29), k(3), k(35), k(9)], fill=CREAM, outline=INK, width=k(2))
+    d.arc([k(42), k(24), k(62), k(48)], 280, 80, fill=INK, width=k(4))  # handle
+    shape(d, [(16, 30), (4, 22), (4, 27), (14, 36)], k)  # spout
+    d.rectangle([k(16), k(36), k(48), k(42)], fill=(150, 50, 35, 255))
+
+
+def train(d, k):  # steam engine
+    shape(d, [(30, 20), (56, 20), (56, 48), (30, 48)], k)  # cab
+    d.rectangle([k(36), k(25), k(50), k(34)], fill=INK)
+    shape(d, [(6, 30), (32, 30), (32, 48), (6, 48)], k)  # boiler
+    shape(d, [(10, 30), (10, 14), (18, 14), (18, 30)], k)  # stack
+    shape(d, [(7, 14), (21, 14), (19, 9), (9, 9)], k)
+    shape(d, [(2, 48), (8, 40), (8, 48)], k)  # cowcatcher
+    for x, r in ((14, 6), (28, 6), (46, 8)):
+        d.ellipse([k(x - r), k(54 - r), k(x + r), k(54 + r)], fill=(150, 50, 35, 255), outline=INK, width=k(3))
+
+
 button()
 panel()
-for n, f in dict(land=land, market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place, vet=vet, vaccine=vaccine, worker=worker, star=star, stable=stable, smithy=smithy, rodeo=rodeo).items():
+for n, f in dict(land=land, market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place, vet=vet, vaccine=vaccine, worker=worker, star=star, stable=stable, smithy=smithy, rodeo=rodeo, pond=pond, kennel=kennel, tower=tower, feedlot=feedlot, saloon=saloon, train=train).items():
     icon(n, f)
 print("ok")

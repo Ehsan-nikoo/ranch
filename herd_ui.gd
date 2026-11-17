@@ -73,7 +73,6 @@ func _ready() -> void:
 	hay_btns.add_child(_buy_hay)
 	hay_btns.add_child(_cut)
 	# CC-BY 4.0 requires crediting the cow model's author
-	col.add_child(UiTheme.label("مدل گاو: «Farm Cow Animated Dairy cattle» ساخته‌ی Rukh3D، با مجوز CC-BY 4.0", 17, Color(0.36, 0.22, 0.1)))
 
 	_toast_box = UiTheme.plank(25, Control.PRESET_CENTER_TOP)  # below the top button row
 	_toast_box.offset_top = 200
@@ -191,7 +190,7 @@ func _refresh() -> void:
 	_cut.text = "چیدن %s بسته یونجه  %s" % [UiTheme.fa(_harvest_lot()), "%s دلار" % UiTheme.fa(_harvest_cost()) if _harvest_cost() > 0 else "(کارگر مزرعه)"]
 	_buy_hay.text = "خرید %s بسته یونجه  %s دلار" % [UiTheme.fa(HAY_LOT), UiTheme.fa(price)]
 	_buy_hay.disabled = builder.money < price or _hay_space() < HAY_LOT
-	_sell.text = "فروش گاوهای آماده  %s دلار" % UiTheme.fa(int(ready_kg * market.price))
+	_sell.text = "فروش گاوهای آماده  %s دلار" % UiTheme.fa(int(ready_kg * market.sale_price()))
 	_buy.text = "خرید گوساله  %s دلار" % UiTheme.fa(market.calf_price())
 	_sell.disabled = ready == 0
 	_buy.disabled = builder.money < market.calf_price() or n + delivery.pending_animals() >= Herd.MAX_COWS
