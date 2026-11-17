@@ -25,7 +25,6 @@ var progress_ui := ProgressUI.new()
 var goals := Goals.new()
 var legacy := Legacy.new()
 var tutorial: Tutorial
-var _fresh := false               # starting over: don't save the old ranch on the way out
 var delivery := Delivery.new()
 var land := Land.new()
 var fence_mat := _fence_mat()
@@ -228,8 +227,7 @@ func _ready() -> void:
 	legacy.builder = builder
 	legacy.progress = progress
 	legacy.goals = goals
-	legacy.events = events
-	legacy.restart = restart
+	legacy.notify = herd_ui.notify
 	if not saved.is_empty() and saved.has("legacy"):
 		legacy.from_save(saved.legacy)
 	add_child(legacy)
@@ -260,7 +258,7 @@ func _ready() -> void:
 		progress_ui.toggle()
 	if _arg("workers", "") != "":
 		workers_ui.toggle()
-	if _arg("legacy", "") == "end":  # test: the ending board
+	if _arg("legacy", "") == "end":  # test: the ending notice
 		legacy._ending()
 	elif _arg("legacy", "") != "":  # test: `--legacy=1` the handover to generation 2
 		var e := int(_arg("legacy", ""))
@@ -475,15 +473,8 @@ func _notification(what: int) -> void:
 		_save()  # phone apps get killed in the background without warning
 
 
-## Ends this ranch for good and starts a new one from scratch.
-func restart() -> void:
-	_fresh = true
-	SaveGame.erase()
-	get_tree().reload_current_scene()
-
-
 func _save() -> void:
-	if not is_node_ready() or _fresh:
+	if not is_node_ready():
 		return
 	var buildings := []
 	for n in get_children():

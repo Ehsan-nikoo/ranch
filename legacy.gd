@@ -1,6 +1,6 @@
-## Three generations: when a new era begins (Progress.ERAS) the ranch passes to the children, with a
-## board that sums up how the last generation did; after the third the story ends with a final score
-## and a title for the family. You can keep playing past the end or start a new ranch.
+## Three generations: when a new era begins (Progress.ERAS) the ranch passes to the children and a
+## notice sums up how the last generation did; after the third a notice gives the family's final score
+## and title. Only notices: the game never stops, the player just keeps going.
 class_name Legacy
 extends Node
 
@@ -18,8 +18,7 @@ var market: Market
 var builder: Builder
 var progress: Progress
 var goals: Goals
-var events: Events
-var restart: Callable
+var notify: Callable
 var seen: Array = []           # era indices whose board was shown, and "end"
 var start := {money = 6000, herd = 8, rep = 0.0}   # where this generation began
 
@@ -76,21 +75,14 @@ func new_day(d: int) -> void:
 	var e := progress.era()
 	if e > 0 and y == Progress.ERAS[e][0] and not e in seen:
 		seen.append(e)
-		events._ask(Progress.ERAS[e][1], "%s\n%s\n\n%s" % [HANDOVER[e], Progress.ERAS[e][3], _summary()],
-			[["بریم که داشته باشیم", 0, "star", func(): pass]])
+		notify.call("%s\n%s\n%s\n%s" % [Progress.ERAS[e][1], HANDOVER[e], Progress.ERAS[e][3], _summary()])
 		_snapshot()
 
 
 func _ending() -> void:
 	var s := score()
-	var text := "سه نسل گذشت و داستان رنچ شما به آخرش رسید.\n%s\n\nپول: %s دلار    گله: %s تا گاو (ارزشش %s دلار)\nشهرت: %s    هدف‌های انجام‌شده: %s از %s\n\nامتیاز نهایی: %s\nلقب خانواده‌ت: «%s»" % [
-		_summary(), UiTheme.fa(builder.money), UiTheme.fa(herd.alive().size()), UiTheme.fa(herd_value()),
-		Progress.NAMES[progress.level() - 1], UiTheme.fa(goals.done.size()), UiTheme.fa(Goals.LIST.size()),
-		UiTheme.fa(s), title(s)]
-	events._ask("پایان سه نسل", text, [
-		["ادامه بده", 0, "star", func(): pass],
-		["یه رنچ تازه شروع کن", 0, "cancel", restart],
-	])
+	notify.call("سه نسل گذشت! %s\nامتیاز خانواده‌ت: %s  -  لقبتون: «%s»\nرنچ مال خودته، هر چقدر خواستی ادامه بده" % [
+		_summary(), UiTheme.fa(s), title(s)])
 
 
 func to_save() -> Dictionary:
