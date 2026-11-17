@@ -16,6 +16,7 @@ var ground_mat := ShaderMaterial.new()
 var herd_ui := HerdUI.new()
 var market := Market.new()
 var market_ui := MarketUI.new()
+var delivery := Delivery.new()
 # per season (spring, summer, autumn, winter): grass blade tint, ground grass tint, ground lush tint, snow
 const LOOK := [
 	[Color(0.66, 0.86, 0.5), Color(0.52, 0.64, 0.4), Color(0.42, 0.6, 0.32), 0.0],
@@ -71,8 +72,13 @@ func _ready() -> void:
 	MeshMerge.boxes(self)
 	herd.day = day
 	herd.world = self
+	add_child(delivery)
 	herd.extra_blocked = [CORRAL]
+	herd.extra_blocked.append_array(delivery.blocked_rects())
+	builder.occupied.append_array(delivery.blocked_rects())
 	add_child(herd)
+	delivery.herd = herd
+	delivery.day = day
 	herd._rescan()
 	if saved.is_empty():
 		for i in int(_arg("cows", "8")):
@@ -106,6 +112,10 @@ func _ready() -> void:
 	herd_ui.herd = herd
 	herd_ui.builder = builder
 	herd_ui.market = market
+	herd_ui.delivery = delivery
+	delivery.notify = herd_ui.notify
+	if not saved.is_empty() and saved.has("delivery"):
+		delivery.from_save(saved.delivery)
 	add_child(herd_ui)
 	market_ui.market = market
 	market_ui.builder = builder
@@ -123,6 +133,11 @@ func _ready() -> void:
 	autosave.timeout.connect(_save)
 	add_child(autosave)
 	_test_build()
+	var o := _arg("order", "")  # test: `--order=calves,hay@seconds_already_waited`
+	if o != "":
+		var n := o.get_slice("@", 0).split(",")
+		delivery.order(int(n[0]), int(n[1]))
+		delivery.orders[0].t = float(o.get_slice("@", 1))
 	if _arg("debug", "") != "":
 		_debug_herd()
 		market.notify = func(t): print("   NOTE ", t)
@@ -148,12 +163,12 @@ func _debug_herd() -> void:
 			for c in market.active.duplicate():
 				market.deliver(c)
 			herd_ui.sell()
-			while herd.alive().size() < 15 and builder.money > market.calf_price() + 1500:
+			while herd.alive().size() + delivery.pending_calves() < 15 and builder.money > market.calf_price() + 1500:
 				herd_ui.buy()
 			if day.season() == DayCycle.SUMMER:
 				herd_ui.cut_hay()
 			if day.season() == DayCycle.AUTUMN:
-				while herd.hay_cap - herd.hay >= HerdUI.HAY_LOT and builder.money > 3000:
+				while herd_ui._hay_space() >= HerdUI.HAY_LOT and builder.money > 3000:
 					herd_ui.buy_hay()
 		print("d%d %02dh %s  price %.2f  active %d  cows %d  hunger %.2f kg %d  hay %d/%d  shelter %d  money %d  wander/graze/water/drink/idle/tofeed/feed %s" % [
 			day.day, int(day.hour), DayCycle.SEASON_NAMES[day.season()], market.price, market.active.size(), cows.size(), h / n, w / n, herd.hay, herd.hay_cap, herd.shelter, builder.money, st])
@@ -210,6 +225,14 @@ func _shot(shot: String) -> void:
 			rig.target = Vector3(20, 0, 16)
 			rig.dist = 20.0
 			rig.yaw = 0.5
+		"apron":
+			rig.target = Vector3(1, 0, 13)
+			rig.dist = 13.0
+			rig.yaw = 0.9
+		"gate":
+			rig.target = Vector3(9, 3, 50)
+			rig.dist = 24.0
+			rig.yaw = 0.35
 		"mill":
 			rig.target = Vector3(18, 2, -3)
 			rig.dist = 17.0
@@ -254,7 +277,7 @@ func _save() -> void:
 	for n in get_children():
 		if n is Building and not n.has_node("Marker"):
 			buildings.append([n.get_script().resource_path, n.position.x, n.position.z, n.rotation_degrees.y])
-	SaveGame.write({money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save()})
+	SaveGame.write({money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), delivery = delivery.to_save()})
 
 
 # ---------- ground & grass ----------

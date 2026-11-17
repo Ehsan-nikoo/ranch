@@ -13,6 +13,7 @@ const HAY_PRICE := [450, 450, 550, 750]  # per lot by season: dearer as winter n
 var herd: Herd
 var builder: Builder
 var market: Market
+var delivery: Delivery
 var _panel: PanelContainer
 var _dim: ColorRect
 var _stats := UiTheme.label("", 25)
@@ -91,7 +92,7 @@ func buy() -> void:
 	if builder.money < market.calf_price():
 		return
 	builder.add_money(-market.calf_price())
-	herd.add_cow(herd.free_spot(CALF_SPOT, 5.0), CALF_KG)
+	delivery.order(1, 0)
 	_refresh()
 
 
@@ -120,11 +121,16 @@ func cut_hay() -> void:
 
 func buy_hay() -> void:
 	var price: int = HAY_PRICE[herd.day.season()]
-	if builder.money < price or herd.hay_cap - herd.hay < HAY_LOT:
+	if builder.money < price or _hay_space() < HAY_LOT:
 		return
 	builder.add_money(-price)
-	herd.hay += HAY_LOT
+	delivery.order(0, HAY_LOT)
 	_refresh()
+
+
+## Free storage once everything already on its way has arrived.
+func _hay_space() -> float:
+	return herd.hay_cap - herd.hay - delivery.pending_hay()
 
 
 func notify(text: String) -> void:
@@ -165,11 +171,11 @@ func _refresh() -> void:
 	var price: int = HAY_PRICE[herd.day.season()]
 	_cut.disabled = winter or builder.money < HARVEST_COST or herd.hay_cap - herd.hay < 1.0
 	_buy_hay.text = "خرید %s عدل یونجه  %s دلار" % [UiTheme.fa(HAY_LOT), UiTheme.fa(price)]
-	_buy_hay.disabled = builder.money < price or herd.hay_cap - herd.hay < HAY_LOT
+	_buy_hay.disabled = builder.money < price or _hay_space() < HAY_LOT
 	_sell.text = "فروش آماده‌ها  %s دلار" % UiTheme.fa(int(ready_kg * market.price))
 	_buy.text = "خرید گوساله  %s دلار" % UiTheme.fa(market.calf_price())
 	_sell.disabled = ready == 0
-	_buy.disabled = builder.money < market.calf_price() or n >= Herd.MAX_COWS
+	_buy.disabled = builder.money < market.calf_price() or n + delivery.pending_calves() >= Herd.MAX_COWS
 
 
 func _process(delta: float) -> void:
