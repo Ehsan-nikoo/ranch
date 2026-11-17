@@ -4,7 +4,7 @@
 class_name Legacy
 extends Node
 
-const END_YEAR := 8           # the third generation hands over at the start of year 9
+const END_YEAR := 210         # 70 years a generation: the third one hands over at the start of year 211
 const TITLES := [[0, "یه رنچ کوچیک خانوادگی"], [25000, "یه رنچ آبرومند"], [70000, "رنچ بزرگ دشت"], [160000, "افسانه‌ی سه نسل"]]
 const HANDOVER := [
 	"",
