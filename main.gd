@@ -263,11 +263,8 @@ func _ready() -> void:
 		progress_ui.toggle()
 	if _arg("workers", "") != "":
 		workers_ui.toggle()
-	if _arg("legacy", "") == "end":  # test: the ending notice
-		legacy._ending()
-	elif _arg("legacy", "") != "":  # test: `--legacy=1` the handover to generation 2
-		var e := int(_arg("legacy", ""))
-		day.day = Progress.ERAS[e][0] * DayCycle.DAYS_PER_SEASON * 4
+	if _arg("legacy", "") != "":  # test: `--legacy=1` the handover to generation 2, `--legacy=3` to the fourth
+		day.day = int(_arg("legacy", "")) * Legacy.GENERATION * DayCycle.DAYS_PER_SEASON * 4
 		legacy.new_day(day.day)
 	if _arg("event", "") != "":  # test: `--event=wolves` shows that event's board
 		events.call("_" + _arg("event", ""))

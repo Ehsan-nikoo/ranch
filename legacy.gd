@@ -1,15 +1,14 @@
-## Three generations: when a new era begins (Progress.ERAS) the ranch passes to the children and a
-## notice sums up how the last generation did; after the third a notice gives the family's final score
-## and title. Only notices: the game never stops, the player just keeps going.
+## Generations: every GENERATION years the ranch passes to the next generation of the family and a
+## notice sums up how the last one did. It never ends; the first handovers also bring a new era
+## (Progress.ERAS: the railroad, then the cities). Only notices: the game never stops.
 class_name Legacy
 extends Node
 
-const END_YEAR := 210         # 70 years a generation: the third one hands over at the start of year 211
-const TITLES := [[0, "یه رنچ کوچیک خانوادگی"], [25000, "یه رنچ آبرومند"], [70000, "رنچ بزرگ دشت"], [160000, "افسانه‌ی سه نسل"]]
+const GENERATION := 70        # years each generation runs the ranch
 const HANDOVER := [
 	"",
 	"پدربزرگ دیگه پیر شده و رنچ رو سپرد دست بچه‌هاش. حالا نسل دوم کار رو ادامه می‌ده.",
-	"بچه‌ها هم موهاشون سفید شد؛ حالا نوه‌ها رنچ رو می‌چرخونن. این آخرین نسل داستانه.",
+	"بچه‌ها هم موهاشون سفید شد؛ حالا نوه‌ها رنچ رو می‌چرخونن.",
 ]
 
 var day: DayCycle
@@ -19,38 +18,12 @@ var builder: Builder
 var progress: Progress
 var goals: Goals
 var notify: Callable
-var seen: Array = []           # era indices whose board was shown, and "end"
+var seen: Array = []           # generations whose handover was announced
 var start := {money = 6000, herd = 8, rep = 0.0}   # where this generation began
 
 
 func _year_days() -> int:
 	return DayCycle.DAYS_PER_SEASON * 4
-
-
-## Cattle at today's prices: feeders by weight, breeding stock at what they'd cost to buy.
-func herd_value() -> int:
-	var v := 0.0
-	for c in herd.alive():
-		match c.kind:
-			Herd.FEEDER:
-				v += c.weight * market.price
-			Herd.BREEDER:
-				v += market.heifer_price()
-			_:
-				v += market.bull_price()
-	return int(v)
-
-
-func score() -> int:
-	return builder.money + herd_value() + int(progress.rep) * 20 + goals.done.size() * 500
-
-
-static func title(s: int) -> String:
-	var t: String = TITLES[0][1]
-	for x in TITLES:
-		if s >= x[0]:
-			t = x[1]
-	return t
 
 
 func _summary() -> String:
@@ -64,25 +37,31 @@ func _snapshot() -> void:
 	start = {money = builder.money, herd = herd.alive().size(), rep = progress.rep}
 
 
+## The handover text for generation `g` (1 = the children of the founder).
+func _handover(g: int) -> String:
+	var lines := []
+	var e := progress.era()
+	if e > 0 and g == e:  # this handover also starts a new era
+		lines.append(Progress.ERAS[e][1])
+	lines.append(HANDOVER[g] if g < HANDOVER.size() else "نسل %s خانواده‌ت حالا رنچ رو می‌چرخونه." % UiTheme.fa(g + 1))
+	if e > 0 and g == e and Progress.ERAS[e][3] != "":
+		lines.append(Progress.ERAS[e][3])
+	lines.append(_summary())
+	return "\n".join(lines)
+
+
 func new_day(d: int) -> void:
 	if d % _year_days() != 0:
 		return
 	var y := d / _year_days()
-	if y >= END_YEAR and not "end" in seen:
-		seen.append("end")
-		_ending()
+	if y == 0 or y % GENERATION != 0:
 		return
-	var e := progress.era()
-	if e > 0 and y == Progress.ERAS[e][0] and not e in seen:
-		seen.append(e)
-		notify.call("%s\n%s\n%s\n%s" % [Progress.ERAS[e][1], HANDOVER[e], Progress.ERAS[e][3], _summary()])
-		_snapshot()
-
-
-func _ending() -> void:
-	var s := score()
-	notify.call("سه نسل گذشت! %s\nامتیاز خانواده‌ت: %s  -  لقبتون: «%s»\nرنچ مال خودته، هر چقدر خواستی ادامه بده" % [
-		_summary(), UiTheme.fa(s), title(s)])
+	var g := y / GENERATION
+	if g in seen:
+		return
+	seen.append(g)
+	notify.call(_handover(g))
+	_snapshot()
 
 
 func to_save() -> Dictionary:
@@ -90,5 +69,5 @@ func to_save() -> Dictionary:
 
 
 func from_save(d: Dictionary) -> void:
-	seen = d.seen.map(func(x): return int(x) if x is float else x)
+	seen = d.seen.filter(func(x): return x is float or x is int).map(func(x): return int(x))
 	start = d.start
