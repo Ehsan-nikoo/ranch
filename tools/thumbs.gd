@@ -4,7 +4,8 @@
 extends Node
 
 # file name, building, camera distance, aim height
-var LIST := [["barn", Barn, 40.0, 3.5], ["house", RanchHouse, 26.0, 2.0], ["silo", Silo, 34.0, 6.5], ["windmill", Windmill, 29.0, 5.0], ["cow", null, 7.5, 0.8]]
+var LIST := [["barn", Barn, 40.0, 3.5], ["house", RanchHouse, 26.0, 2.0], ["silo", Silo, 34.0, 6.5], ["windmill", Windmill, 29.0, 5.0], ["cow", null, 7.5, 0.8],
+	["stable", HorseStable, 36.0, 2.2], ["smithy", Blacksmith, 28.0, 2.2], ["rodeo", RodeoArena, 44.0, 1.0]]
 
 
 func _ready() -> void:

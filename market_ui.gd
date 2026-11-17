@@ -59,7 +59,7 @@ func _ready() -> void:
 	price_col.add_child(_price)
 	_chart.custom_minimum_size = Vector2(420, 190)
 	price_col.add_child(_chart)
-	price_col.add_child(UiTheme.label("قیمت هر کیلو در %s روز اخیر" % UiTheme.fa(Market.HISTORY), 19, Color(0.32, 0.18, 0.08)))
+	price_col.add_child(UiTheme.label("قیمت هر کیلو تو %s روز گذشته" % UiTheme.fa(Market.HISTORY), 19, Color(0.32, 0.18, 0.08)))
 	price_col.add_child(_calf)
 	market.changed.connect(_refresh)
 
@@ -106,29 +106,29 @@ func _card(text: String, buttons: Array) -> PanelContainer:
 func _refresh() -> void:
 	if not _panel.visible:
 		return
-	var arrow: String = ["  ↓ رو به پایین", "  ثابت", "  ↑ رو به بالا"][market.trend() + 1]
+	var arrow: String = ["  ↓ داره ارزون می‌شه", "  ثابت", "  ↑ داره گرون می‌شه"][market.trend() + 1]
 	_price.text = "هر کیلو %s دلار%s" % [UiTheme.fa_price(market.price), arrow]
 	_calf.text = "قیمت گوساله امروز:  %s دلار" % UiTheme.fa(market.calf_price())
 	_chart.data = market.history
 	_chart.queue_redraw()
 	for c in _list.get_children():
 		c.queue_free()
-	_list.add_child(UiTheme.label("قراردادهای من", 28))
+	_list.add_child(UiTheme.label("قراردادهام", 28))
 	if market.active.is_empty():
-		_list.add_child(UiTheme.label("قرارداد فعالی نداری", 21, Color(0.32, 0.18, 0.08)))
+		_list.add_child(UiTheme.label("فعلاً قراردادی نداری", 21, Color(0.32, 0.18, 0.08)))
 	for c in market.active:
 		var have := market.eligible(c)
-		var b := _small(builder._button(Button.new(), "تحویل", market.deliver.bind(c), "place"))
+		var b := _small(builder._button(Button.new(), "بده", market.deliver.bind(c), "place"))
 		b.disabled = have < c.count
-		_list.add_child(_card("%s گاو بالای %s کیلو، کیلویی %s دلار، %s\nآماده: %s از %s" % [
+		_list.add_child(_card("%s تا گاو بالای %s کیلو، کیلویی %s دلار، %s\nآماده داری: %s از %s" % [
 			UiTheme.fa(c.count), UiTheme.fa(c.min_kg), UiTheme.fa_price(c.per_kg), _due_text(c.due),
 			UiTheme.fa(have), UiTheme.fa(c.count)], [b]))
-	_list.add_child(UiTheme.label("پیشنهادهای خریدارها", 28))
+	_list.add_child(UiTheme.label("خریدارها چی می‌خوان", 28))
 	if market.offers.is_empty():
-		_list.add_child(UiTheme.label("فعلاً پیشنهادی نیست", 21, Color(0.32, 0.18, 0.08)))
+		_list.add_child(UiTheme.label("فعلاً کسی چیزی نخواسته", 21, Color(0.32, 0.18, 0.08)))
 	for o in market.offers:
 		var gain := int(o.per_kg / market.price * 100.0 - 100.0)
-		_list.add_child(_card("%s گاو بالای %s کیلو، کیلویی %s دلار (%s٪ بیشتر از بازار)، %s\nاگه قبول کنی و نرسونی %s٪ جریمه" % [
+		_list.add_child(_card("%s تا گاو بالای %s کیلو، کیلویی %s دلار (%s٪ گرون‌تر از بازار)، %s\nاگه قبول کنی و به موقع ندی، %s٪ جریمه می‌شی" % [
 			UiTheme.fa(o.count), UiTheme.fa(o.min_kg), UiTheme.fa_price(o.per_kg), UiTheme.fa(gain), _due_text(o.due),
 			UiTheme.fa(int(Market.FINE * 100))], [
 			_small(builder._button(Button.new(), "رد", market.decline.bind(o), "cancel")),

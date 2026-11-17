@@ -5,6 +5,8 @@ class_name HerdUI
 extends CanvasLayer
 
 const CALF_KG := 220.0
+const HEIFER_KG := 400.0
+const BULL_KG := 650.0
 const CALF_SPOT := Vector3(8, 0, 16)  # calves arrive in front of the barn
 const HAY_LOT := 10                   # bales per harvest or purchase
 const HARVEST_COST := 120             # farmhands' wages for cutting and baling a lot
@@ -14,6 +16,7 @@ var herd: Herd
 var builder: Builder
 var market: Market
 var delivery: Delivery
+var workers: Workers
 var _panel: PanelContainer
 var _dim: ColorRect
 var _stats := UiTheme.label("", 25)
@@ -25,6 +28,8 @@ var _toast: Label
 var _toast_box: PanelContainer
 var _toast_t := 0.0
 var _tick := 0.0
+var _births := 0        # calves born since the last notice: a busy spring would bury other news
+var _births_t := 0.0
 
 
 func _ready() -> void:
@@ -64,7 +69,7 @@ func _ready() -> void:
 	hay_btns.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_child(hay_btns)
 	_buy_hay = builder._button(Button.new(), "", buy_hay, "hay")
-	_cut = builder._button(Button.new(), "درو %s عدل یونجه  %s دلار" % [UiTheme.fa(HAY_LOT), UiTheme.fa(HARVEST_COST)], cut_hay, "hay")
+	_cut = builder._button(Button.new(), "", cut_hay, "hay")
 	hay_btns.add_child(_buy_hay)
 	hay_btns.add_child(_cut)
 	# CC-BY 4.0 requires crediting the cow model's author
@@ -75,7 +80,13 @@ func _ready() -> void:
 	_toast_box.modulate.a = 0.0
 	_toast = _toast_box.get_child(0)
 	add_child(_toast_box)
-	herd.died.connect(func(cause): notify("یک گاو از %s تلف شد" % {thirst = "تشنگی", hunger = "گرسنگی", cold = "سرما"}[cause]))
+	herd.died.connect(func(cause): notify("یه گاو از %s مرد" % {thirst = "تشنگی", hunger = "گرسنگی", cold = "سرما", sickness = "بیماری"}[cause]))
+	herd.born.connect(func():
+		_births += 1
+		_births_t = 2.0)
+	herd.fell_sick.connect(func():
+		if herd.sick_count() == 1:  # the first one is news; after that the vet board has the count
+			notify("یه گاو مریض شده؛ از «دامداری» دامپزشک رو صدا کن"))
 
 
 func toggle() -> void:
@@ -98,20 +109,29 @@ func sell() -> void:
 	var r := market.sell_ready()
 	var n: int = r[0]
 	var cash: int = r[1]
-	notify("%s گاو فروخته شد:  %s+ دلار" % [UiTheme.fa(n), UiTheme.fa(cash)])
+	notify("%s تا گاو فروختی:  %s+ دلار" % [UiTheme.fa(n), UiTheme.fa(cash)])
 	_refresh()
 
 
 ## Cuts hay from the fullest pasture (it grows back), costs wages; not under winter snow.
+## A farmhand on the payroll cuts for free and bales more per lot.
+func _harvest_cost() -> int:
+	return 0 if workers.best(Workers.HAND) > 0 else HARVEST_COST
+
+
+func _harvest_lot() -> int:
+	return HAY_LOT + 5 * workers.best(Workers.HAND)
+
+
 func cut_hay() -> void:
-	if builder.money < HARVEST_COST or herd.day.season() == DayCycle.WINTER:
+	if builder.money < _harvest_cost() or herd.day.season() == DayCycle.WINTER:
 		return
-	var got := herd.harvest(HAY_LOT)
+	var got := herd.harvest(_harvest_lot())
 	if got == 0:
-		notify("علف کافی برای درو نیست یا انبار پره")
+		notify("علف برای چیدن کمه، یا انبار پره")
 		return
-	builder.add_money(-HARVEST_COST)
-	notify("%s عدل یونجه درو شد" % UiTheme.fa(got))
+	builder.add_money(-_harvest_cost())
+	notify("%s بسته یونجه چیدی" % UiTheme.fa(got))
 	_refresh()
 
 
@@ -132,51 +152,56 @@ func _hay_space() -> float:
 func notify(text: String) -> void:
 	# several things can happen at a day change: stack them instead of the last one hiding the rest
 	_toast_box.call_deferred("reset_size")
-	_toast.text = text if _toast_t < 1.0 else _toast.text + "
-" + text
-	_toast_t = 4.0 + 1.5 * _toast.text.count("
+	_toast.text = text if _toast_t < 1.0 else _toast.text + "\n" + text
+	_toast_t = 4.0 + 1.5 * _toast.text.count("\n")
 	UiTheme.fit(_toast_box)
-")
 
 
 func _refresh() -> void:
-	var cows := herd.cows.filter(func(c): return not c.has("dying"))
-	var n := cows.size()
+	var cows := herd.feeders()
+	var n := herd.alive().size()
 	var avg := 0.0
 	var ready_kg := 0.0
 	var hungry := 0
 	var thirsty := 0
 	for c in cows:
-		avg += c.weight / maxf(n, 1)
+		avg += c.weight / maxf(cows.size(), 1)
 		if c.weight >= Herd.READY_KG:
 			ready_kg += c.weight
+	for c in herd.alive():
 		if c.hunger > 0.7:
 			hungry += 1
 		if c.thirst > 0.7:
 			thirsty += 1
 	var ready := herd.ready_count()
 	_stats.text = "\n".join([
-		"تعداد گاو:  %s" % UiTheme.fa(n),
-		"میانگین وزن:  %s کیلو" % UiTheme.fa(int(avg)),
-		"آماده‌ی فروش (%s کیلو به بالا):  %s" % [UiTheme.fa(int(Herd.READY_KG)), UiTheme.fa(ready)],
+		"تعداد گاو:  %s  (فروشی %s، مادر %s، نر %s)" % [UiTheme.fa(n), UiTheme.fa(cows.size()),
+			UiTheme.fa(herd.of_kind(Herd.BREEDER).size()), UiTheme.fa(herd.of_kind(Herd.BULL).size())],
+		"وزن متوسط گاوهای فروشی:  %s کیلو" % UiTheme.fa(int(avg)),
+		"آماده‌ی فروش (بالای %s کیلو):  %s" % [UiTheme.fa(int(Herd.READY_KG)), UiTheme.fa(ready)],
 		"گرسنه:  %s      تشنه:  %s" % [UiTheme.fa(hungry), UiTheme.fa(thirsty)],
-		"قیمت امروز بازار:  هر کیلو %s دلار" % UiTheme.fa_price(market.price),
-		"یونجه‌ی انبار:  %s از %s عدل (زمستون هر گاو روزی ۱ عدل)" % [UiTheme.fa(int(herd.hay)), UiTheme.fa(herd.hay_cap)],
-		"هزینه‌ی نگهداری:  روزی %s دلار" % UiTheme.fa(Market.UPKEEP * n),
-		"جای زمستونی طویله:  %s برای %s گاو" % [UiTheme.fa(herd.shelter), UiTheme.fa(n)],
+		"قیمت امروز:  هر کیلو %s دلار" % UiTheme.fa_price(market.price),
+		"یونجه تو انبار:  %s از %s بسته (زمستون هر گاو روزی ۱ بسته می‌خوره)" % [UiTheme.fa(int(herd.hay)), UiTheme.fa(herd.hay_cap)],
+		"خرج گله:  روزی %s دلار" % UiTheme.fa(market.upkeep() * n),
+		"جا تو طویله برای زمستون:  %s تا، برای %s گاو" % [UiTheme.fa(herd.shelter), UiTheme.fa(n)],
 	])
 	var winter := herd.day.season() == DayCycle.WINTER
 	var price: int = HAY_PRICE[herd.day.season()]
-	_cut.disabled = winter or builder.money < HARVEST_COST or herd.hay_cap - herd.hay < 1.0
-	_buy_hay.text = "خرید %s عدل یونجه  %s دلار" % [UiTheme.fa(HAY_LOT), UiTheme.fa(price)]
+	_cut.disabled = winter or builder.money < _harvest_cost() or herd.hay_cap - herd.hay < 1.0
+	_cut.text = "چیدن %s بسته یونجه  %s" % [UiTheme.fa(_harvest_lot()), "%s دلار" % UiTheme.fa(_harvest_cost()) if _harvest_cost() > 0 else "(کارگر مزرعه)"]
+	_buy_hay.text = "خرید %s بسته یونجه  %s دلار" % [UiTheme.fa(HAY_LOT), UiTheme.fa(price)]
 	_buy_hay.disabled = builder.money < price or _hay_space() < HAY_LOT
-	_sell.text = "فروش آماده‌ها  %s دلار" % UiTheme.fa(int(ready_kg * market.price))
+	_sell.text = "فروش گاوهای آماده  %s دلار" % UiTheme.fa(int(ready_kg * market.price))
 	_buy.text = "خرید گوساله  %s دلار" % UiTheme.fa(market.calf_price())
 	_sell.disabled = ready == 0
-	_buy.disabled = builder.money < market.calf_price() or n + delivery.pending_calves() >= Herd.MAX_COWS
+	_buy.disabled = builder.money < market.calf_price() or n + delivery.pending_animals() >= Herd.MAX_COWS
 
 
 func _process(delta: float) -> void:
+	_births_t -= delta
+	if _births > 0 and _births_t <= 0.0:
+		notify("یه گوساله به دنیا اومد" if _births == 1 else "%s تا گوساله به دنیا اومدن" % UiTheme.fa(_births))
+		_births = 0
 	_toast_t -= delta
 	_toast_box.modulate.a = clampf(_toast_t, 0.0, 1.0)
 	if _toast_t < 0.0 and _toast.text != "":

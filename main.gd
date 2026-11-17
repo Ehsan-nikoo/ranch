@@ -16,6 +16,12 @@ var ground_mat := ShaderMaterial.new()
 var herd_ui := HerdUI.new()
 var market := Market.new()
 var market_ui := MarketUI.new()
+var breed_ui := BreedUI.new()
+var workers := Workers.new()
+var workers_ui := WorkersUI.new()
+var events := Events.new()
+var progress := Progress.new()
+var progress_ui := ProgressUI.new()
 var delivery := Delivery.new()
 var land := Land.new()
 var fence_mat := _fence_mat()
@@ -37,9 +43,9 @@ const LOOK := [
 ]
 const SEASON_NEWS := [
 	"بهار شد: علف دوباره سبز می‌شه و تند رشد می‌کنه",
-	"تابستون شد: وقت درو و انبار کردن یونجه‌ست",
-	"پاییز شد: علف کند رشد می‌کنه؛ برای زمستون یونجه جمع کن",
-	"زمستون شد: علف رشد نمی‌کنه و گاوها از انبار یونجه می‌خورن",
+	"تابستون شد: وقت چیدن یونجه و پر کردن انباره",
+	"پاییز شد: علف دیگه کند درمیاد؛ برای زمستون یونجه جمع کن",
+	"زمستون شد: علف درنمیاد و گاوها از انبار یونجه می‌خورن",
 ]
 var crickets: AudioStreamPlayer
 var mask_img: Image
@@ -103,6 +109,12 @@ func _ready() -> void:
 			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), randf_range(260.0, 520.0))
 		for i in int(_arg("calves", "0")):  # test: fresh calves at purchase weight
 			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), HerdUI.CALF_KG)
+		for i in int(_arg("breeders", "0")):  # test: breeding cows and bulls
+			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), 480.0, Herd.BREEDER)
+		for i in int(_arg("bulls", "0")):
+			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), HerdUI.BULL_KG, Herd.BULL)
+		for i in int(_arg("newborns", "0")):
+			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), Herd.BIRTH_KG)
 	else:
 		herd.from_save(saved.herd)
 	_audio()
@@ -131,6 +143,7 @@ func _ready() -> void:
 	herd_ui.builder = builder
 	herd_ui.market = market
 	herd_ui.delivery = delivery
+	herd_ui.workers = workers
 	delivery.notify = herd_ui.notify
 	if not saved.is_empty() and saved.has("delivery"):
 		delivery.from_save(saved.delivery)
@@ -138,6 +151,59 @@ func _ready() -> void:
 	market_ui.market = market
 	market_ui.builder = builder
 	add_child(market_ui)
+	breed_ui.herd = herd
+	breed_ui.builder = builder
+	breed_ui.market = market
+	breed_ui.delivery = delivery
+	breed_ui.notify = herd_ui.notify
+	add_child(breed_ui)
+	workers.day = day
+	workers.herd = herd
+	workers.builder = builder
+	workers.notify = herd_ui.notify
+	workers.world = self
+	if not saved.is_empty() and saved.has("workers"):
+		workers.from_save(saved.workers)
+	add_child(workers)
+	var crew := Crew.new()
+	crew.workers = workers
+	crew.herd = herd
+	crew.day = day
+	crew.world = self
+	add_child(crew)
+	if _arg("crew", "") != "":  # test: one hand of each skill
+		for k in 4:
+			workers.hired.append({name = Workers.NAMES[k], skill = k, level = 2, wage = 50})
+	workers_ui.workers = workers
+	workers_ui.builder = builder
+	workers_ui.herd = herd
+	add_child(workers_ui)
+	events.day = day
+	events.herd = herd
+	events.builder = builder
+	events.workers = workers
+	events.notify = herd_ui.notify
+	events.world = self
+	if not saved.is_empty() and saved.has("events"):
+		events.from_save(saved.events)
+	add_child(events)
+	progress.day = day
+	progress.market = market
+	progress.builder = builder
+	progress.notify = herd_ui.notify
+	progress.world = self
+	if not saved.is_empty() and saved.has("progress"):
+		progress.from_save(saved.progress)
+	if _arg("money", "") != "":  # test: start with this much money
+		builder.money = int(_arg("money", ""))
+	if _arg("rep", "") != "":  # test: start with this much reputation
+		progress.rep = float(_arg("rep", ""))
+	add_child(progress)
+	progress.hook(herd)
+	progress_ui.progress = progress
+	progress_ui.builder = builder
+	add_child(progress_ui)
+	progress_ui._refresh()
 	var land_ui := LandUI.new()
 	land_ui.land = land
 	land_ui.builder = builder
@@ -154,6 +220,14 @@ func _ready() -> void:
 	day.speed = float(_arg("speed", "1"))
 	if _arg("herd", "") != "":
 		herd_ui.toggle()
+	if _arg("breed", "") != "":
+		breed_ui.toggle()
+	if _arg("ranch", "") != "":
+		progress_ui.toggle()
+	if _arg("workers", "") != "":
+		workers_ui.toggle()
+	if _arg("event", "") != "":  # test: `--event=wolves` shows that event's board
+		events.call("_" + _arg("event", ""))
 	day.hour_changed.connect(_on_hour)
 	day.day_changed.connect(_on_day)
 	var autosave := Timer.new()  # also catches buys and sales between day changes
@@ -175,6 +249,12 @@ func _ready() -> void:
 func _debug_herd() -> void:
 	herd.died.connect(func(cause):
 		print("   DIED of %s" % cause))
+	herd.born.connect(func(): print("   BORN"))
+	herd.fell_sick.connect(func(): print("   SICK"))
+	breed_ui.notify = func(t): print("   NOTE ", t)
+	workers.notify = breed_ui.notify
+	events.notify = breed_ui.notify
+	progress.notify = breed_ui.notify
 	while true:
 		await get_tree().create_timer(4.0).timeout
 		var st := [0, 0, 0, 0, 0, 0, 0]
@@ -191,8 +271,22 @@ func _debug_herd() -> void:
 				market.accept(o)
 			for c in market.active.duplicate():
 				market.deliver(c)
+			if events._panel.visible:  # the bot pays when it can, else takes the risk
+				print("   EVENT ", events._title.text)
+				var btns := events._row.get_children().filter(func(b): return not b.disabled and not b.is_queued_for_deletion())
+				btns[0 if _arg("risky", "") == "" else -1].pressed.emit()
+			while workers.capacity() < herd.alive().size() + 5 and workers.hired.size() < workers.slots() and not workers.candidates.is_empty():
+				workers.hire(workers.candidates[0])
 			herd_ui.sell()
-			while herd.alive().size() + delivery.pending_calves() < 15 and builder.money > market.calf_price() + 1500:
+			# breeding herd: a bull and up to 8 cows, home-bred heifers first; vet and vaccines as needed
+			if herd.of_kind(Herd.BULL).size() + delivery.orders.reduce(func(a, o): return a + o.bulls, 0) == 0 and builder.money > market.bull_price() + 1500:
+				breed_ui.buy_bull()
+			if herd.of_kind(Herd.BREEDER).size() < 8:
+				breed_ui.keep_heifer()
+			if herd.sick_count() > 0:
+				breed_ui.call_vet()
+			breed_ui.vaccinate()
+			while herd.alive().size() + delivery.pending_animals() < 15 and builder.money > market.calf_price() + 1500:
 				herd_ui.buy()
 			if day.season() == DayCycle.SUMMER:
 				herd_ui.cut_hay()
@@ -208,6 +302,10 @@ func _debug_herd() -> void:
 		var outside := cows.filter(func(c): return absf(c.pos.x) > 48.0 or absf(c.pos.z) > 48.0).size()
 		var off_land := cows.filter(func(c): return not land.is_open(c.pos)).size()
 		print("   cows grazing on bought land: %d, on locked land: %d" % [outside, off_land])
+		var preg := herd.of_kind(Herd.BREEDER).filter(func(c): return c.preg > 0.0).size()
+		print("   rep %d level %d era %d  price x%.2f" % [progress.rep, progress.level(), progress.era(), market.era_mul])
+		print("   hands %d (wages %d, capacity %d)  effects %s" % [workers.hired.size(), workers.wages(), workers.capacity(), events.effects.keys().filter(func(k): return events.active(k))])
+		print("   breeders %d (in calf %d)  bulls %d  sick %d  unvaccinated %d" % [herd.of_kind(Herd.BREEDER).size(), preg, herd.of_kind(Herd.BULL).size(), herd.sick_count(), herd.unvaccinated().size()])
 		print("d%d %02dh %s  price %.2f  active %d  cows %d  hunger %.2f kg %d  hay %d/%d  shelter %d  money %d  wander/graze/water/drink/idle/tofeed/feed %s" % [
 			day.day, int(day.hour), DayCycle.SEASON_NAMES[day.season()], market.price, market.active.size(), cows.size(), h / n, w / n, herd.hay, herd.hay_cap, herd.shelter, builder.money, st])
 
@@ -275,6 +373,10 @@ func _shot(shot: String) -> void:
 			rig.target = Vector3(70, 0, 70)
 			rig.dist = 22.0
 			rig.yaw = 0.7
+		"crew":  # the hands waiting by the ranch house
+			rig.target = Vector3(-8, 1, 32)
+			rig.dist = 9.0
+			rig.yaw = 0.6
 		"gate":
 			rig.target = Vector3(9, 3, 94)
 			rig.dist = 26.0
@@ -308,6 +410,9 @@ func _on_day(d: int) -> void:
 	if d % DayCycle.DAYS_PER_SEASON == 0:
 		herd_ui.notify(SEASON_NEWS[day.season()])
 	market.new_day(d)
+	workers.new_day(d)
+	progress.new_day(d)
+	events.new_day(d)
 	_save()
 
 
@@ -323,7 +428,7 @@ func _save() -> void:
 	for n in get_children():
 		if n is Building and not n.has_node("Marker"):
 			buildings.append([n.get_script().resource_path, n.position.x, n.position.z, n.rotation_degrees.y])
-	SaveGame.write({money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), delivery = delivery.to_save(), land = land.to_save()})
+	SaveGame.write({money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), delivery = delivery.to_save(), land = land.to_save()})
 
 
 # ---------- ground & grass ----------

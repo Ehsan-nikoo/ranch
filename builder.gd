@@ -3,12 +3,15 @@
 class_name Builder
 extends CanvasLayer
 
-# label, building, cost, icon/picture name, what it does
+# label, building, cost, icon/picture name, what it does, reputation level needed (see Progress)
 var CATALOG := [
-	["طویله", Barn, 3000, "barn", "سرپناه گاو و اسب‌ها در شب و زمستان. علوفه و ابزار رنچ هم اینجا انبار می‌شه."],
-	["خانه", RanchHouse, 2500, "house", "محل زندگی کابوی‌ها و کارگرهای رنچ. هر خانه جای چند کارگر رو داره."],
-	["سیلو", Silo, 1500, "silo", "انبار غله و علوفه برای زمستون، که دام‌ها تو فصل سرما گرسنه نمونن."],
-	["آسیاب بادی", Windmill, 800, "windmill", "با نیروی باد آب رو از زیر زمین بالا میاره و آبشخور دام‌ها رو پر می‌کنه."],
+	["طویله", Barn, 3000, "barn", "جای گاوها تو شب‌های سرد زمستون. یونجه و ابزار رنچ هم اینجا نگه داشته می‌شه."],
+	["خونه", RanchHouse, 2500, "house", "کارگرها اینجا زندگی می‌کنن. هر خونه جای ۳ تا کارگر داره."],
+	["سیلو", Silo, 1500, "silo", "انبار یونجه برای زمستون، که گاوها تو سرما گرسنه نمونن."],
+	["آسیاب بادی", Windmill, 800, "windmill", "با باد، آب رو از زیر زمین میاره بالا و آب‌خوری گاوها رو پر می‌کنه."],
+	["اصطبل اسب", HorseStable, 4000, "stable", "کابوی‌ها سوار اسب می‌شن و هر کدوم ۱۰ گاو بیشتر رو می‌چرخونن.", 2],
+	["آهنگری", Blacksmith, 5000, "smithy", "آهنگر آسیاب‌ها رو سالم نگه می‌داره و خرج هر گاو روزی ۳ دلار کمتر می‌شه.", 3],
+	["میدون گاوسواری", RodeoArena, 9000, "rodeo", "هر فصل مسابقه‌ی گاوسواری راه می‌ندازی: پول بلیت میاد و رنچت معروف‌تر می‌شه.", 4],
 ]
 
 var money := 6000
@@ -17,6 +20,7 @@ var world: Node3D
 var land: Land
 var occupied: Array[Rect2] = []
 var on_placed: Callable  # (world footprint) -> void
+var level := 1           # reputation level, set by Progress
 
 var ghost: Building
 var _cost := 0
@@ -31,6 +35,7 @@ var _items: Array[Button] = []
 var _cards: Array[Control] = []
 var _panel: PanelContainer
 var _dim: ColorRect
+var _scroll: ScrollContainer
 
 
 func _ready() -> void:
@@ -46,10 +51,10 @@ func _ready() -> void:
 	for bar in [_menu, _place_bar]:
 		bar.anchor_top = 1.0
 		bar.anchor_bottom = 1.0
-		bar.offset_left = 24
+		bar.offset_left = 16
 		bar.offset_top = -122
 		bar.offset_bottom = -12
-		bar.add_theme_constant_override("separation", 12)
+		bar.add_theme_constant_override("separation", 4)  # seven buttons have to fit across a phone
 		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(bar)
 
@@ -81,11 +86,17 @@ func _build_panel() -> void:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 14)
 	_panel.add_child(col)
-	col.add_child(UiTheme.header("ساخت و ساز", _button(Button.new(), "بستن", _toggle_menu, "cancel")))
+	col.add_child(UiTheme.header("چی بسازیم؟", _button(Button.new(), "بستن", _toggle_menu, "cancel")))
 
+	# more buildings than fit across the screen: the row scrolls sideways (drag on a phone)
+	var scroll := ScrollContainer.new()
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(1240, 0)
+	col.add_child(scroll)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 16)
-	col.add_child(row)
+	scroll.add_child(row)
+	_scroll = scroll
 	var card_box := StyleBoxFlat.new()  # slightly sunken, darker patch of the board
 	card_box.bg_color = Color(0.3, 0.15, 0.04, 0.16)
 	card_box.border_color = Color(0.3, 0.16, 0.05, 0.55)
@@ -136,14 +147,19 @@ func _toggle_menu() -> void:
 	_dim.visible = _panel.visible
 	_menu.visible = not _panel.visible  # the board has its own close button
 	_refresh()
+	if _panel.visible:  # start at the right end: Persian reads right to left
+		await get_tree().process_frame
+		_scroll.scroll_horizontal = int(_scroll.get_h_scroll_bar().max_value)
 
 
 func _refresh() -> void:
 	_money.text = "%s دلار" % UiTheme.fa(money)
 	UiTheme.fit(_money.get_parent())  # plank fits the new number
 	for i in _items.size():
-		var short: bool = money < CATALOG[i][2]
+		var need: int = CATALOG[i][5] if CATALOG[i].size() > 5 else 1
+		var short: bool = money < CATALOG[i][2] or level < need
 		_items[i].disabled = short
+		_items[i].text = "%s دلار" % UiTheme.fa(CATALOG[i][2]) if level >= need else "وقتی «%s» بشی" % Progress.NAMES[need - 1]
 		_cards[i].modulate = Color(1, 1, 1, 0.55) if short else Color.WHITE
 
 

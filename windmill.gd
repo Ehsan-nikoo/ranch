@@ -10,10 +10,12 @@ const TANK := Vector3(3.6, 0, 1.2)  # stock tank center, local
 const TANK_R := 2.2
 
 var wheel := Node3D.new()
+var broken := false  # a broken wheel pumps no water: the herd stops drinking at this tank
 
 
 func _process(delta: float) -> void:
-	wheel.rotation.z += delta * 2.2
+	if not broken:
+		wheel.rotation.z += delta * 2.2
 
 
 func _foot() -> Rect2:

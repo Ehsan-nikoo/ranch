@@ -69,13 +69,13 @@ func _tile(text: String, color: Color) -> PanelContainer:
 func _refresh() -> void:
 	if not _panel.visible:
 		return
-	_info.text = "هر قطعه %s×%s متره. زمین تازه جای چرای بیشتر و ساختمون‌های جدید می‌ده؛ فقط قطعه‌ای رو می‌شه خرید که کنار زمین خودت باشه. قیمت قطعه‌ی بعدی: %s دلار" % [
+	_info.text = "هر تیکه زمین %s در %s متره. با زمین بیشتر، گاوها جای بیشتری برای چریدن دارن و می‌تونی ساختمون‌های بیشتری بسازی. فقط تیکه‌ای رو می‌تونی بخری که بغل زمین خودت باشه. قیمت تیکه‌ی بعدی: %s دلار" % [
 		UiTheme.fa(int(Land.PLOT)), UiTheme.fa(int(Land.PLOT)), UiTheme.fa(land.price())]
 	for c in _grid.get_children():
 		c.queue_free()
 	for i in Land.GRID * Land.GRID:
 		if land.owned[i] == 1:
-			_grid.add_child(_tile("زمین خودت" + {9: "\nخانه", 10: "\nطویله"}.get(i, ""), Color(0.42, 0.55, 0.25, 0.55)))
+			_grid.add_child(_tile("زمین خودت" + {9: "\nخونه", 10: "\nطویله"}.get(i, ""), Color(0.42, 0.55, 0.25, 0.55)))
 		elif land.can_buy(i):
 			var b := builder._button(Button.new(), "خرید\n%s دلار" % UiTheme.fa(land.price()), buy.bind(i), "land")
 			b.custom_minimum_size = Vector2(200, 92)

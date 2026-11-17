@@ -1,11 +1,16 @@
 ## The cattle herd: each cow gets hungry and thirsty, grazes the grass under it, walks to a
 ## windmill stock tank to drink, and gains or loses weight. In winter, when grass stops growing,
 ## hungry cows walk to a barn or silo and eat stored hay; cows without room in a barn suffer the cold.
+## Breeding: a bull in the herd gets well-fed breeding cows in calf, and each calves after GESTATION.
+## Health: cows can fall sick (more often when hungry, thirsty, cold or around other sick cows); a sick
+## cow loses weight and dies if no vet comes in time. Vaccinated cows rarely catch anything.
 ## Drawn as one MultiMesh (1 draw call). Also owns the grass grid that cows eat and that regrows.
 class_name Herd
 extends Node3D
 
 signal died(cause: String)
+signal born
+signal fell_sick
 
 const SPAN := 240.0       # grass grid covers world x/z in [-SPAN/2, SPAN/2], same as the ground mask
 const N := 60             # grid cells per side (4 m each)
@@ -21,6 +26,17 @@ const MAX_KG := 680.0
 const GROWTH := [1.6, 1.0, 0.35, 0.0]   # grass regrowth per season: spring, summer, autumn, winter
 const SEP := 1.7          # personal space between cows, m
 enum { WANDER, GRAZE, TO_WATER, DRINK, IDLE, TO_FEED, FEED }
+# FEEDER: raised for sale (bought calves and the calves born here); BREEDER: kept to calve; BULL: sires
+enum { FEEDER, BREEDER, BULL }
+const BIRTH_KG := 90.0
+const GESTATION := 96.0   # game hours in calf: 4 days. With the rest and the wait for the bull, about 2 calves a year
+const REST := 24.0        # hours after calving before a cow takes the bull again
+const BREED_KG := 400.0   # a breeding cow this thin doesn't come in calf
+const KEEP_KG := 350.0    # a feeder heifer can join the breeding herd from this weight
+const COWS_PER_BULL := 20
+const SICK_RATE := 0.0008  # chance per cow per game hour when well kept; stress and contagion add to it
+const SICK_DEATH := 36.0   # game hours a sick cow lasts without a vet
+const VACCINE_DAYS := 12   # one year
 
 var day: DayCycle
 var world: Node3D
@@ -34,6 +50,12 @@ var hay := 30.0                       # bales in storage
 var hay_cap := 0                      # bales the barns and silos can hold
 var shelter := 0                      # cows the barns can house in winter
 var cost_ms := 0.0                    # smoothed time this script takes per frame, shown in the HUD
+# set by Events (drought, blizzard) and Workers (herders, too few hands)
+var growth_mul := 1.0
+var thirst_mul := 1.0
+var cold_mul := 1.0
+var sick_mul := 1.0
+var cure_mul := 1.0
 
 var _mm := MultiMesh.new()
 var _buf := PackedFloat32Array()
@@ -84,10 +106,17 @@ func _cell(p: Vector3) -> int:
 	return y * N + x
 
 
-func add_cow(pos: Vector3, weight: float) -> Dictionary:
+func add_cow(pos: Vector3, weight: float, kind := FEEDER, female := -1) -> Dictionary:
 	if cows.size() >= MAX_COWS:
 		return {}
 	var c := {
+		kind = kind, female = (kind == BREEDER) if kind != FEEDER else (_rng.randf() < 0.5 if female < 0 else female == 1),
+		preg = 0.0,      # game hours left in calf, 0 = open
+		rest = 0.0,      # hours left before she can be bred again
+		sick = -1.0,     # hours since falling sick, -1 = healthy
+		vacc = -1,       # vaccinated until this day
+		peak = weight,   # heaviest so far: a cow dies when she wastes to well under it
+
 		pos = pos, yaw = _rng.randf() * TAU, target = pos, state = IDLE, budget = 0.0, timer = _rng.randf_range(1, 4),
 		hunger = _rng.randf_range(0.2, 0.5), thirst = _rng.randf_range(0.1, 0.4), weight = weight,
 		phase = 0.0, head = 0.0, walk = 0.0,
@@ -110,19 +139,84 @@ func alive() -> Array:
 	return cows.filter(func(c): return not c.has("dying"))
 
 
+## Cattle raised for sale; breeding cows and bulls are never sold with them.
+func feeders() -> Array:
+	return cows.filter(func(c): return not c.has("dying") and c.kind == FEEDER)
+
+
+func of_kind(kind: int) -> Array:
+	return cows.filter(func(c): return not c.has("dying") and c.kind == kind)
+
+
 func ready_count() -> int:
-	return alive().filter(func(c): return c.weight >= READY_KG).size()
+	return feeders().filter(func(c): return c.weight >= READY_KG).size()
 
 
-## Removes up to `n` cows of at least `min_kg`, heaviest first, and returns their total kg.
+func sick_count() -> int:
+	return alive().filter(func(c): return c.sick >= 0.0).size()
+
+
+func unvaccinated() -> Array:
+	return alive().filter(func(c): return c.vacc < day.day)
+
+
+## The vet treats every sick cow; returns how many.
+func cure() -> int:
+	var n := 0
+	for c in alive():
+		if c.sick >= 0.0:
+			c.sick = -1.0
+			n += 1
+	return n
+
+
+## Vaccinates every cow that isn't covered; returns how many.
+func vaccinate() -> int:
+	var todo := unvaccinated()
+	for c in todo:
+		c.vacc = day.day + VACCINE_DAYS
+	return todo.size()
+
+
+## The heaviest healthy feeder heifer of at least KEEP_KG joins the breeding herd.
+func keep_heifer() -> bool:
+	var pick := feeders().filter(func(c): return c.female and c.weight >= KEEP_KG and c.sick < 0.0)
+	if pick.is_empty():
+		return false
+	pick.sort_custom(func(a, b): return a.weight > b.weight)
+	pick[0].kind = BREEDER
+	return true
+
+
+## Removes up to `n` feeders of at least `min_kg`, heaviest first, and returns their total kg.
 func sell(n: int, min_kg: float) -> float:
-	var pick := alive().filter(func(c): return c.weight >= min_kg)
+	var pick := feeders().filter(func(c): return c.weight >= min_kg)
 	pick.sort_custom(func(a, b): return a.weight > b.weight)
 	var kg := 0.0
 	for c in pick.slice(0, n):
 		kg += c.weight
 		cows.erase(c)
 	return kg
+
+
+## Animals lost to wolves (the smallest first) or rustlers (the heaviest feeders first); returns how many.
+func take(n: int, smallest: bool) -> int:
+	var pick := alive() if smallest else feeders()
+	pick.sort_custom(func(a, b): return a.weight < b.weight if smallest else a.weight > b.weight)
+	pick = pick.slice(0, n)
+	for c in pick:
+		cows.erase(c)
+	return pick.size()
+
+
+## Every unvaccinated cow falls sick with chance `p`; returns how many did.
+func outbreak(p: float) -> int:
+	var n := 0
+	for c in alive():
+		if c.sick < 0.0 and c.vacc < day.day and _rng.randf() < p:
+			c.sick = 0.0
+			n += 1
+	return n
 
 
 ## Cuts up to `bales` of hay from the fullest pasture cells (two cells of full grass per bale).
@@ -176,7 +270,8 @@ func _rescan() -> void:
 			_feeders.append(n.feed_spot())
 		if n is Windmill:
 			_rects.append(n.world_footprint(Rect2(-1.6, -1.6, 3.2, 3.2)))  # tower only, tank is a circle
-			_tanks.append(n.to_global(Windmill.TANK))
+			if not n.broken:
+				_tanks.append(n.to_global(Windmill.TANK))
 		else:
 			_rects.append(n.world_footprint().grow(0.4))
 	hay = minf(hay, hay_cap)
@@ -197,17 +292,44 @@ func _process(delta: float) -> void:
 	# cows beyond the barns' room lose weight to the winter cold
 	var cold := 0.0
 	if season == DayCycle.WINTER and n_alive > 0:
-		cold = maxf(0.0, 1.0 - float(shelter) / n_alive) * 1.5
+		cold = maxf(0.0, 1.0 - float(shelter) / n_alive) * 1.5 * cold_mul
+	# one bull serves COWS_PER_BULL cows; sick cows spread it to the rest
+	var bulls := 0
+	var breeders := 0
+	var sick := 0
+	for c in cows:
+		if not c.has("dying"):
+			bulls += int(c.kind == BULL and c.sick < 0.0)
+			breeders += int(c.kind == BREEDER)
+			sick += int(c.sick >= 0.0)
+	var service := minf(1.0, float(bulls * COWS_PER_BULL) / maxi(breeders, 1))
+	var spread := float(sick) / maxi(n_alive, 1)
+	var calving: Array[Dictionary] = []
 	for c in cows:
 		if c.has("dying"):  # plays the model's death clip, lies there a moment, then is gone
 			c.dying += delta
 			c.walk = 0.0
 			continue
 		_needs(c, hours, cold)
+		_health(c, hours, cold, spread)
+		if c.kind == BREEDER and _breed(c, hours, service, season):
+			calving.append(c)
 		_act(c, delta, hours, season)
-		if c.weight < 180.0:
+		c.peak = maxf(c.peak, c.weight)
+		if c.sick > SICK_DEATH or c.weight < minf(180.0, c.peak * 0.75):
 			c.dying = 0.0
-			died.emit("cold" if cold > 0.0 and c.hunger < 0.85 and c.thirst < 0.85 else ("thirst" if c.thirst > c.hunger else "hunger"))
+			if c.sick > SICK_DEATH:
+				died.emit("sickness")
+			else:
+				died.emit("cold" if cold > 0.0 and c.hunger < 0.85 and c.thirst < 0.85 else ("thirst" if c.thirst > c.hunger else "hunger"))
+	for m in calving:  # added after the loop: the list can't grow while it's walked
+		var calf := add_cow(free_spot(m.pos + Vector3(sin(m.yaw), 0, cos(m.yaw)) * -1.5, 1.5), BIRTH_KG)
+		if not calf.is_empty():
+			if _rng.randf() < 0.6:  # takes after its mother's coat
+				calf.coat = floorf(m.coat * 4.0) / 4.0 + _rng.randf() * 0.99 / 4.0
+			calf.hunger = 0.1
+			calf.thirst = 0.1
+			born.emit()
 	_separate()
 	for c in cows.filter(func(c): return c.has("dying") and c.dying > 5.0):
 		cows.erase(c)
@@ -216,7 +338,7 @@ func _process(delta: float) -> void:
 	_tex_t -= delta
 	if _tex_t <= 0.0:
 		_tex_t = 0.5
-		var g: float = _grow_hours / 96.0 * GROWTH[season]  # full regrowth in about four summer days
+		var g: float = _grow_hours / 96.0 * GROWTH[season] * growth_mul  # full regrowth in about four summer days
 		_grow_hours = 0.0
 		if g > 0.0:
 			for i in N * N:
@@ -227,14 +349,50 @@ func _process(delta: float) -> void:
 
 
 func _needs(c: Dictionary, hours: float, cold: float) -> void:
-	c.hunger = minf(1.0, c.hunger + hours / 16.0)
-	c.thirst = minf(1.0, c.thirst + hours / 18.0)
-	if c.hunger < 0.7 and c.thirst < 0.7:
+	c.hunger = minf(1.0, c.hunger + hours / (13.0 if c.preg > 0.0 else 16.0))  # eating for two
+	c.thirst = minf(1.0, c.thirst + hours / 18.0 * thirst_mul)
+	if c.sick >= 0.0:
+		c.weight -= 2.5 * hours  # off its feed: no gain while sick
+	elif c.hunger < 0.7 and c.thirst < 0.7:
 		var taper := 1.0 if c.weight < READY_KG else clampf((MAX_KG - c.weight) / (MAX_KG - READY_KG), 0.0, 1.0) ** 2
 		c.weight = minf(c.weight + GAIN * hours * (1.0 - c.hunger) * (1.0 - c.thirst) * taper, MAX_KG)
 	elif c.hunger > 0.85 or c.thirst > 0.85:
 		c.weight -= 4.0 * hours
 	c.weight -= cold * hours
+
+
+## Falls sick at random, more often under stress or near sick cows; vaccinated cows seldom do.
+## A sick cow may shake it off by itself, but most need the vet before SICK_DEATH.
+func _health(c: Dictionary, hours: float, cold: float, spread: float) -> void:
+	if c.sick >= 0.0:
+		c.sick += hours
+		if _rng.randf() < 0.015 * cure_mul * hours:
+			c.sick = -1.0
+		return
+	var stress := 1.0 + (2.0 if c.hunger > 0.85 or c.thirst > 0.85 else 0.0) + cold + (0.5 if c.weight < 150.0 else 0.0)
+	var rate := (SICK_RATE * stress + 0.012 * spread) * sick_mul
+	if c.vacc >= day.day:
+		rate *= 0.1
+	if _rng.randf() < rate * hours:
+		c.sick = 0.0
+		fell_sick.emit()
+
+
+## Carries a calf to term; takes the bull when open, rested, healthy and in good condition
+## (not in winter: cows here calve in spring, summer and autumn). True on the hour she calves.
+func _breed(c: Dictionary, hours: float, service: float, season: int) -> bool:
+	if c.preg > 0.0:
+		c.preg -= hours
+		if c.preg <= 0.0:
+			c.preg = 0.0
+			c.rest = REST
+			return true
+		return false
+	c.rest = maxf(0.0, c.rest - hours)
+	if c.rest <= 0.0 and c.sick < 0.0 and c.weight >= BREED_KG and c.hunger < 0.7 and season != DayCycle.WINTER:
+		if _rng.randf() < 0.05 * service * hours:
+			c.preg = GESTATION
+	return false
 
 
 func _nearest(points: Array[Vector3], p: Vector3) -> Vector3:
@@ -307,7 +465,7 @@ func _act(c: Dictionary, delta: float, hours: float, season: int) -> void:
 				c.yaw = lerp_angle(c.yaw, atan2(to.x, to.z), minf(1.0, delta * 3.0 * day.speed))
 				# walking scales with game speed so needs and travel stay in balance when time is fast-forwarded;
 				# big steps are taken in small pieces so a cow can't jump through a wall or past its goal
-				var left := minf(WALK * day.speed * delta, to.length())
+				var left := minf(WALK * day.speed * delta * (0.5 if c.sick >= 0.0 else 1.0), to.length())
 				var dir := Vector3(sin(c.yaw), 0, cos(c.yaw))
 				while left > 0.0:
 					var s := minf(left, 0.5)
@@ -351,7 +509,8 @@ func _act(c: Dictionary, delta: float, hours: float, season: int) -> void:
 				_decide(c)
 	var k := minf(1.0, delta * 4.0)
 	c.walk = lerpf(c.walk, 1.0 if moving else 0.0, k)
-	c.head = lerpf(c.head, 1.0 if c.state in [GRAZE, DRINK, FEED] else 0.0, minf(1.0, delta * 2.0))
+	var down := 1.0 if c.state in [GRAZE, DRINK, FEED] else (0.55 if c.sick >= 0.0 else 0.0)  # sick cows hang their heads
+	c.head = lerpf(c.head, down, minf(1.0, delta * 2.0))
 	if moving:
 		c.phase = fmod(c.phase + delta * WALK * minf(day.speed, 3.0) * 3.6, TAU)  # legs capped, or they blur
 
@@ -400,7 +559,12 @@ func _draw() -> void:
 	_buf.fill(0.0)
 	for i in cows.size():
 		var c: Dictionary = cows[i]
-		var s := lerpf(0.68, 1.05, clampf((c.weight - 180.0) / (MAX_KG - 180.0), 0.0, 1.0))  # calves are smaller
+		var w: float = c.weight
+		var s := lerpf(0.68, 1.05, clampf((w - 180.0) / (MAX_KG - 180.0), 0.0, 1.0))  # calves are smaller
+		if w < 180.0:  # newborns
+			s = lerpf(0.42, 0.68, clampf((w - BIRTH_KG) / (180.0 - BIRTH_KG), 0.0, 1.0))
+		if c.kind == BULL:
+			s *= 1.12
 		var cs := cos(c.yaw) * s
 		var sn := sin(c.yaw) * s
 		var o := i * 16
@@ -422,7 +586,8 @@ func to_save() -> Dictionary:
 	return {
 		hay = hay,
 		grass = Marshalls.raw_to_base64(grass.to_byte_array()),
-		cows = alive().map(func(c): return [c.pos.x, c.pos.z, c.yaw, c.hunger, c.thirst, c.weight, c.coat]),
+		cows = alive().map(func(c): return [c.pos.x, c.pos.z, c.yaw, c.hunger, c.thirst, c.weight, c.coat,
+			c.kind, int(c.female), c.preg, c.rest, c.sick, c.vacc, c.peak]),
 	}
 
 
@@ -440,3 +605,11 @@ func from_save(d: Dictionary) -> void:
 		c.hunger = v[3]
 		c.thirst = v[4]
 		c.coat = v[6]
+		if v.size() >= 14:  # saves from before breeding and health have only the first seven
+			c.kind = int(v[7])
+			c.female = v[8] == 1
+			c.preg = v[9]
+			c.rest = v[10]
+			c.sick = v[11]
+			c.vacc = int(v[12])
+			c.peak = v[13]

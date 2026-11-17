@@ -341,8 +341,71 @@ def place(d, k):
     d.line(pts, fill=(120, 200, 90, 255), width=k(8), joint="curve")
 
 
+def vet(d, k):  # doctor's bag with a red cross
+    d.arc([k(22), k(6), k(42), k(26)], 180, 360, fill=INK, width=k(4))
+    d.rounded_rectangle([k(6), k(16), k(58), k(56)], radius=k(6), fill=CREAM, outline=INK, width=k(3))
+    d.line([k(6), k(26), k(58), k(26)], fill=INK, width=k(2))
+    d.rectangle([k(28), k(30), k(36), k(52)], fill=(190, 45, 35, 255))
+    d.rectangle([k(21), k(37), k(43), k(45)], fill=(190, 45, 35, 255))
+
+
+def vaccine(d, k):  # syringe, needle to the lower left
+    shape(d, [(22, 34), (44, 12), (52, 20), (30, 42)], k)
+    d.line([k(26), k(38), k(10), k(54)], fill=INK, width=k(3))  # needle
+    for t in (0.3, 0.5, 0.7):  # dose marks
+        x, y = 22 + 22 * t, 34 - 22 * t
+        d.line([k(x), k(y), k(x + 4), k(y + 4)], fill=INK, width=k(2))
+    d.line([k(48), k(16), k(56), k(8)], fill=INK, width=k(4))  # plunger
+    d.line([k(52), k(4), k(60), k(12)], fill=INK, width=k(4))
+    d.line([k(40), k(10), k(54), k(24)], fill=INK, width=k(3))  # finger grip
+    shape(d, [(25, 33), (36, 22), (40, 26), (29, 37)], k)
+    d.polygon([(k(26), k(34)), (k(36), k(24)), (k(39), k(27)), (k(29), k(37))], fill=(120, 170, 200, 255))
+
+
+def worker(d, k):  # cowboy hat
+    d.ellipse([k(4), k(36), k(60), k(52)], fill=CREAM, outline=INK, width=k(3))  # brim
+    shape(d, [(18, 42), (20, 18), (27, 14), (32, 19), (37, 14), (44, 18), (46, 42)], k)  # pinched crown
+    d.line([k(19), k(36), k(45), k(36)], fill=(150, 50, 35, 255), width=k(5))  # hat band
+
+
+def star(d, k):  # lawman's star with balls on its points
+    pts = []
+    for i in range(10):
+        r = 28 if i % 2 == 0 else 12
+        a = math.radians(-90 + i * 36)
+        pts.append((32 + math.cos(a) * r, 33 + math.sin(a) * r))
+    shape(d, pts, k)
+    for i in range(5):
+        a = math.radians(-90 + i * 72)
+        x, y = 32 + math.cos(a) * 28, 33 + math.sin(a) * 28
+        d.ellipse([k(x - 4), k(y - 4), k(x + 4), k(y + 4)], fill=CREAM, outline=INK, width=k(2))
+    d.ellipse([k(26), k(27), k(38), k(39)], fill=(150, 50, 35, 255), outline=INK, width=k(2))
+
+
+def stable(d, k):  # horseshoe, open end up
+    d.arc([k(10), k(12), k(54), k(60)], 330, 210, fill=INK, width=k(16))
+    d.arc([k(10), k(12), k(54), k(60)], 330, 210, fill=CREAM, width=k(10))
+    for a in (0, 40, 90, 140, 180):
+        r = math.radians(a)
+        x, y = 32 + math.cos(r) * 19, 36 + math.sin(r) * 21
+        d.ellipse([k(x - 1.5), k(y - 1.5), k(x + 1.5), k(y + 1.5)], fill=INK)
+
+
+def smithy(d, k):  # anvil on a block
+    shape(d, [(6, 18), (44, 18), (58, 22), (46, 30), (40, 30), (36, 40), (44, 46), (20, 46), (26, 40), (22, 30), (6, 26)], k)
+    d.rectangle([k(18), k(46), k(46), k(58)], fill=(150, 50, 35, 255), outline=INK, width=k(3))
+
+
+def rodeo(d, k):  # lasso: a loop of rope with a trailing end
+    d.ellipse([k(8), k(10), k(56), k(44)], outline=INK, width=k(9))
+    d.ellipse([k(8), k(10), k(56), k(44)], outline=CREAM, width=k(4))
+    d.line([k(14), k(36), k(8), k(58)], fill=INK, width=k(9))
+    d.line([k(14), k(36), k(8), k(58)], fill=CREAM, width=k(4))
+    d.ellipse([k(10), k(30), k(20), k(40)], fill=(150, 50, 35, 255), outline=INK, width=k(2))
+
+
 button()
 panel()
-for n, f in dict(land=land, market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place).items():
+for n, f in dict(land=land, market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place, vet=vet, vaccine=vaccine, worker=worker, star=star, stable=stable, smithy=smithy, rodeo=rodeo).items():
     icon(n, f)
 print("ok")

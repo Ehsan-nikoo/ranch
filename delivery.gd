@@ -1,4 +1,4 @@
-## Deliveries: every calf or hay purchase is brought by a truck that drives in along the ranch road,
+## Deliveries: every calf, heifer, bull or hay purchase is brought by a truck that drives in along the ranch road,
 ## under the gate, loops in front of the barn to unload, and drives back out.
 ## The delivery timer runs on game time: the truck unloads ARRIVE game hours after the first purchase
 ## (one real minute at normal speed). Everything bought before it unloads rides on that same truck.
@@ -24,7 +24,7 @@ var herd: Herd
 var day: DayCycle
 var notify: Callable
 var gate := RanchGate.new()
-var orders: Array = []    # {calves, hay, t, truck, done}
+var orders: Array = []    # {calves, heifers, bulls, hay, t, truck, done}
 var _pts := PackedVector3Array()
 var _dist := PackedFloat32Array()
 var _stop_d := 0.0
@@ -104,10 +104,12 @@ func blocked_rects() -> Array[Rect2]:
 	return r
 
 
-func order(calves: int, hay: int) -> void:
+func order(calves: int, hay: int, heifers := 0, bulls := 0) -> void:
 	for o in orders:
 		if not o.done:  # a truck is already coming: it brings this too
 			o.calves += calves
+			o.heifers += heifers
+			o.bulls += bulls
 			o.hay += hay
 			if o.truck != null:  # already on the road: reload it so the new cargo shows
 				var old: Truck = o.truck
@@ -115,12 +117,12 @@ func order(calves: int, hay: int) -> void:
 				o.truck.transform = old.transform
 				old.queue_free()
 			return
-	orders.append({calves = calves, hay = hay, t = 0.0, truck = null, done = false})
+	orders.append({calves = calves, heifers = heifers, bulls = bulls, hay = hay, t = 0.0, truck = null, done = false})
 
 
 func _truck(o: Dictionary) -> Truck:
 	var tr := Truck.new()
-	tr.calves = o.calves
+	tr.calves = o.calves + o.heifers + o.bulls  # all ride in the stock trailer
 	tr.hay_bales = o.hay
 	add_child(tr)
 	return tr
@@ -128,6 +130,11 @@ func _truck(o: Dictionary) -> Truck:
 
 func pending_calves() -> int:
 	return orders.filter(func(o): return not o.done).reduce(func(a, o): return a + o.calves, 0)
+
+
+## Every head of cattle on its way, for the herd size limit.
+func pending_animals() -> int:
+	return orders.filter(func(o): return not o.done).reduce(func(a, o): return a + o.calves + o.heifers + o.bulls, 0)
 
 
 func pending_hay() -> int:
@@ -171,41 +178,49 @@ func _process(delta: float) -> void:
 	if o_wait.is_empty():
 		_box.visible = false
 	else:
-		var c: int = pending_calves()
-		var h: int = pending_hay()
-		var what := []
-		if c > 0:
-			what.append("%s گوساله" % UiTheme.fa(c))
-		if h > 0:
-			what.append("%s عدل یونجه" % UiTheme.fa(h))
+		var w := {calves = 0, heifers = 0, bulls = 0, hay = 0}
+		for o in o_wait:
+			for k in w:
+				w[k] += o[k]
+		var what := _cargo(w)
 		var at := fmod(day.hour + next, 24.0)
 		_box.visible = true
 		_box.call_deferred("reset_size")
-		_label.text = "کامیون تحویل (%s) ساعت %s می‌رسه
-هر خریدی تا اون موقع با همین کامیون میاد" % [
+		_label.text = "کامیون (%s) ساعت %s می‌رسه
+هر چی تا اون موقع بخری، با همین کامیون میاد" % [
 			"، ".join(what), UiTheme.fa("%02d:%02d" % [int(at), int(fmod(at, 1.0) * 60.0)])]
 		UiTheme.fit(_box)
 
 
 func _unload(o: Dictionary) -> void:
 	o.done = true
-	var back: Vector3 = o.truck.to_global(Vector3(0, 0, -7.5 if o.calves > 0 else -3.5))
+	var back: Vector3 = o.truck.to_global(Vector3(0, 0, -7.5 if o.calves + o.heifers + o.bulls > 0 else -3.5))
 	for i in o.calves:
 		herd.add_cow(herd.free_spot(back, 2.5), HerdUI.CALF_KG)
+	for i in o.heifers:
+		herd.add_cow(herd.free_spot(back, 2.5), HerdUI.HEIFER_KG, Herd.BREEDER)
+	for i in o.bulls:
+		herd.add_cow(herd.free_spot(back, 2.5), HerdUI.BULL_KG, Herd.BULL)
 	herd.hay = minf(herd.hay + o.hay, herd.hay_cap)
+	notify.call("کامیون رسید و %s رو آورد" % " و ".join(_cargo(o)))
+
+
+func _cargo(o: Dictionary) -> Array:
 	var what := []
-	if o.calves > 0:
-		what.append("%s گوساله" % UiTheme.fa(o.calves))
-	if o.hay > 0:
-		what.append("%s عدل یونجه" % UiTheme.fa(o.hay))
-	notify.call("کامیون رسید: %s تحویل شد" % " و ".join(what))
+	for k in [["calves", "گوساله"], ["heifers", "گاو مادر"], ["bulls", "گاو نر"], ["hay", "بسته یونجه"]]:
+		if o[k[0]] > 0:
+			what.append("%s %s" % [UiTheme.fa(o[k[0]]), k[1]])
+	return what
 
 
 ## Undelivered goods; on load they're ordered again and arrive ARRIVE game hours later.
 func to_save() -> Array:
-	return [pending_calves(), pending_hay()]
+	var w := orders.filter(func(o): return not o.done)
+	return [pending_calves(), pending_hay(), w.reduce(func(a, o): return a + o.heifers, 0), w.reduce(func(a, o): return a + o.bulls, 0)]
 
 
 func from_save(p: Array) -> void:
-	if p[0] > 0 or p[1] > 0:
-		order(int(p[0]), int(p[1]))
+	var heifers := int(p[2]) if p.size() > 3 else 0  # older saves had calves and hay only
+	var bulls := int(p[3]) if p.size() > 3 else 0
+	if p[0] > 0 or p[1] > 0 or heifers > 0 or bulls > 0:
+		order(int(p[0]), int(p[1]), heifers, bulls)
