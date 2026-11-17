@@ -80,9 +80,6 @@ func hook(herd: Herd) -> void:
 
 
 func new_day(d: int) -> void:
-	var y := d / (DayCycle.DAYS_PER_SEASON * 4)
-	if d % (DayCycle.DAYS_PER_SEASON * 4) == 0 and y == ERAS[era()][0] and era() > 0:
-		notify.call(ERAS[era()][3])
 	if d % DayCycle.DAYS_PER_SEASON == 0 and has(RodeoArena):
 		var purse := RODEO_PURSE + 150 * level()
 		builder.add_money(purse)

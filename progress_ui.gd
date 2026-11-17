@@ -3,6 +3,7 @@ class_name ProgressUI
 extends CanvasLayer
 
 var progress: Progress
+var goals: Goals
 var builder: Builder
 var _panel: PanelContainer
 var _dim: ColorRect
@@ -10,6 +11,7 @@ var _head := UiTheme.label("", 34)
 var _bar := ProgressBar.new()
 var _list := UiTheme.label("", 23)
 var _era := UiTheme.label("", 23, Color(0.32, 0.18, 0.08))
+var _goals := UiTheme.label("", 23)
 
 
 func _ready() -> void:
@@ -19,7 +21,7 @@ func _ready() -> void:
 	add_child(_dim)
 	add_child(_panel)
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 16)
+	col.add_theme_constant_override("separation", 10)
 	_panel.add_child(col)
 	col.add_child(UiTheme.header("رنچت چقدر معروفه؟", builder._button(Button.new(), "بستن", toggle, "cancel")))
 	col.add_child(_head)
@@ -41,7 +43,11 @@ func _ready() -> void:
 	_era.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_era.custom_minimum_size = Vector2(900, 0)
 	col.add_child(_era)
+	_goals.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_goals.custom_minimum_size = Vector2(900, 0)
+	col.add_child(_goals)
 	progress.changed.connect(_refresh)
+	goals.changed.connect(_refresh)
 
 
 func toggle() -> void:
@@ -65,10 +71,25 @@ func _refresh() -> void:
 	var lines := []
 	for i in range(1, Progress.LEVELS.size()):
 		lines.append("%s  %s (%s امتیاز):  %s باز می‌شه" % ["✓" if l > i else "○", Progress.NAMES[i], UiTheme.fa(Progress.LEVELS[i]), Progress.UNLOCKS[i]])
-	lines.append("هر ۱۰۰ دلار فروش ۱ امتیاز، هر قرارداد ۲۵ امتیاز؛ قرارداد عقب‌افتاده و گاوی که بمیره امتیاز کم می‌کنه")
 	_list.text = "\n".join(lines)
 	var e := progress.era()
 	var text := "%s (سال %s) - قیمت گاو %s برابر" % [Progress.ERAS[e][1], UiTheme.fa(progress.year() + 1), UiTheme.fa_price(Progress.ERAS[e][2])]
 	if e + 1 < Progress.ERAS.size():
 		text += "\nاز سال %s: %s" % [UiTheme.fa(Progress.ERAS[e + 1][0] + 1), Progress.ERAS[e + 1][1]]
 	_era.text = text
+	var g := ["هدف‌های الان (%s از %s تا انجام شده):" % [UiTheme.fa(goals.done.size()), UiTheme.fa(Goals.LIST.size())]]
+	for o in goals.open():
+		g.append("○  %s  (%s از %s)  جایزه: %s" % [Goals.text(o), UiTheme.fa(mini(goals.value(o[2]), o[3])), UiTheme.fa(o[3]), Goals.prize(o)])
+	if goals.open().is_empty():
+		g.append("همه‌ی هدف‌ها رو انجام دادی!")
+	_goals.text = "\n".join(g)
+
+
+var _tick := 0.0
+
+
+func _process(delta: float) -> void:
+	_tick -= delta
+	if _panel.visible and _tick <= 0.0:
+		_tick = 1.0
+		_refresh()

@@ -106,3 +106,8 @@ func _ride(r: Dictionary, delta: float) -> void:
 	c.position += dir * step
 	c.rotation.y = lerp_angle(c.rotation.y, atan2(dir.x, dir.z), minf(1.0, delta * 5.0 * maxf(1.0, day.speed)))
 	c.walk(delta, step / maxf(delta, 0.0001) / maxf(day.speed, 1.0))
+
+
+## The riders on the ranch now, for sounds.
+func riders() -> Array:
+	return _riders.values().map(func(r): return r.node)

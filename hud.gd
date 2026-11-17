@@ -19,6 +19,8 @@ var _date: Label
 var _speed_btn := Button.new()
 var _quality_btn := Button.new()
 var _grass_btn := Button.new()
+var _music_btn := Button.new()
+var sfx: Sfx
 var _speed := 0
 var _quality := 1
 var _tick := 0.0
@@ -40,16 +42,18 @@ func _ready() -> void:
 	row.position = Vector2(16, 96)  # below the date plank so their straw doesn't overlap
 	row.add_theme_constant_override("separation", 12)
 	add_child(row)
-	for b: Button in [_speed_btn, _quality_btn, _grass_btn]:
+	for b: Button in [_speed_btn, _quality_btn, _grass_btn, _music_btn]:
 		b.custom_minimum_size = Vector2(210, 88)
 		b.add_theme_font_size_override("font_size", 24)
 		row.add_child(b)
 	_speed_btn.pressed.connect(func(): _set_speed(_speed + 1))
 	_quality_btn.pressed.connect(func(): _set_quality(_quality + 1))
 	_grass_btn.pressed.connect(_toggle_grass)
+	_music_btn.pressed.connect(_toggle_music)
 	_set_speed(0)
 	_set_quality(1)
 	_grass_btn.text = "علف: روشن"
+	_music_btn.text = "آهنگ: روشن"
 
 
 func _set_speed(i: int) -> void:
@@ -97,3 +101,8 @@ func _process(delta: float) -> void:
 		RenderingServer.viewport_get_measured_render_time_cpu(rid) + RenderingServer.get_frame_setup_time_cpu(),
 		RenderingServer.viewport_get_measured_render_time_gpu(rid),
 		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)]
+
+
+func _toggle_music() -> void:
+	sfx.music.stream_paused = not sfx.music.stream_paused
+	_music_btn.text = "آهنگ: %s" % ("خاموش" if sfx.music.stream_paused else "روشن")

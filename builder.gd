@@ -69,7 +69,7 @@ func _ready() -> void:
 
 func _button(b: Button, text: String, cb: Callable, icon: String) -> Button:
 	b.text = text
-	b.icon = load("res://ui/icons/%s.png" % icon)
+	b.icon = load("res://ui/icons/%s.png" % icon) if icon != "" else null
 	b.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT  # Persian reads right to left
 	b.custom_minimum_size = Vector2(190, 104)
 	b.add_theme_font_size_override("font_size", 26)

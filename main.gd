@@ -22,6 +22,10 @@ var workers_ui := WorkersUI.new()
 var events := Events.new()
 var progress := Progress.new()
 var progress_ui := ProgressUI.new()
+var goals := Goals.new()
+var legacy := Legacy.new()
+var tutorial: Tutorial
+var _fresh := false               # starting over: don't save the old ranch on the way out
 var delivery := Delivery.new()
 var land := Land.new()
 var fence_mat := _fence_mat()
@@ -48,6 +52,8 @@ const SEASON_NEWS := [
 	"زمستون شد: علف درنمیاد و گاوها از انبار یونجه می‌خورن",
 ]
 var crickets: AudioStreamPlayer
+var prairie: AudioStreamPlayer
+var sfx := Sfx.new()
 var mask_img: Image
 var builder := Builder.new()
 var herd := Herd.new()
@@ -125,6 +131,7 @@ func _ready() -> void:
 	hud.herd = herd
 	hud.grass = grass_chunks
 	hud.grass_nodes = grass_nodes
+	hud.sfx = sfx
 	add_child(hud)
 	builder.rig = rig
 	builder.world = self
@@ -171,6 +178,10 @@ func _ready() -> void:
 	crew.day = day
 	crew.world = self
 	add_child(crew)
+	sfx.herd = herd
+	sfx.crew = crew
+	sfx.day = day
+	add_child(sfx)
 	if _arg("crew", "") != "":  # test: one hand of each skill
 		for k in 4:
 			workers.hired.append({name = Workers.NAMES[k], skill = k, level = 2, wage = 50})
@@ -200,7 +211,30 @@ func _ready() -> void:
 		progress.rep = float(_arg("rep", ""))
 	add_child(progress)
 	progress.hook(herd)
+	goals.herd = herd
+	goals.market = market
+	goals.workers = workers
+	goals.builder = builder
+	goals.progress = progress
+	goals.land = land
+	goals.notify = herd_ui.notify
+	if not saved.is_empty() and saved.has("goals"):
+		goals.from_save(saved.goals)
+	add_child(goals)
+	goals.hook()
+	legacy.day = day
+	legacy.herd = herd
+	legacy.market = market
+	legacy.builder = builder
+	legacy.progress = progress
+	legacy.goals = goals
+	legacy.events = events
+	legacy.restart = restart
+	if not saved.is_empty() and saved.has("legacy"):
+		legacy.from_save(saved.legacy)
+	add_child(legacy)
 	progress_ui.progress = progress
+	progress_ui.goals = goals
 	progress_ui.builder = builder
 	add_child(progress_ui)
 	progress_ui._refresh()
@@ -226,8 +260,25 @@ func _ready() -> void:
 		progress_ui.toggle()
 	if _arg("workers", "") != "":
 		workers_ui.toggle()
+	if _arg("legacy", "") == "end":  # test: the ending board
+		legacy._ending()
+	elif _arg("legacy", "") != "":  # test: `--legacy=1` the handover to generation 2
+		var e := int(_arg("legacy", ""))
+		day.day = Progress.ERAS[e][0] * DayCycle.DAYS_PER_SEASON * 4
+		legacy.new_day(day.day)
 	if _arg("event", "") != "":  # test: `--event=wolves` shows that event's board
 		events.call("_" + _arg("event", ""))
+	if saved.is_empty() or saved.get("tutorial", 99) < 99:
+		tutorial = Tutorial.new()
+		tutorial.herd_ui = herd_ui
+		tutorial.market_ui = market_ui
+		tutorial.builder = builder
+		tutorial.workers_ui = workers_ui
+		tutorial.progress_ui = progress_ui
+		tutorial.step = int(saved.get("tutorial", 0))
+		if _arg("tutorial", "1") == "0" or (not SaveGame.enabled() and _arg("tutorial", "") == ""):
+			tutorial.step = 99  # test runs skip it unless asked with --tutorial=1
+		add_child(tutorial)
 	day.hour_changed.connect(_on_hour)
 	day.day_changed.connect(_on_day)
 	var autosave := Timer.new()  # also catches buys and sales between day changes
@@ -304,7 +355,7 @@ func _debug_herd() -> void:
 		print("   cows grazing on bought land: %d, on locked land: %d" % [outside, off_land])
 		var preg := herd.of_kind(Herd.BREEDER).filter(func(c): return c.preg > 0.0).size()
 		print("   rep %d level %d era %d  price x%.2f" % [progress.rep, progress.level(), progress.era(), market.era_mul])
-		print("   hands %d (wages %d, capacity %d)  effects %s" % [workers.hired.size(), workers.wages(), workers.capacity(), events.effects.keys().filter(func(k): return events.active(k))])
+		print("   hands %d (wages %d, capacity %d)  effects %s  goals %s  legacy %s" % [workers.hired.size(), workers.wages(), workers.capacity(), events.effects.keys().filter(func(k): return events.active(k)), goals.done, legacy.seen])
 		print("   breeders %d (in calf %d)  bulls %d  sick %d  unvaccinated %d" % [herd.of_kind(Herd.BREEDER).size(), preg, herd.of_kind(Herd.BULL).size(), herd.sick_count(), herd.unvaccinated().size()])
 		print("d%d %02dh %s  price %.2f  active %d  cows %d  hunger %.2f kg %d  hay %d/%d  shelter %d  money %d  wander/graze/water/drink/idle/tofeed/feed %s" % [
 			day.day, int(day.hour), DayCycle.SEASON_NAMES[day.season()], market.price, market.active.size(), cows.size(), h / n, w / n, herd.hay, herd.hay_cap, herd.shelter, builder.money, st])
@@ -404,6 +455,8 @@ func _on_hour(_h: float) -> void:
 	ground_mat.set_shader_parameter("snow", snow)
 	grass_mat.set_shader_parameter("snow", snow)
 	crickets.stream_paused = s == DayCycle.WINTER  # no crickets in the snow
+	# birds by day, fewer in winter
+	prairie.volume_db = linear_to_db(maxf(1.0 - night, 0.001)) - (16.0 if s == DayCycle.WINTER else 8.0)
 
 
 func _on_day(d: int) -> void:
@@ -413,6 +466,7 @@ func _on_day(d: int) -> void:
 	workers.new_day(d)
 	progress.new_day(d)
 	events.new_day(d)
+	legacy.new_day(d)
 	_save()
 
 
@@ -421,14 +475,21 @@ func _notification(what: int) -> void:
 		_save()  # phone apps get killed in the background without warning
 
 
+## Ends this ranch for good and starts a new one from scratch.
+func restart() -> void:
+	_fresh = true
+	SaveGame.erase()
+	get_tree().reload_current_scene()
+
+
 func _save() -> void:
-	if not is_node_ready():
+	if not is_node_ready() or _fresh:
 		return
 	var buildings := []
 	for n in get_children():
 		if n is Building and not n.has_node("Marker"):
 			buildings.append([n.get_script().resource_path, n.position.x, n.position.z, n.rotation_degrees.y])
-	SaveGame.write({money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), delivery = delivery.to_save(), land = land.to_save()})
+	SaveGame.write({money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), delivery = delivery.to_save(), land = land.to_save(), goals = goals.to_save(), legacy = legacy.to_save(), tutorial = tutorial.step if tutorial else 99})
 
 
 # ---------- ground & grass ----------
@@ -629,3 +690,9 @@ func _loop(path: String, db: float) -> AudioStreamPlayer:
 func _audio() -> void:
 	_loop("res://sounds/wind.wav", -10.0)
 	crickets = _loop("res://sounds/crickets.wav", -60.0)
+	var birds: AudioStreamOggVorbis = load("res://sounds/prairie.ogg")  # recorded prairie: birds and breeze
+	birds.loop = true
+	prairie = AudioStreamPlayer.new()
+	prairie.stream = birds
+	prairie.autoplay = true
+	add_child(prairie)

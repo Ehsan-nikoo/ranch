@@ -5,3 +5,4 @@
 - Rider model: "Western Cowboy (Rigged)" (https://sketchfab.com/3d-models/western-cowboy-rigged-160bf043b71c458984c81c717b7483c9) by stevedaman (https://sketchfab.com/stevedaman), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/). Texture shrunk, posed on horseback and shirt recoloured for this game (cowboy.gd, rider.gdshader).
 - Textures: Poly Haven (https://polyhaven.com), CC0.
 - Font: Vazirmatn by Saber Rastikerdar, SIL Open Font License 1.1 (ui/fonts/OFL.txt).
+- Sounds: cow, horse and prairie recordings and the music loop are CC0 (public domain) sounds from Freesound (https://freesound.org), sound ids 177253, 163727, 401636, 275154, 269571, 510903, 437111, 538697, 351609, 540843. Cut and level-matched for this game.
