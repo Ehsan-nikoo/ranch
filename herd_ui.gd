@@ -7,8 +7,8 @@ extends CanvasLayer
 const CALF_KG := 220.0
 const CALF_SPOT := Vector3(8, 0, 16)  # calves arrive in front of the barn
 const HAY_LOT := 10                   # bales per harvest or purchase
-const HARVEST_COST := 80              # farmhands' wages for cutting and baling a lot
-const HAY_PRICE := [250, 250, 300, 400]  # per lot by season: dearer as winter nears
+const HARVEST_COST := 120             # farmhands' wages for cutting and baling a lot
+const HAY_PRICE := [450, 450, 550, 750]  # per lot by season: dearer as winter nears
 
 var herd: Herd
 var builder: Builder
@@ -128,8 +128,11 @@ func buy_hay() -> void:
 
 
 func notify(text: String) -> void:
-	_toast.text = text
-	_toast_t = 4.0
+	# several things can happen at a day change: stack them instead of the last one hiding the rest
+	_toast.text = text if _toast_t < 1.0 else _toast.text + "
+" + text
+	_toast_t = 4.0 + 1.5 * _toast.text.count("
+")
 
 
 func _refresh() -> void:
@@ -154,7 +157,8 @@ func _refresh() -> void:
 		"آماده‌ی فروش (%s کیلو به بالا):  %s" % [UiTheme.fa(int(Herd.READY_KG)), UiTheme.fa(ready)],
 		"گرسنه:  %s      تشنه:  %s" % [UiTheme.fa(hungry), UiTheme.fa(thirsty)],
 		"قیمت امروز بازار:  هر کیلو %s دلار" % UiTheme.fa_price(market.price),
-		"یونجه‌ی انبار:  %s از %s عدل" % [UiTheme.fa(int(herd.hay)), UiTheme.fa(herd.hay_cap)],
+		"یونجه‌ی انبار:  %s از %s عدل (زمستون هر گاو روزی ۱ عدل)" % [UiTheme.fa(int(herd.hay)), UiTheme.fa(herd.hay_cap)],
+		"هزینه‌ی نگهداری:  روزی %s دلار" % UiTheme.fa(Market.UPKEEP * n),
 		"جای زمستونی طویله:  %s برای %s گاو" % [UiTheme.fa(herd.shelter), UiTheme.fa(n)],
 	])
 	var winter := herd.day.season() == DayCycle.WINTER

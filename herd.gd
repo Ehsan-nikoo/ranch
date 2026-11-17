@@ -13,7 +13,12 @@ const MAX_COWS := 80
 const BOUNDS := Rect2(-60, -60, 120, 120)
 const READY_KG := 500.0   # sale weight
 const WALK := 1.15        # m/s
-const HAY_PER_HUNGER := 0.27  # bales eaten to go from starving to full (~0.4 bale a day)
+const HAY_PER_HUNGER := 0.67  # bales eaten to go from starving to full: about 1 bale per cow per day
+# Economy rhythm (see Market): a 220 kg calf reaches READY_KG in about 2 game days on good grass and water,
+# so one season (3 days) fits a whole buy-raise-sell cycle. Past READY_KG gains taper off toward MAX_KG,
+# so holding a ready cow only pays when the price is about to rise.
+const GAIN := 11.0        # kg per game hour when fully fed and watered
+const MAX_KG := 680.0
 const GROWTH := [1.6, 1.0, 0.35, 0.0]   # grass regrowth per season: spring, summer, autumn, winter
 const SEP := 1.7          # personal space between cows, m
 enum { WANDER, GRAZE, TO_WATER, DRINK, IDLE, TO_FEED, FEED }
@@ -25,7 +30,7 @@ var cows: Array[Dictionary] = []
 var grass := PackedFloat32Array()     # 0..1 per cell
 var grass_cap := PackedFloat32Array() # max grass per cell (bare dirt grows none)
 var grass_tex: ImageTexture
-var hay := 20.0                       # bales in storage
+var hay := 30.0                       # bales in storage
 var hay_cap := 0                      # bales the barns and silos can hold
 var shelter := 0                      # cows the barns can house in winter
 var cost_ms := 0.0                    # smoothed time this script takes per frame, shown in the HUD
@@ -223,9 +228,10 @@ func _needs(c: Dictionary, hours: float, cold: float) -> void:
 	c.hunger = minf(1.0, c.hunger + hours / 16.0)
 	c.thirst = minf(1.0, c.thirst + hours / 18.0)
 	if c.hunger < 0.7 and c.thirst < 0.7:
-		c.weight = minf(c.weight + 7.0 * hours * (1.0 - c.hunger) * (1.0 - c.thirst), 750.0)
+		var taper := 1.0 if c.weight < READY_KG else clampf((MAX_KG - c.weight) / (MAX_KG - READY_KG), 0.0, 1.0) ** 2
+		c.weight = minf(c.weight + GAIN * hours * (1.0 - c.hunger) * (1.0 - c.thirst) * taper, MAX_KG)
 	elif c.hunger > 0.85 or c.thirst > 0.85:
-		c.weight -= 3.0 * hours
+		c.weight -= 4.0 * hours
 	c.weight -= cold * hours
 
 
@@ -392,7 +398,7 @@ func _draw() -> void:
 	_buf.fill(0.0)
 	for i in cows.size():
 		var c: Dictionary = cows[i]
-		var s := lerpf(0.68, 1.05, clampf((c.weight - 180.0) / 520.0, 0.0, 1.0))  # calves are smaller
+		var s := lerpf(0.68, 1.05, clampf((c.weight - 180.0) / (MAX_KG - 180.0), 0.0, 1.0))  # calves are smaller
 		var cs := cos(c.yaw) * s
 		var sn := sin(c.yaw) * s
 		var o := i * 16

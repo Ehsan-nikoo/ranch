@@ -77,6 +77,8 @@ func _ready() -> void:
 	if saved.is_empty():
 		for i in int(_arg("cows", "8")):
 			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), randf_range(260.0, 520.0))
+		for i in int(_arg("calves", "0")):  # test: fresh calves at purchase weight
+			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), HerdUI.CALF_KG)
 	else:
 		herd.from_save(saved.herd)
 	_audio()
@@ -140,16 +142,21 @@ func _debug_herd() -> void:
 			h += c.hunger
 			w += c.weight
 		var n := maxf(cows.size(), 1)
-		if _arg("contract", "") != "":  # test: take every offer, deliver as soon as possible
+		if _arg("bot", "") != "":  # test player: contracts, sell ready cows, keep ~15 head, stock hay before winter
 			for o in market.offers.duplicate():
 				market.accept(o)
 			for c in market.active.duplicate():
-				if _arg("contract", "") != "skip":  # skip = never deliver, to test the fine
-					market.deliver(c)
-			if herd.alive().size() < 15 and builder.money > 2000:
+				market.deliver(c)
+			herd_ui.sell()
+			while herd.alive().size() < 15 and builder.money > market.calf_price() + 1500:
 				herd_ui.buy()
-		print("%s  price %.2f  active %d  cows %d  hunger %.2f kg %d  hay %d/%d  shelter %d  money %d  wander/graze/water/drink/idle/tofeed/feed %s" % [
-			DayCycle.SEASON_NAMES[day.season()], market.price, market.active.size(), cows.size(), h / n, w / n, herd.hay, herd.hay_cap, herd.shelter, builder.money, st])
+			if day.season() == DayCycle.SUMMER:
+				herd_ui.cut_hay()
+			if day.season() == DayCycle.AUTUMN:
+				while herd.hay_cap - herd.hay >= HerdUI.HAY_LOT and builder.money > 3000:
+					herd_ui.buy_hay()
+		print("d%d %02dh %s  price %.2f  active %d  cows %d  hunger %.2f kg %d  hay %d/%d  shelter %d  money %d  wander/graze/water/drink/idle/tofeed/feed %s" % [
+			day.day, int(day.hour), DayCycle.SEASON_NAMES[day.season()], market.price, market.active.size(), cows.size(), h / n, w / n, herd.hay, herd.hay_cap, herd.shelter, builder.money, st])
 
 
 ## Test hook for renders: `--ghost=<catalog index>@x,z` opens placement there, `--place` confirms.
