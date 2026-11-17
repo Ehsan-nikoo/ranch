@@ -1,10 +1,10 @@
-# Paints the ranch ground mask: R = bare dirt, G = lush green grass. Covers world x,z in [-80, 80].
+# Paints the ranch ground mask: R = bare dirt, G = lush green grass. Covers world x,z in [-120, 120].
 # main.gd reads the same image to keep grass tufts off the dirt.
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 from pathlib import Path
 
-N, SPAN = 512, 160.0
+N, SPAN = 768, 240.0
 rng = np.random.default_rng(5)
 out = Path(__file__).resolve().parent.parent / "textures"
 
@@ -21,7 +21,7 @@ def noise(cells, blur):
 dirt = Image.new("L", (N, N), 0)
 d = ImageDraw.Draw(dirt)
 # wagon track from the barn doors out to the edge, with a gentle bend
-track = [px(0, 8), px(0.5, 18), px(3, 30), px(8, 45), px(10, 60), px(8, 82)]
+track = [px(0, 8), px(0.5, 18), px(3, 30), px(8, 45), px(10, 60), px(9.5, 75), px(8.5, 96), px(9, 125)]
 d.line(track, fill=255, width=int(4.5 / SPAN * N), joint="curve")
 # apron in front of the doors, under the lean-to, trampled corral, around the trough
 d.ellipse([*px(-6, 6), *px(6, 13)], fill=255)

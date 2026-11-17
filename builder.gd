@@ -10,11 +10,11 @@ var CATALOG := [
 	["سیلو", Silo, 1500, "silo", "انبار غله و علوفه برای زمستون، که دام‌ها تو فصل سرما گرسنه نمونن."],
 	["آسیاب بادی", Windmill, 800, "windmill", "با نیروی باد آب رو از زیر زمین بالا میاره و آبشخور دام‌ها رو پر می‌کنه."],
 ]
-const BOUNDS := Rect2(-62, -62, 124, 124)
 
 var money := 6000
 var rig: CameraRig
 var world: Node3D
+var land: Land
 var occupied: Array[Rect2] = []
 var on_placed: Callable  # (world footprint) -> void
 
@@ -212,6 +212,6 @@ func _process(_delta: float) -> void:
 		return
 	ghost.position = _snapped(rig.target)
 	var r := ghost.world_footprint()
-	_valid = money >= _cost and BOUNDS.encloses(r) and not occupied.any(func(o): return o.intersects(r))
+	_valid = money >= _cost and land.rect_open(r) and not occupied.any(func(o): return o.intersects(r))
 	_marker_mat.albedo_color = Color(0.3, 0.95, 0.4, 0.38) if _valid else Color(1.0, 0.25, 0.2, 0.45)
 	_place_btn.disabled = not _valid

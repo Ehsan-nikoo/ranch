@@ -1,24 +1,24 @@
 ## Deliveries: every calf or hay purchase is brought by a truck that drives in along the ranch road,
 ## under the gate, loops in front of the barn to unload, and drives back out.
-## The truck arrives ARRIVE seconds after the order at normal speed; fast-forwarding time speeds the
-## truck up too, so a delivery always takes the same share of a game day (about 5 game hours).
-## Orders placed while a truck is still off the map ride along on that truck.
+## The delivery timer runs on game time: the truck unloads ARRIVE game hours after the first purchase
+## (one real minute at normal speed). Everything bought before it unloads rides on that same truck.
 ## Owns the road, the gate on it, and the trucks; none are direct children of the world,
 ## so the herd, the builder and the save file never mistake them for buildings.
 class_name Delivery
 extends Node3D
 
-const ARRIVE := 60.0      # seconds from order to unloading
-const DRIVE_IN := 18.0    # the truck is visible for the last part of the wait
-const UNLOAD := 4.0
-const DRIVE_OUT := 16.0
+# all in game hours (one hour = DayCycle.SECONDS_PER_HOUR real seconds at normal speed)
+const ARRIVE := 4.8       # from the first purchase to unloading: 60 s at normal speed
+const DRIVE_IN := 2.0     # the truck is on screen for the last part of the wait
+const UNLOAD := 0.32
+const DRIVE_OUT := 1.6
 const LANE := 1.1         # keep right, so an incoming and a leaving truck pass each other
-const GATE_Z := 52.0
-# road control points (x, z) from off the map, up the wagon track, a loop on the barn apron, and back out
-const ROUTE := [Vector2(10, 105), Vector2(8.5, 82), Vector2(10, 60), Vector2(8, 45), Vector2(3, 30), Vector2(0.6, 19),
-	Vector2(3.4, 13.8), Vector2(0, 11.2), Vector2(-3.4, 13.8), Vector2(-0.6, 19), Vector2(3, 30), Vector2(8, 45),
-	Vector2(10, 60), Vector2(8.5, 82), Vector2(10, 105)]
-const STOP := 7           # control point where the truck stops to unload
+const GATE_Z := Land.HALF  # the gate stands in the ranch fence where the road comes in
+# road control points (x, z) from off the map, through the gate, up the wagon track, a loop on the barn apron, and back out
+const ROUTE := [Vector2(9, 160), Vector2(9, 125), Vector2(8.5, Land.HALF), Vector2(9.5, 75), Vector2(10, 60), Vector2(8, 45),
+	Vector2(3, 30), Vector2(0.6, 19), Vector2(3.4, 13.8), Vector2(0, 11.2), Vector2(-3.4, 13.8), Vector2(-0.6, 19),
+	Vector2(3, 30), Vector2(8, 45), Vector2(10, 60), Vector2(9.5, 75), Vector2(8.5, Land.HALF), Vector2(9, 125), Vector2(9, 160)]
+const STOP := 9           # control point where the truck stops to unload
 
 var herd: Herd
 var day: DayCycle
@@ -110,11 +110,24 @@ func blocked_rects() -> Array[Rect2]:
 
 func order(calves: int, hay: int) -> void:
 	for o in orders:
-		if o.truck == null and not o.done:  # still off the map: load it on that truck
+		if not o.done:  # a truck is already coming: it brings this too
 			o.calves += calves
 			o.hay += hay
+			if o.truck != null:  # already on the road: reload it so the new cargo shows
+				var old: Truck = o.truck
+				o.truck = _truck(o)
+				o.truck.transform = old.transform
+				old.queue_free()
 			return
 	orders.append({calves = calves, hay = hay, t = 0.0, truck = null, done = false})
+
+
+func _truck(o: Dictionary) -> Truck:
+	var tr := Truck.new()
+	tr.calves = o.calves
+	tr.hay_bales = o.hay
+	add_child(tr)
+	return tr
 
 
 func pending_calves() -> int:
@@ -127,7 +140,7 @@ func pending_hay() -> int:
 
 func _process(delta: float) -> void:
 	var next := INF
-	delta *= day.speed
+	delta *= day.speed / DayCycle.SECONDS_PER_HOUR  # game hours
 	for o in orders.duplicate():
 		o.t += delta
 		var t: float = o.t - (ARRIVE - DRIVE_IN)
@@ -135,10 +148,7 @@ func _process(delta: float) -> void:
 			next = minf(next, ARRIVE - o.t)
 			continue
 		if o.truck == null:
-			o.truck = Truck.new()
-			o.truck.calves = o.calves
-			o.truck.hay_bales = o.hay
-			add_child(o.truck)
+			o.truck = _truck(o)
 		var d: float
 		if t < DRIVE_IN:                      # roll in, braking smoothly to a stop
 			var u := t / DRIVE_IN
@@ -159,7 +169,7 @@ func _process(delta: float) -> void:
 		var tr: Truck = o.truck
 		var moved := tr.position.distance_to(p[0])
 		tr.position = p[0]
-		tr.rotation.y = lerp_angle(tr.rotation.y, atan2(p[1].x, p[1].z), minf(1.0, delta * 6.0)) if moved < 5.0 else atan2(p[1].x, p[1].z)
+		tr.rotation.y = lerp_angle(tr.rotation.y, atan2(p[1].x, p[1].z), minf(1.0, delta * 50.0)) if moved < 5.0 else atan2(p[1].x, p[1].z)
 		tr.roll(moved)
 	var o_wait := orders.filter(func(o): return not o.done)
 	if o_wait.is_empty():
@@ -172,7 +182,10 @@ func _process(delta: float) -> void:
 			what.append("%s گوساله" % UiTheme.fa(c))
 		if h > 0:
 			what.append("%s عدل یونجه" % UiTheme.fa(h))
-		_label.text = "کامیون تحویل در راه (%s):  %s ثانیه" % ["، ".join(what), UiTheme.fa(maxi(0, ceili(next / day.speed)))]
+		var at := fmod(day.hour + next, 24.0)
+		_label.text = "کامیون تحویل (%s) ساعت %s می‌رسه
+هر خریدی تا اون موقع با همین کامیون میاد" % [
+			"، ".join(what), UiTheme.fa("%02d:%02d" % [int(at), int(fmod(at, 1.0) * 60.0)])]
 
 
 func _unload(o: Dictionary) -> void:
@@ -189,7 +202,7 @@ func _unload(o: Dictionary) -> void:
 	notify.call("کامیون رسید: %s تحویل شد" % " و ".join(what))
 
 
-## Undelivered goods; on load they're ordered again and arrive a minute later.
+## Undelivered goods; on load they're ordered again and arrive ARRIVE game hours later.
 func to_save() -> Array:
 	return [pending_calves(), pending_hay()]
 

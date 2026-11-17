@@ -3,9 +3,9 @@
 extends Node3D
 
 const TEX := "res://textures/"
-const MASK_SPAN := 160.0
+const MASK_SPAN := 240.0
 const GRASS_CHUNK := 20.0
-const GRASS_COUNT := 20000
+const GRASS_COUNT := 50000  # ~1.3 per m2 over the bigger ranch; only nearby chunks draw
 
 var day := DayCycle.new()
 var rig := CameraRig.new()
@@ -17,6 +17,17 @@ var herd_ui := HerdUI.new()
 var market := Market.new()
 var market_ui := MarketUI.new()
 var delivery := Delivery.new()
+var land := Land.new()
+var fence_mat := _fence_mat()
+
+
+static func _fence_mat() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = load(TEX + "trim_white_diff.jpg")
+	m.albedo_color = Color(0.55, 0.45, 0.35)
+	m.uv1_triplanar = true
+	m.roughness = 0.95
+	return m
 # per season (spring, summer, autumn, winter): grass blade tint, ground grass tint, ground lush tint, snow
 const LOOK := [
 	[Color(0.66, 0.86, 0.5), Color(0.52, 0.64, 0.4), Color(0.42, 0.6, 0.32), 0.0],
@@ -53,12 +64,15 @@ func _ready() -> void:
 		day.day = saved.day
 		day.hour = saved.hour
 		builder.money = saved.money
+		if saved.has("land"):
+			land.from_save(saved.land)
 		layout = saved.buildings.map(func(b): return [load(b[0]), Vector3(b[1], 0, b[2]), b[3]])
 	add_child(day)
 	mask_img = (load(TEX + "ground_mask.png") as Texture2D).get_image()
 	if mask_img.is_compressed():
 		mask_img.decompress()
 	herd.init_grass(mask_img)
+	add_child(land)
 	_ground()
 	builder.occupied.append(CORRAL)
 	for b in layout:
@@ -73,6 +87,10 @@ func _ready() -> void:
 	herd.day = day
 	herd.world = self
 	add_child(delivery)
+	_ranch_fence(delivery.gate.position.x)
+	MeshMerge.boxes(self)
+	herd.land = land
+	builder.land = land
 	herd.extra_blocked = [CORRAL]
 	herd.extra_blocked.append_array(delivery.blocked_rects())
 	builder.occupied.append_array(delivery.blocked_rects())
@@ -120,6 +138,17 @@ func _ready() -> void:
 	market_ui.market = market
 	market_ui.builder = builder
 	add_child(market_ui)
+	var land_ui := LandUI.new()
+	land_ui.land = land
+	land_ui.builder = builder
+	land_ui.on_bought = func():
+		herd_ui.notify("زمین تازه مال تو شد: گاوها حالا اونجا هم می‌چرن")
+		_save()
+	add_child(land_ui)
+	if _arg("land", "") != "":
+		land_ui.toggle()
+	if _arg("unlock", "") != "":  # test: own plot N without paying
+		land.unlock(int(_arg("unlock", "")))
 	if _arg("market", "") != "":
 		market_ui.toggle()
 	day.speed = float(_arg("speed", "1"))
@@ -167,9 +196,18 @@ func _debug_herd() -> void:
 				herd_ui.buy()
 			if day.season() == DayCycle.SUMMER:
 				herd_ui.cut_hay()
+			for i in Land.GRID * Land.GRID:  # buy a neighbouring plot when there's money to spare
+				if land.can_buy(i) and builder.money > land.price() + 6000:
+					builder.add_money(-land.price())
+					land.unlock(i)
+					print("   BOUGHT plot %d" % i)
+					break
 			if day.season() == DayCycle.AUTUMN:
 				while herd_ui._hay_space() >= HerdUI.HAY_LOT and builder.money > 3000:
 					herd_ui.buy_hay()
+		var outside := cows.filter(func(c): return absf(c.pos.x) > 48.0 or absf(c.pos.z) > 48.0).size()
+		var off_land := cows.filter(func(c): return not land.is_open(c.pos)).size()
+		print("   cows grazing on bought land: %d, on locked land: %d" % [outside, off_land])
 		print("d%d %02dh %s  price %.2f  active %d  cows %d  hunger %.2f kg %d  hay %d/%d  shelter %d  money %d  wander/graze/water/drink/idle/tofeed/feed %s" % [
 			day.day, int(day.hour), DayCycle.SEASON_NAMES[day.season()], market.price, market.active.size(), cows.size(), h / n, w / n, herd.hay, herd.hay_cap, herd.shelter, builder.money, st])
 
@@ -229,9 +267,17 @@ func _shot(shot: String) -> void:
 			rig.target = Vector3(1, 0, 13)
 			rig.dist = 13.0
 			rig.yaw = 0.9
+		"overview":  # whole ranch from high up (past the zoom limit, for screenshots)
+			rig.target = Vector3(0, 0, 10)
+			rig.dist = 190.0
+			rig.yaw = 0.3
+		"edge":
+			rig.target = Vector3(70, 0, 70)
+			rig.dist = 22.0
+			rig.yaw = 0.7
 		"gate":
-			rig.target = Vector3(9, 3, 50)
-			rig.dist = 24.0
+			rig.target = Vector3(9, 3, 94)
+			rig.dist = 26.0
 			rig.yaw = 0.35
 		"mill":
 			rig.target = Vector3(18, 2, -3)
@@ -277,7 +323,7 @@ func _save() -> void:
 	for n in get_children():
 		if n is Building and not n.has_node("Marker"):
 			buildings.append([n.get_script().resource_path, n.position.x, n.position.z, n.rotation_degrees.y])
-	SaveGame.write({money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), delivery = delivery.to_save()})
+	SaveGame.write({money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), delivery = delivery.to_save(), land = land.to_save()})
 
 
 # ---------- ground & grass ----------
@@ -291,6 +337,8 @@ func _ground() -> void:
 		sm.set_shader_parameter(p[0], load(TEX + p[1]))
 	sm.set_shader_parameter("span", MASK_SPAN)
 	sm.set_shader_parameter("grazed", herd.grass_tex)
+	sm.set_shader_parameter("plots", land.texture)
+	sm.set_shader_parameter("land_half", Land.HALF)
 	var pm := PlaneMesh.new()
 	pm.size = Vector2(800, 800)
 	var mi := MeshInstance3D.new()
@@ -328,6 +376,8 @@ func _grass() -> void:
 	var mat := grass_mat
 	mat.shader = load("res://grass.gdshader")
 	mat.set_shader_parameter("grazed", herd.grass_tex)
+	mat.set_shader_parameter("plots", land.texture)
+	mat.set_shader_parameter("land_half", Land.HALF)
 	mat.set_shader_parameter("span", MASK_SPAN)
 	var mesh := _tuft_mesh()
 	var r := RandomNumberGenerator.new()
@@ -336,11 +386,11 @@ func _grass() -> void:
 	var chunks := {}
 	var placed := 0
 	while placed < GRASS_COUNT:
-		var p := Vector2(r.randf_range(-70, 70), r.randf_range(-70, 70))
+		var p := Vector2(r.randf_range(-118, 118), r.randf_range(-118, 118))
 		if builder.occupied.any(func(r): return r.has_point(p)):
 			continue
 		var m := _mask(p)
-		if r.randf() < smoothstep(0.1, 0.4, m.r) or r.randf() > 1.0 - smoothstep(38.0, 68.0, p.length()):
+		if r.randf() < smoothstep(0.1, 0.4, m.r) or r.randf() > 1.0 - smoothstep(Land.HALF + 4.0, Land.HALF + 22.0, maxf(absf(p.x), absf(p.y))):
 			continue
 		var s := r.randf_range(0.6, 1.4) * (1.0 + m.g * 0.4)
 		var xf := Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3(s, s * r.randf_range(0.8, 1.3), s)), Vector3(p.x, 0, p.y))
@@ -365,7 +415,7 @@ func _grass() -> void:
 		mmi.multimesh = mm
 		mmi.material_override = mat
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mmi.visibility_range_end = 100.0
+		mmi.visibility_range_end = 90.0
 		add_child(mmi)
 		grass_chunks.append(mm)
 		grass_nodes.append(mmi)
@@ -394,11 +444,7 @@ func _props() -> void:
 		mi.rotation.y = randf_range(-0.08, 0.08)
 		add_child(mi)
 	# corral fence on the left
-	var wood := StandardMaterial3D.new()
-	wood.albedo_texture = load(TEX + "trim_white_diff.jpg")
-	wood.albedo_color = Color(0.55, 0.45, 0.35)
-	wood.uv1_triplanar = true
-	wood.roughness = 0.95
+	var wood := fence_mat
 	var corners := [Vector2(-9, -6), Vector2(-24, -6), Vector2(-24, 12), Vector2(-9, 12)]
 	for i in 3:
 		_fence(corners[i], corners[i + 1], wood)
@@ -421,6 +467,15 @@ func _props() -> void:
 	water.material_override = wmat
 	water.position = Vector3(-11.5, 0.58, 2)
 	add_child(water)
+
+
+## Rail fence all round the ranch, open where the road comes through the gate at x = gate_x.
+func _ranch_fence(gate_x: float) -> void:
+	var h := Land.HALF
+	var gap := RanchGate.HALF - 0.3
+	for seg in [[Vector2(-h, -h), Vector2(h, -h)], [Vector2(h, -h), Vector2(h, h)], [Vector2(-h, h), Vector2(-h, -h)],
+			[Vector2(h, h), Vector2(gate_x + gap, h)], [Vector2(gate_x - gap, h), Vector2(-h, h)]]:
+		_fence(seg[0], seg[1], fence_mat)
 
 
 func _fence(a: Vector2, c: Vector2, m: Material) -> void:

@@ -10,11 +10,17 @@ uniform sampler2D grazed : filter_linear, repeat_disable;  // herd grass grid, 1
 uniform float span = 160.0;
 uniform vec3 tint = vec3(1.0);   // season color, set by main.gd
 uniform float snow = 0.0;        // winter: blades flattened and frosted
+uniform sampler2D plots : filter_nearest, repeat_disable;  // Land: 1 = owned plot
+uniform float land_half = 96.0;
+
+varying float locked;
 
 void vertex() {
 	// grazed-down cells shrink the tufts toward stubble
 	vec3 root = MODEL_MATRIX[3].xyz;
 	float g = textureLod(grazed, root.xz / span + 0.5, 0.0).r;
+	vec2 puv = (root.xz + land_half) / (2.0 * land_half);
+	locked = (puv.x >= 0.0 && puv.y >= 0.0 && puv.x < 1.0 && puv.y < 1.0) ? 1.0 - textureLod(plots, puv, 0.0).r : 0.0;
 	VERTEX = root + (VERTEX - root) * vec3(1.0, mix(0.12, 1.0, g) * (1.0 - 0.35 * snow), 1.0);
 	float h = max(VERTEX.y, 0.0);
 	float along = dot(VERTEX.xz, wind_dir);
@@ -30,5 +36,6 @@ void vertex() {
 
 void fragment() {
 	ALBEDO = mix(COLOR.rgb * tint, vec3(0.7, 0.72, 0.75), snow * 0.35);
+	ALBEDO = mix(ALBEDO, vec3(dot(ALBEDO, vec3(0.33))) * 0.72, locked * 0.55);
 	ROUGHNESS = 1.0;
 }

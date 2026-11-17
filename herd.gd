@@ -7,10 +7,9 @@ extends Node3D
 
 signal died(cause: String)
 
-const SPAN := 160.0       # grass grid covers world x/z in [-SPAN/2, SPAN/2], same as the ground mask
-const N := 40             # grid cells per side (4 m each)
+const SPAN := 240.0       # grass grid covers world x/z in [-SPAN/2, SPAN/2], same as the ground mask
+const N := 60             # grid cells per side (4 m each)
 const MAX_COWS := 80
-const BOUNDS := Rect2(-60, -60, 120, 120)
 const READY_KG := 500.0   # sale weight
 const WALK := 1.15        # m/s
 const HAY_PER_HUNGER := 0.67  # bales eaten to go from starving to full: about 1 bale per cow per day
@@ -25,6 +24,7 @@ enum { WANDER, GRAZE, TO_WATER, DRINK, IDLE, TO_FEED, FEED }
 
 var day: DayCycle
 var world: Node3D
+var land: Land             # cows stay on owned plots
 var extra_blocked: Array[Rect2] = []  # corral etc.
 var cows: Array[Dictionary] = []
 var grass := PackedFloat32Array()     # 0..1 per cell
@@ -137,6 +137,8 @@ func harvest(bales: int) -> int:
 	for i in order:
 		if got >= want or grass[i] < 0.5:
 			break
+		if not land.is_open(Vector3((i % N + 0.5) * SPAN / N - SPAN * 0.5, 0, (i / N + 0.5) * SPAN / N - SPAN * 0.5)):
+			continue  # only cut hay on your own land
 		var cut := grass[i] - 0.1  # leave stubble
 		grass[i] -= cut
 		got += cut * 0.5
@@ -146,7 +148,7 @@ func harvest(bales: int) -> int:
 
 
 func _blocked(p: Vector3) -> bool:
-	if not BOUNDS.has_point(Vector2(p.x, p.z)):
+	if not land.is_open(p):
 		return true
 	var q := Vector2(p.x, p.z)
 	for r in _rects:

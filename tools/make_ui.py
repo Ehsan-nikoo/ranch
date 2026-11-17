@@ -309,6 +309,15 @@ def market(d, k):  # money bag tied at the neck, with a coin
     d.ellipse([k(44), k(44), k(60), k(60)], fill=(225, 180, 80, 255), outline=INK, width=k(3))
 
 
+def land(d, k):  # fenced plot with a flag on a stake
+    d.rectangle([k(6), k(26), k(58), k(58)], fill=(150, 175, 90, 255), outline=INK, width=k(3))
+    for x in (6, 19, 32, 45, 58):
+        d.line([k(x), k(22), k(x), k(30)], fill=INK, width=k(3))
+    d.line([k(6), k(26), k(58), k(26)], fill=INK, width=k(2))
+    d.line([k(32), k(46), k(32), k(6)], fill=INK, width=k(3))
+    shape(d, [(32, 6), (52, 12), (32, 18)], k)
+
+
 def build(d, k):  # hammer
     shape(d, [(28, 24), (36, 24), (36, 60), (28, 60)], k)
     shape(d, [(12, 10), (46, 10), (54, 18), (46, 26), (12, 26)], k)
@@ -334,6 +343,6 @@ def place(d, k):
 
 button()
 panel()
-for n, f in dict(market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place).items():
+for n, f in dict(land=land, market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place).items():
     icon(n, f)
 print("ok")

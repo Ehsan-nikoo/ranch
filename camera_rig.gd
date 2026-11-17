@@ -3,7 +3,7 @@
 class_name CameraRig
 extends Node3D
 
-const BOUNDS := 60.0
+const BOUNDS := 100.0
 const MIN_DIST := 10.0
 const MAX_DIST := 75.0
 const SMOOTH := 10.0
