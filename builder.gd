@@ -22,7 +22,7 @@ var ghost: Building
 var _cost := 0
 var _valid := false
 var _marker_mat := StandardMaterial3D.new()
-var _money := Label.new()
+var _money: Label
 var _build_btn := Button.new()
 var _menu := HBoxContainer.new()
 var _place_bar := HBoxContainer.new()
@@ -37,17 +37,11 @@ func _ready() -> void:
 	_marker_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_marker_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 
-	_money.anchor_left = 1.0
-	_money.anchor_right = 1.0
-	_money.offset_left = -360
-	_money.offset_right = -24
-	_money.offset_top = 16
-	_money.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_money.add_theme_font_size_override("font_size", 34)
-	_money.add_theme_constant_override("outline_size", 8)
-	_money.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
-	_money.add_theme_color_override("font_color", Color(1.0, 0.86, 0.45))
-	add_child(_money)
+	var money_box := UiTheme.plank(30, Control.PRESET_TOP_RIGHT)
+	money_box.offset_right = -12
+	money_box.offset_top = 8
+	_money = money_box.get_child(0)
+	add_child(money_box)
 
 	for bar in [_menu, _place_bar]:
 		bar.anchor_top = 1.0
@@ -146,6 +140,7 @@ func _toggle_menu() -> void:
 
 func _refresh() -> void:
 	_money.text = "%s دلار" % UiTheme.fa(money)
+	UiTheme.fit(_money.get_parent())  # plank fits the new number
 	for i in _items.size():
 		var short: bool = money < CATALOG[i][2]
 		_items[i].disabled = short

@@ -21,7 +21,8 @@ var _buy: Button
 var _sell: Button
 var _cut: Button
 var _buy_hay: Button
-var _toast := Label.new()
+var _toast: Label
+var _toast_box: PanelContainer
 var _toast_t := 0.0
 var _tick := 0.0
 
@@ -52,7 +53,7 @@ func _ready() -> void:
 
 	var btns := HBoxContainer.new()
 	btns.add_theme_constant_override("separation", 16)
-	btns.alignment = BoxContainer.ALIGNMENT_END
+	btns.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_child(btns)
 	_sell = builder._button(Button.new(), "", sell, "place")
 	_buy = builder._button(Button.new(), "", buy, "cow")
@@ -60,7 +61,7 @@ func _ready() -> void:
 	btns.add_child(_buy)
 	var hay_btns := HBoxContainer.new()
 	hay_btns.add_theme_constant_override("separation", 16)
-	hay_btns.alignment = BoxContainer.ALIGNMENT_END
+	hay_btns.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_child(hay_btns)
 	_buy_hay = builder._button(Button.new(), "", buy_hay, "hay")
 	_cut = builder._button(Button.new(), "درو %s عدل یونجه  %s دلار" % [UiTheme.fa(HAY_LOT), UiTheme.fa(HARVEST_COST)], cut_hay, "hay")
@@ -69,16 +70,11 @@ func _ready() -> void:
 	# CC-BY 4.0 requires crediting the cow model's author
 	col.add_child(UiTheme.label("مدل گاو: «Farm Cow Animated Dairy cattle» ساخته‌ی Rukh3D، با مجوز CC-BY 4.0", 17, Color(0.36, 0.22, 0.1)))
 
-	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_toast.offset_top = 70
-	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_toast.add_theme_font_size_override("font_size", 30)
-	_toast.add_theme_constant_override("outline_size", 8)
-	_toast.add_theme_color_override("font_outline_color", Color(0.1, 0.05, 0.02, 0.9))
-	_toast.add_theme_color_override("font_color", Color(1.0, 0.9, 0.65))
-	_toast.modulate.a = 0.0
-	add_child(_toast)
+	_toast_box = UiTheme.plank(25, Control.PRESET_CENTER_TOP)  # below the top button row
+	_toast_box.offset_top = 200
+	_toast_box.modulate.a = 0.0
+	_toast = _toast_box.get_child(0)
+	add_child(_toast_box)
 	herd.died.connect(func(cause): notify("یک گاو از %s تلف شد" % {thirst = "تشنگی", hunger = "گرسنگی", cold = "سرما"}[cause]))
 
 
@@ -135,9 +131,11 @@ func _hay_space() -> float:
 
 func notify(text: String) -> void:
 	# several things can happen at a day change: stack them instead of the last one hiding the rest
+	_toast_box.call_deferred("reset_size")
 	_toast.text = text if _toast_t < 1.0 else _toast.text + "
 " + text
 	_toast_t = 4.0 + 1.5 * _toast.text.count("
+	UiTheme.fit(_toast_box)
 ")
 
 
@@ -180,7 +178,10 @@ func _refresh() -> void:
 
 func _process(delta: float) -> void:
 	_toast_t -= delta
-	_toast.modulate.a = clampf(_toast_t, 0.0, 1.0)
+	_toast_box.modulate.a = clampf(_toast_t, 0.0, 1.0)
+	if _toast_t < 0.0 and _toast.text != "":
+		_toast.text = ""
+		UiTheme.fit(_toast_box)
 	_tick -= delta
 	if _panel.visible and _tick <= 0.0:
 		_tick = 0.5

@@ -15,6 +15,7 @@ var herd: Herd
 var grass: Array[MultiMesh] = []
 var grass_nodes: Array[Node3D] = []
 var _label := Label.new()
+var _date: Label
 var _speed_btn := Button.new()
 var _quality_btn := Button.new()
 var _grass_btn := Button.new()
@@ -25,13 +26,18 @@ var _tick := 0.0
 
 func _ready() -> void:
 	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
-	_label.position = Vector2(24, 16)
-	_label.add_theme_font_size_override("font_size", 26)
+	_label.position = Vector2(24, 12)
+	_label.add_theme_font_size_override("font_size", 20)
 	_label.add_theme_constant_override("outline_size", 6)
 	_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	add_child(_label)
+	var date_box := UiTheme.plank(24, Control.PRESET_CENTER_TOP)
+	date_box.offset_top = 8
+	_date = date_box.get_child(0)
+	_date.custom_minimum_size.x = 440  # fixed width: the plank doesn't twitch as the clock ticks
+	add_child(date_box)
 	var row := HBoxContainer.new()
-	row.position = Vector2(16, 92)
+	row.position = Vector2(16, 96)  # below the date plank so their straw doesn't overlap
 	row.add_theme_constant_override("separation", 12)
 	add_child(row)
 	for b: Button in [_speed_btn, _quality_btn, _grass_btn]:
@@ -83,11 +89,11 @@ func _process(delta: float) -> void:
 	_tick = 0.25  # relabeling every frame costs text shaping on a slow CPU
 	var rid := get_viewport().get_viewport_rid()
 	# herd = the cattle simulation's own time per frame, which the render CPU number doesn't include
-	_label.text = "%d FPS   herd %.1f ms   CPU %.1f ms   GPU %.1f ms   draws %d\n%s   ساعت %s" % [
+	_date.text = "%s   ساعت %s" % [day.date_text(), UiTheme.fa("%02d:%02d" % [int(day.hour), int(fmod(day.hour, 1.0) * 60)])]
+	UiTheme.fit(_date.get_parent())
+	_label.text = "%d FPS   herd %.1f ms   CPU %.1f ms   GPU %.1f ms   draws %d" % [
 		Engine.get_frames_per_second(),
 		herd.cost_ms,
 		RenderingServer.viewport_get_measured_render_time_cpu(rid) + RenderingServer.get_frame_setup_time_cpu(),
 		RenderingServer.viewport_get_measured_render_time_gpu(rid),
-		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
-		day.date_text(),
-		UiTheme.fa("%02d:%02d" % [int(day.hour), int(fmod(day.hour, 1.0) * 60)])]
+		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)]

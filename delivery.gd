@@ -28,7 +28,8 @@ var orders: Array = []    # {calves, hay, t, truck, done}
 var _pts := PackedVector3Array()
 var _dist := PackedFloat32Array()
 var _stop_d := 0.0
-var _label := Label.new()
+var _label: Label
+var _box: PanelContainer
 
 
 func _init() -> void:
@@ -43,17 +44,12 @@ func _ready() -> void:
 	add_child(gate)
 	var ui := CanvasLayer.new()
 	add_child(ui)
-	_label.anchor_left = 1.0
-	_label.anchor_right = 1.0
-	_label.offset_left = -560
-	_label.offset_right = -24
-	_label.offset_top = 64
-	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_label.add_theme_font_size_override("font_size", 24)
-	_label.add_theme_constant_override("outline_size", 7)
-	_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
-	_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.65))
-	ui.add_child(_label)
+	_box = UiTheme.plank(21, Control.PRESET_TOP_RIGHT)  # under the money plank
+	_box.offset_right = -12
+	_box.offset_top = 100
+	_box.visible = false
+	_label = _box.get_child(0)
+	ui.add_child(_box)
 
 
 ## Smooth road through ROUTE (Catmull-Rom), pushed LANE to the right of the direction of travel.
@@ -173,7 +169,7 @@ func _process(delta: float) -> void:
 		tr.roll(moved)
 	var o_wait := orders.filter(func(o): return not o.done)
 	if o_wait.is_empty():
-		_label.text = ""
+		_box.visible = false
 	else:
 		var c: int = pending_calves()
 		var h: int = pending_hay()
@@ -183,9 +179,12 @@ func _process(delta: float) -> void:
 		if h > 0:
 			what.append("%s عدل یونجه" % UiTheme.fa(h))
 		var at := fmod(day.hour + next, 24.0)
+		_box.visible = true
+		_box.call_deferred("reset_size")
 		_label.text = "کامیون تحویل (%s) ساعت %s می‌رسه
 هر خریدی تا اون موقع با همین کامیون میاد" % [
 			"، ".join(what), UiTheme.fa("%02d:%02d" % [int(at), int(fmod(at, 1.0) * 60.0)])]
+		UiTheme.fit(_box)
 
 
 func _unload(o: Dictionary) -> void:
