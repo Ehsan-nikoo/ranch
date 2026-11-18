@@ -20,6 +20,9 @@ var breed_ui := BreedUI.new()
 var workers := Workers.new()
 var workers_ui := WorkersUI.new()
 var events := Events.new()
+var auction := Auction.new()
+var drive := Drive.new()
+var rodeo := RodeoGame.new()
 var progress := Progress.new()
 var progress_ui := ProgressUI.new()
 var goals := Goals.new()
@@ -115,7 +118,7 @@ func _ready() -> void:
 	herd._rescan()
 	if saved.is_empty():
 		for i in int(_arg("cows", "6")):  # young stock: the first sale is a way off
-			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), randf_range(200.0, 300.0))
+			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), randf_range(200.0, 300.0) if _arg("kg", "") == "" else float(_arg("kg", "")))  # --kg: test herd at this weight
 		for i in int(_arg("calves", "0")):  # test: fresh calves at purchase weight
 			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), HerdUI.CALF_KG)
 		for i in int(_arg("breeders", "0")):  # test: breeding cows and bulls
@@ -202,6 +205,44 @@ func _ready() -> void:
 	if not saved.is_empty() and saved.has("events"):
 		events.from_save(saved.events)
 	add_child(events)
+	auction.day = day
+	auction.herd = herd
+	auction.market = market
+	auction.builder = builder
+	auction.events = events
+	auction.notify = herd_ui.notify
+	add_child(auction)
+	drive.day = day
+	drive.herd = herd
+	drive.market = market
+	drive.builder = builder
+	drive.workers = workers
+	drive.events = events
+	drive.auction = auction
+	drive.notify = herd_ui.notify
+	if not saved.is_empty() and saved.has("drive"):
+		drive.from_save(saved.drive)
+	add_child(drive)
+	rodeo.day = day
+	rodeo.builder = builder
+	rodeo.progress = progress
+	rodeo.events = events
+	rodeo.world = self
+	rodeo.notify = herd_ui.notify
+	rodeo.others = [auction, drive]
+	rodeo.autopilot = _arg("bot", "") != ""
+	add_child(rodeo)
+	rodeo._due = _arg("rodeo", "") != ""  # test: a rodeo right away (--rodeo=go: already riding)
+	if _arg("rodeo", "") in ["go", "fall"]:
+		rodeo._due = false
+		rodeo.autopilot = _arg("rodeo", "") == "go"
+		rodeo.call_deferred("_invite")
+		rodeo.call_deferred("_start")
+	drive._due = _arg("drive", "") != ""  # test: the trail buyer's word comes at once
+	if _arg("auction", "") != "":  # test: an auction right away (--auction=go skips the invite)
+		auction._due = true
+		if _arg("auction", "") == "go":
+			auction.call_deferred("_go_now")
 	progress.day = day
 	progress.market = market
 	progress.builder = builder
@@ -305,6 +346,9 @@ func _debug_herd() -> void:
 	breed_ui.notify = func(t): print("   NOTE ", t)
 	workers.notify = breed_ui.notify
 	events.notify = breed_ui.notify
+	auction.notify = breed_ui.notify
+	drive.notify = breed_ui.notify
+	rodeo.notify = breed_ui.notify
 	progress.notify = breed_ui.notify
 	while true:
 		await get_tree().create_timer(4.0).timeout
@@ -327,9 +371,27 @@ func _debug_herd() -> void:
 				var btns := events._row.get_children().filter(func(b): return not b.disabled and not b.is_queued_for_deletion())
 				if not btns.is_empty():
 					btns[0 if _arg("risky", "") == "" else -1].pressed.emit()
+			if auction.is_open():  # the bot goes to every auction and sells at whatever the hammer says
+				print("   AUCTION ", auction._title.text, " | ", auction._who.text.replace("\n", " "))
+				var ab := auction._row.get_children().filter(func(b): return not b.disabled and not b.is_queued_for_deletion())
+				if not ab.is_empty():
+					ab[0].pressed.emit()
+			if drive.is_open():
+				print("   DRIVE ", drive._title.text, " | ", drive._text.text.left(60))
+				var db := drive._row.get_children().filter(func(b): return not b.disabled and not b.is_queued_for_deletion())
+				if not db.is_empty():
+					db[randi() % db.size()].pressed.emit()
+			if rodeo.is_open() and rodeo._over:  # the bot rides once a rodeo, and once more if thrown
+				print("   RODEO ", rodeo._title.text, " | ", rodeo._text.text)
+				var rb := rodeo._row.get_children().filter(func(b): return not b.disabled and not b.is_queued_for_deletion())
+				if not rb.is_empty():
+					rb[0 if rodeo._title.text != "افتادی!" or randf() < 0.5 else -1].pressed.emit()
+			if not drive.trail.is_empty():
+				print("   TRAIL %d cows %.0f kg  %.0f%%" % [drive.trail.n, drive.trail.kg, drive.progress() * 100.0])
 			while workers.capacity() < herd.alive().size() + 5 and workers.hired.size() < workers.slots() and not workers.candidates.is_empty():
 				workers.hire(workers.candidates[0])
-			herd_ui.sell()
+			if _arg("hold", "") == "" or day.day % DayCycle.DAYS_PER_SEASON == 0:  # --hold=1 keeps ready cows for the auction and the drive
+				herd_ui.sell()
 			# breeding herd: a bull and up to 8 cows, home-bred heifers first; vet and vaccines as needed
 			if herd.of_kind(Herd.BULL).size() + delivery.orders.reduce(func(a, o): return a + o.bulls, 0) == 0 and builder.money > market.bull_price() + 1500:
 				breed_ui.buy_bull()
@@ -478,6 +540,9 @@ func _on_day(d: int) -> void:
 	workers.new_day(d)
 	progress.new_day(d)
 	events.new_day(d)
+	auction.new_day(d)
+	drive.new_day(d)
+	rodeo.new_day(d)
 	legacy.new_day(d)
 	_save()
 
@@ -494,7 +559,7 @@ func _save() -> void:
 	for n in get_children():
 		if n is Building and not n.has_node("Marker"):
 			buildings.append([n.get_script().resource_path, n.position.x, n.position.z, n.rotation_degrees.y])
-	SaveGame.write({money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), delivery = delivery.to_save(), land = land.to_save(), goals = goals.to_save(), legacy = legacy.to_save(), tutorial = tutorial.step if tutorial else 99})
+	SaveGame.write({money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), drive = drive.to_save(), delivery = delivery.to_save(), land = land.to_save(), goals = goals.to_save(), legacy = legacy.to_save(), tutorial = tutorial.step if tutorial else 99})
 
 
 # ---------- ground & grass ----------
