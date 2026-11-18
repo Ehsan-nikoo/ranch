@@ -47,7 +47,7 @@ func _new_candidates() -> void:
 	for i in 3:
 		var level := 1 if _rng.randf() < 0.55 else (2 if _rng.randf() < 0.75 else 3)
 		candidates.append({name = names[i], skill = _rng.randi_range(0, 3), level = level,
-			wage = [35, 55, 80][level - 1] + _rng.randi_range(-1, 1) * 5})
+			wage = [25, 40, 60][level - 1] + _rng.randi_range(-1, 1) * 5})
 	changed.emit()
 
 

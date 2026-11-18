@@ -19,7 +19,7 @@ var progress: Progress
 var goals: Goals
 var notify: Callable
 var seen: Array = []           # generations whose handover was announced
-var start := {money = 6000, herd = 8, rep = 0.0}   # where this generation began
+var start := {money = 6000, herd = 6, rep = 0.0}   # where this generation began
 
 
 func _year_days() -> int:

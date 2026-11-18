@@ -70,7 +70,7 @@ func _apply() -> void:
 	market.era_mul = ERAS[era()][2]
 	market.max_offers = 2 + (1 if level() >= 3 else 0) + (1 if level() >= 5 else 0) + (1 if train else 0)
 	market.premium = 1.1 if level() >= 5 else 1.0
-	market.upkeep_cut = 3 if has(Blacksmith) else 0
+	market.upkeep_cut = 2 if has(Blacksmith) else 0
 	market.sale_bonus = STATION_BONUS if train else 1.0
 	if herd:
 		var pen := has(Feedlot)

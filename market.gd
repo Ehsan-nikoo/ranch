@@ -11,10 +11,10 @@ signal missed
 # per-kg base by season: spring, summer, autumn (everyone sells before winter: cheap), winter (scarce: dear)
 const BASE := [1.75, 1.65, 1.3, 1.85]
 const HISTORY := 12        # days of price kept for the chart
-const CALF_BASE := 450     # calf price when cattle sell at 1.6 $/kg
-const UPKEEP := 15         # per cow per day: salt, vet, fence repair; paid at each day change
-# Rough per-calf ledger at average prices: buy 450, two days upkeep 30, sell 500 kg x 1.6 = 800 -> about 320 profit
-# per season-sized cycle. Wintering a cow costs ~3 bales (135-225) + upkeep, and pays off when winter prices are high.
+const CALF_BASE := 500     # calf price when cattle sell at 1.6 $/kg
+const UPKEEP := 6          # per cow per day: salt, vet, fence repair; paid at each day change
+# Rough per-calf ledger at average prices: buy 500, about five days upkeep 75, sell 520 kg x 1.6 = 830 -> about 250 profit
+# per cycle of a season and a bit. Wintering a cow costs ~3 bales (135-225) + upkeep, and pays off when winter prices are high.
 const FINE := 0.15         # share of a missed contract's value
 
 var day: DayCycle
@@ -112,7 +112,7 @@ func _offer() -> bool:
 		min_kg = [500, 525, 550][_rng.randi_range(0, 2)],  # past 550 growth tapers hard (Herd.MAX_KG)
 		# premium over the year-round average, so a contract made in cheap autumn is still worth it in winter
 		per_kg = snappedf(1.64 * drift * era_mul * premium * sale_bonus * _rng.randf_range(1.12, 1.3), 0.01),
-		due = (day.day / dps + 2) * dps - 1,  # last day of next season
+		due = (day.day / dps + 3) * dps - 1,  # last day of the season after next: time to fatten a calf
 		until = day.day + 2,                  # the offer itself stands for two days
 	})
 	return true

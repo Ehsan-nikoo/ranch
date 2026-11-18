@@ -10,7 +10,7 @@ const BULL_KG := 650.0
 const CALF_SPOT := Vector3(8, 0, 16)  # calves arrive in front of the barn
 const HAY_LOT := 10                   # bales per harvest or purchase
 const HARVEST_COST := 120             # farmhands' wages for cutting and baling a lot
-const HAY_PRICE := [450, 450, 550, 750]  # per lot by season: dearer as winter nears
+const HAY_PRICE := [250, 250, 300, 420]  # per lot by season: dearer as winter nears
 
 var herd: Herd
 var builder: Builder

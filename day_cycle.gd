@@ -5,7 +5,7 @@ extends Node
 signal hour_changed(hour: float)
 signal day_changed(day: int)
 
-const SECONDS_PER_HOUR := 12.5  # full day = 5 real minutes at 1x
+const SECONDS_PER_HOUR := 30.0  # full day = 12 real minutes at 1x
 const DAYS_PER_SEASON := 3       # a season is 15 real minutes at 1x, a year one hour
 enum { SPRING, SUMMER, AUTUMN, WINTER }
 const SEASON_NAMES := ["بهار", "تابستان", "پاییز", "زمستان"]

@@ -117,7 +117,7 @@ func _ask(title: String, text: String, options: Array) -> void:
 				builder.add_money(-cost)
 			_close()
 			o[3].call(), o[2])
-		b.disabled = builder.money < cost
+		b.disabled = cost > 0 and builder.money < cost  # "take the risk" stays open even in debt, or the game would be stuck
 		_row.add_child(b)
 	_speed = day.speed if day.speed > 0.0 else _speed
 	day.speed = 0.0  # the ranch waits for your answer

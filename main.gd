@@ -114,8 +114,8 @@ func _ready() -> void:
 	delivery.day = day
 	herd._rescan()
 	if saved.is_empty():
-		for i in int(_arg("cows", "8")):
-			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), randf_range(260.0, 520.0))
+		for i in int(_arg("cows", "6")):  # young stock: the first sale is a way off
+			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), randf_range(200.0, 300.0))
 		for i in int(_arg("calves", "0")):  # test: fresh calves at purchase weight
 			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), HerdUI.CALF_KG)
 		for i in int(_arg("breeders", "0")):  # test: breeding cows and bulls
@@ -325,7 +325,8 @@ func _debug_herd() -> void:
 			if events._panel.visible:  # the bot pays when it can, else takes the risk
 				print("   EVENT ", events._title.text)
 				var btns := events._row.get_children().filter(func(b): return not b.disabled and not b.is_queued_for_deletion())
-				btns[0 if _arg("risky", "") == "" else -1].pressed.emit()
+				if not btns.is_empty():
+					btns[0 if _arg("risky", "") == "" else -1].pressed.emit()
 			while workers.capacity() < herd.alive().size() + 5 and workers.hired.size() < workers.slots() and not workers.candidates.is_empty():
 				workers.hire(workers.candidates[0])
 			herd_ui.sell()

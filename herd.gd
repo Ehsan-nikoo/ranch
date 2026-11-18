@@ -21,7 +21,7 @@ const HAY_PER_HUNGER := 0.67  # bales eaten to go from starving to full: about 1
 # Economy rhythm (see Market): a 220 kg calf reaches READY_KG in about 2 game days on good grass and water,
 # so one season (3 days) fits a whole buy-raise-sell cycle. Past READY_KG gains taper off toward MAX_KG,
 # so holding a ready cow only pays when the price is about to rise.
-const GAIN := 11.0        # kg per game hour when fully fed and watered
+const GAIN := 4.5         # kg per game hour when fully fed and watered: a calf takes about 4 days to fatten
 const MAX_KG := 680.0
 const GROWTH := [1.6, 1.0, 0.35, 0.0]   # grass regrowth per season: spring, summer, autumn, winter
 const SEP := 1.7          # personal space between cows, m
@@ -300,7 +300,7 @@ func _process(delta: float) -> void:
 	# cows beyond the barns' room lose weight to the winter cold
 	var cold := 0.0
 	if season == DayCycle.WINTER and n_alive > 0:
-		cold = maxf(0.0, 1.0 - float(shelter) / n_alive) * 1.5 * cold_mul
+		cold = maxf(0.0, 1.0 - float(shelter) / n_alive) * 0.6 * cold_mul
 	# one bull serves COWS_PER_BULL cows; sick cows spread it to the rest
 	var bulls := 0
 	var breeders := 0
@@ -361,12 +361,12 @@ func _needs(c: Dictionary, hours: float, cold: float) -> void:
 	c.hunger = minf(1.0, c.hunger + hours / (13.0 if c.preg > 0.0 else 16.0) * (appetite_mul if fat else 1.0))  # eating for two
 	c.thirst = minf(1.0, c.thirst + hours / 18.0 * thirst_mul)
 	if c.sick >= 0.0:
-		c.weight -= 2.5 * hours  # off its feed: no gain while sick
+		c.weight -= 1.0 * hours  # off its feed: no gain while sick
 	elif c.hunger < 0.7 and c.thirst < 0.7:
 		var taper := 1.0 if c.weight < READY_KG else clampf((MAX_KG - c.weight) / (MAX_KG - READY_KG), 0.0, 1.0) ** 2
 		c.weight = minf(c.weight + GAIN * (gain_mul if fat else 1.0) * hours * (1.0 - c.hunger) * (1.0 - c.thirst) * taper, MAX_KG)
 	elif c.hunger > 0.85 or c.thirst > 0.85:
-		c.weight -= 4.0 * hours
+		c.weight -= 1.6 * hours
 	c.weight -= cold * hours
 
 
