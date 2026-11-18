@@ -33,6 +33,8 @@ var level := 1           # reputation level, set by Progress
 var era := 0             # historical era, set by Progress
 
 var ghost: Building
+var _moving: Building      # a building being moved instead of a new one
+var _from := Transform3D()
 var _cost := 0
 var _valid := false
 var _marker_mat := StandardMaterial3D.new()
@@ -184,6 +186,21 @@ func choose(i: int) -> void:
 	ghost = CATALOG[i][1].new()
 	ghost.position = _snapped(rig.target)
 	world.add_child(ghost)
+	_ghost_mode()
+
+
+## Picks up a building that's already there and lets you put it down somewhere else, for free.
+func move(b: Building) -> void:
+	_cost = 0
+	_moving = b
+	_from = b.transform
+	occupied.erase(b.world_footprint())
+	ghost = b
+	rig.target = b.position
+	_ghost_mode()
+
+
+func _ghost_mode() -> void:
 	# marker added after the building built itself, so MeshMerge can't swallow it
 	var f := ghost._foot()
 	var pm := PlaneMesh.new()
@@ -206,8 +223,19 @@ func rotate_ghost() -> void:
 
 
 func cancel() -> void:
-	ghost.queue_free()
+	if _moving:  # back where it was
+		ghost.transform = _from
+		_drop_marker()
+		occupied.append(ghost.world_footprint())
+	else:
+		ghost.queue_free()
 	_end()
+
+
+func _drop_marker() -> void:
+	var marker := ghost.get_node("Marker")
+	ghost.remove_child(marker)  # right away: on_placed saves the game and must see a real building
+	marker.queue_free()
 
 
 func place() -> void:
@@ -216,15 +244,14 @@ func place() -> void:
 	var r := ghost.world_footprint()
 	money -= _cost
 	occupied.append(r)
-	var marker := ghost.get_node("Marker")
-	ghost.remove_child(marker)  # right away: on_placed saves the game and must see a real building
-	marker.queue_free()
+	_drop_marker()
 	on_placed.call(r)
 	_end()
 
 
 func _end() -> void:
 	ghost = null
+	_moving = null
 	_place_bar.visible = false
 	_menu.visible = true
 	_refresh()

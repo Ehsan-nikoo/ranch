@@ -25,7 +25,7 @@ const GAIN := 4.5         # kg per game hour when fully fed and watered: a calf 
 const MAX_KG := 680.0
 const GROWTH := [1.6, 1.0, 0.35, 0.0]   # grass regrowth per season: spring, summer, autumn, winter
 const SEP := 1.7          # personal space between cows, m
-enum { WANDER, GRAZE, TO_WATER, DRINK, IDLE, TO_FEED, FEED }
+enum { WANDER, GRAZE, TO_WATER, DRINK, IDLE, TO_FEED, FEED, TO_PEN, SLEEP }
 # FEEDER: raised for sale (bought calves and the calves born here); BREEDER: kept to calve; BULL: sires
 enum { FEEDER, BREEDER, BULL }
 const BIRTH_KG := 90.0
@@ -65,6 +65,8 @@ var _rects: Array[Rect2] = []
 var _tanks: Array[Vector3] = []
 var _tank_r: Array[float] = []        # radius of each water: windmill tank or pond
 var _feeders: Array[Vector3] = []
+var _pens: Array[Vector3] = []        # barn doors: at night cows go in and sleep there
+var _pen_room: Array[int] = []
 var _scan := 0.0
 var _tex_t := 0.0
 var _grow_hours := 0.0
@@ -263,6 +265,8 @@ func _rescan() -> void:
 	_tanks.clear()
 	_tank_r.clear()
 	_feeders.clear()
+	_pens.clear()
+	_pen_room.clear()
 	hay_cap = 0
 	shelter = 0
 	for n in world.get_children():
@@ -272,6 +276,9 @@ func _rescan() -> void:
 		shelter += n.shelter_room()
 		if n.hay_room() > 0:
 			_feeders.append(n.feed_spot())
+		if n.shelter_room() > 0:
+			_pens.append(n.door())
+			_pen_room.append(n.shelter_room())
 		if n is Windmill:
 			_rects.append(n.world_footprint(Rect2(-1.6, -1.6, 3.2, 3.2)))  # tower only, tank is a circle
 			if not n.broken:
@@ -357,6 +364,8 @@ func _process(delta: float) -> void:
 
 
 func _needs(c: Dictionary, hours: float, cold: float) -> void:
+	if c.state == SLEEP:  # resting through the night: hunger and thirst creep up slowly
+		hours *= 0.35
 	var fat: bool = c.kind == FEEDER  # the fattening pen feeds the sale cattle
 	c.hunger = minf(1.0, c.hunger + hours / (13.0 if c.preg > 0.0 else 16.0) * (appetite_mul if fat else 1.0))  # eating for two
 	c.thirst = minf(1.0, c.thirst + hours / 18.0 * thirst_mul)
@@ -412,8 +421,19 @@ func _nearest(points: Array[Vector3], p: Vector3) -> Vector3:
 	return best
 
 
+## Night time: cows head for the barns and sleep till morning.
+func night() -> bool:
+	return day.hour >= 20.5 or day.hour < 5.5
+
+
 func _decide(c: Dictionary) -> void:
 	var winter := day.season() == DayCycle.WINTER
+	if c.get("inside", false):  # morning (or a need) brings her out of the barn door
+		c.inside = false
+		c.pos = free_spot(c.pos, 2.5)
+	if night() and c.thirst < 0.75 and c.hunger < 0.75:
+		_bed(c)
+		return
 	if c.thirst > 0.55 and not _tanks.is_empty():
 		var t := _nearest(_tanks, c.pos)
 		var r := _tank_r[_tanks.find(t)]
@@ -443,6 +463,26 @@ func _decide(c: Dictionary) -> void:
 		c.timer = _rng.randf_range(4.0, 12.0)
 
 
+## A place for the night: a barn with room left, or lie down where she is.
+func _bed(c: Dictionary) -> void:
+	var used := []
+	used.resize(_pens.size())
+	used.fill(0)
+	for o in cows:
+		if o != c and o.get("pen", -1) >= 0 and o.get("pen", -1) < _pens.size() and o.state in [TO_PEN, SLEEP]:
+			used[o.pen] += 1
+	var best := -1
+	for i in _pens.size():
+		if used[i] < _pen_room[i] and (best < 0 or _pens[i].distance_to(c.pos) < _pens[best].distance_to(c.pos)):
+			best = i
+	c.pen = best
+	if best >= 0:
+		_go(c, _pens[best], TO_PEN)
+	else:
+		c.state = SLEEP
+		c.timer = 1.0
+
+
 ## Walk to `target`, with a time budget: a cow that's still not there long after it should be
 ## (wedged between buildings) gives up, steps out to open ground and thinks again.
 func _go(c: Dictionary, target: Vector3, state: int) -> void:
@@ -454,7 +494,7 @@ func _go(c: Dictionary, target: Vector3, state: int) -> void:
 func _act(c: Dictionary, delta: float, hours: float, season: int) -> void:
 	var moving := false
 	match c.state:
-		WANDER, TO_WATER, TO_FEED:
+		WANDER, TO_WATER, TO_FEED, TO_PEN:
 			var to: Vector3 = c.target - c.pos
 			to.y = 0.0
 			# at a crowded tank or hay pile the exact spot is often taken by a neighbour; close is good enough
@@ -465,6 +505,10 @@ func _act(c: Dictionary, delta: float, hours: float, season: int) -> void:
 					c.yaw = atan2(l.x, l.z)
 				elif c.state == TO_FEED:
 					c.state = FEED
+				elif c.state == TO_PEN:
+					c.state = SLEEP
+					c.inside = true
+					c.timer = 1.0
 				else:
 					c.state = GRAZE
 					c.timer = _rng.randf_range(8.0, 20.0)
@@ -513,13 +557,19 @@ func _act(c: Dictionary, delta: float, hours: float, season: int) -> void:
 			c.thirst = maxf(0.0, c.thirst - 1.5 * hours)
 			if c.thirst < 0.05:
 				_decide(c)
+		SLEEP:
+			c.timer -= delta
+			if c.timer <= 0.0:
+				c.timer = 1.0
+				if not night() or c.thirst > 0.85 or c.hunger > 0.85:
+					_decide(c)
 		IDLE:
 			c.timer -= delta
 			if c.timer <= 0.0 or c.thirst > 0.55 or c.hunger > 0.4:
 				_decide(c)
 	var k := minf(1.0, delta * 4.0)
 	c.walk = lerpf(c.walk, 1.0 if moving else 0.0, k)
-	var down := 1.0 if c.state in [GRAZE, DRINK, FEED] else (0.55 if c.sick >= 0.0 else 0.0)  # sick cows hang their heads
+	var down := 1.0 if c.state in [GRAZE, DRINK, FEED, SLEEP] else (0.55 if c.sick >= 0.0 else 0.0)  # sick cows hang their heads
 	c.head = lerpf(c.head, down, minf(1.0, delta * 2.0))
 	if moving:
 		c.phase = fmod(c.phase + delta * WALK * minf(day.speed, 3.0) * 3.6, TAU)  # legs capped, or they blur
@@ -539,6 +589,8 @@ func _detour(p: Vector3, dir: Vector3, ahead: float) -> Vector3:
 func _separate() -> void:
 	var grid := {}
 	for i in cows.size():
+		if cows[i].get("inside", false):  # in the barn: out of the way
+			continue
 		var p: Vector3 = cows[i].pos
 		var key := Vector2i(floori(p.x / SEP), floori(p.z / SEP))
 		if not grid.has(key):
@@ -575,6 +627,8 @@ func _draw() -> void:
 			s = lerpf(0.42, 0.68, clampf((w - BIRTH_KG) / (180.0 - BIRTH_KG), 0.0, 1.0))
 		if c.kind == BULL:
 			s *= 1.12
+		if c.get("inside", false):
+			s = 0.0  # asleep in the barn
 		var cs := cos(c.yaw) * s
 		var sn := sin(c.yaw) * s
 		var o := i * 16

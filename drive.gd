@@ -8,7 +8,7 @@ extends CanvasLayer
 
 const DAY_IN_SEASON := 2   # which day of each season the buyer sends word
 const MIN_COWS := 4
-const HOURS := 12.0        # game hours on the trail (6 real minutes at 1x)
+const HOURS := 8.0         # game hours on the trail (10 real minutes at 1x)
 const BONUS := 1.3         # railhead price over the local market
 const WAGON := 100         # chuck wagon and cook, plus...
 const PER_HEAD := 10       # ...trail hands' pay per cow
@@ -131,7 +131,7 @@ func _process(_delta: float) -> void:
 
 func _invite() -> void:
 	_title.text = "کوچ گله تا ایستگاه"
-	_text.text = "یه خریدار از ایستگاه راه‌آهن شهر خبر داده: گاو چاق رو %s برابر قیمت بازار می‌خره، ولی باید خودت گله رو تا اونجا ببری. راهش نصف روز طول می‌کشه و ممکنه تو راه گرفتاری پیش بیاد. واگن غذا %s دلار، هر گاو هم %s دلار مزد کابوی‌ها." % ["۱٫۳", UiTheme.fa(WAGON), UiTheme.fa(PER_HEAD)]
+	_text.text = "یه خریدار از ایستگاه راه‌آهن شهر خبر داده: گاو چاق رو %s برابر قیمت بازار می‌خره، ولی باید خودت گله رو تا اونجا ببری. راهش چند ساعت طول می‌کشه و ممکنه تو راه گرفتاری پیش بیاد. واگن غذا %s دلار، هر گاو هم %s دلار مزد کابوی‌ها." % ["۱٫۳", UiTheme.fa(WAGON), UiTheme.fa(PER_HEAD)]
 	_count_row.visible = true
 	_set_n(herd.ready_count())
 	_pause()

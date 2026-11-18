@@ -78,6 +78,12 @@ func shelter_room() -> int:
 	return 0
 
 
+## The front door, just outside the footprint: where cows go in for the night.
+func door() -> Vector3:
+	var f := _foot()
+	return to_global(Vector3(f.get_center().x, 0, f.end.y + 0.9))
+
+
 ## Where cows stand to eat stored hay: just past the front of the footprint.
 func feed_spot() -> Vector3:
 	var f := _foot()

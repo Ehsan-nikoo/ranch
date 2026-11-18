@@ -1,17 +1,19 @@
 ## Deliveries: every calf, heifer, bull or hay purchase is brought by a truck that drives in along the ranch road,
 ## under the gate, loops in front of the barn to unload, and drives back out.
 ## The delivery timer runs on game time: the truck unloads ARRIVE game hours after the first purchase
-## (one real minute at normal speed). Everything bought before it unloads rides on that same truck.
+## (a couple of real minutes at normal speed). Everything bought before it unloads rides on that same truck.
 ## Owns the road, the gate on it, and the trucks; none are direct children of the world,
 ## so the herd, the builder and the save file never mistake them for buildings.
 class_name Delivery
 extends Node3D
 
-# all in game hours (one hour = DayCycle.SECONDS_PER_HOUR real seconds at normal speed)
-const ARRIVE := 4.8       # from the first purchase to unloading: 60 s at normal speed
-const DRIVE_IN := 2.0     # the truck is on screen for the last part of the wait
-const UNLOAD := 0.32
-const DRIVE_OUT := 1.6
+# all in game hours (one hour = DayCycle.SECONDS_PER_HOUR real seconds at normal speed); written for
+# 30 s hours and scaled by K, so the truck keeps the same real pace whatever the length of a day
+const K := 30.0 / DayCycle.SECONDS_PER_HOUR
+const ARRIVE := 4.8 * K   # from the first purchase to unloading: 144 real seconds at normal speed
+const DRIVE_IN := 2.0 * K # the truck is on screen for the last part of the wait
+const UNLOAD := 0.32 * K
+const DRIVE_OUT := 1.6 * K
 const LANE := 1.1         # keep right, so an incoming and a leaving truck pass each other
 const GATE_Z := Land.HALF  # the gate stands in the ranch fence where the road comes in
 # road control points (x, z) from off the map, through the gate, up the wagon track, a loop on the barn apron, and back out

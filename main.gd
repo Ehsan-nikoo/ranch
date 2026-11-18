@@ -23,6 +23,7 @@ var events := Events.new()
 var auction := Auction.new()
 var drive := Drive.new()
 var rodeo := RodeoGame.new()
+var building_ui := BuildingUI.new()
 var progress := Progress.new()
 var progress_ui := ProgressUI.new()
 var goals := Goals.new()
@@ -232,6 +233,25 @@ func _ready() -> void:
 	rodeo.others = [auction, drive]
 	rodeo.autopilot = _arg("bot", "") != ""
 	add_child(rodeo)
+	building_ui.builder = builder
+	building_ui.herd = herd
+	building_ui.workers = workers
+	building_ui.events = events
+	building_ui.progress = progress
+	building_ui.market = market
+	building_ui.day = day
+	building_ui.world = self
+	building_ui.save = _save
+	building_ui.hay_buy = herd_ui.buy_hay
+	building_ui.boards = {herd = herd_ui, breed = breed_ui, workers = workers_ui, market = market_ui, progress = progress_ui}
+	add_child(building_ui)
+	if _arg("board", "") != "":  # test: open the board of the first building of this kind, e.g. --board=Barn
+		var bb: Array = get_children().filter(func(n): return n is Building and n.get_script().get_global_name() == _arg("board", ""))
+		if not bb.is_empty():
+			building_ui.call_deferred("open", bb[0])
+	if _arg("toast", "") != "":  # test: a pile of long notices
+		for t in ["خرج دیروز گله:  ۲۳۰- دلار", "یه خریدار می‌خواد ازت گاو بخره؛ برو تو «بازار» و ببین چی می‌خواد، شاید بیشتر از قیمت بازار بده", "حقوق دیروز کارگرها:  ۱۲۰- دلار", "تو رنچ‌های همسایه مریضی اومده؛ گاوهای تو واکسن زدن و چیزیشون نمی‌شه، ولی حواست به گوساله‌های تازه باشه"]:
+			herd_ui.call_deferred("notify", t)
 	rodeo._due = _arg("rodeo", "") != ""  # test: a rodeo right away (--rodeo=go: already riding)
 	if _arg("rodeo", "") in ["go", "fall"]:
 		rodeo._due = false
@@ -352,7 +372,7 @@ func _debug_herd() -> void:
 	progress.notify = breed_ui.notify
 	while true:
 		await get_tree().create_timer(4.0).timeout
-		var st := [0, 0, 0, 0, 0, 0, 0]
+		var st := [0, 0, 0, 0, 0, 0, 0, 0, 0]
 		var h := 0.0
 		var w := 0.0
 		var cows := herd.alive()
@@ -418,9 +438,11 @@ func _debug_herd() -> void:
 		print("   cows grazing on bought land: %d, on locked land: %d" % [outside, off_land])
 		var preg := herd.of_kind(Herd.BREEDER).filter(func(c): return c.preg > 0.0).size()
 		print("   rep %d level %d era %d  price x%.2f" % [progress.rep, progress.level(), progress.era(), market.era_mul])
+		var crew_n: Crew = sfx.crew
+		print("   riders %s" % [crew_n._riders.values().map(func(r): return "%s%s(%.0f,%.0f)st%.1f" % ["H" if r.home else ("B" if r.get("bed", false) else ""), r.skill, r.node.position.x, r.node.position.z, r.stuck])])
 		print("   hands %d (wages %d, capacity %d)  effects %s  goals %s  legacy %s" % [workers.hired.size(), workers.wages(), workers.capacity(), events.effects.keys().filter(func(k): return events.active(k)), goals.done, legacy.seen])
 		print("   breeders %d (in calf %d)  bulls %d  sick %d  unvaccinated %d" % [herd.of_kind(Herd.BREEDER).size(), preg, herd.of_kind(Herd.BULL).size(), herd.sick_count(), herd.unvaccinated().size()])
-		print("d%d %02dh %s  price %.2f  active %d  cows %d  hunger %.2f kg %d  hay %d/%d  shelter %d  money %d  wander/graze/water/drink/idle/tofeed/feed %s" % [
+		print("d%d %02dh %s  price %.2f  active %d  cows %d  hunger %.2f kg %d  hay %d/%d  shelter %d  money %d  wander/graze/water/drink/idle/tofeed/feed/topen/sleep %s" % [
 			day.day, int(day.hour), DayCycle.SEASON_NAMES[day.season()], market.price, market.active.size(), cows.size(), h / n, w / n, herd.hay, herd.hay_cap, herd.shelter, builder.money, st])
 
 

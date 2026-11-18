@@ -150,10 +150,21 @@ func _hay_space() -> float:
 
 func notify(text: String) -> void:
 	# several things can happen at a day change: stack them instead of the last one hiding the rest
-	_toast_box.call_deferred("reset_size")
-	_toast.text = text if _toast_t < 1.0 else _toast.text + "\n" + text
-	_toast_t = 4.0 + 1.5 * _toast.text.count("\n")
+	var lines := (text if _toast_t < 1.0 else _toast.text + "\n" + text).split("\n")
+	if lines.size() > 4:  # only the latest few: a tall stack ran off the bottom of a phone
+		lines = lines.slice(lines.size() - 4)
+	_toast.text = "\n".join(lines)
+	_toast_t = 4.0 + 1.5 * (lines.size() - 1)
+	# a long line wraps inside the screen instead of stretching the plank past the phone's edges
+	var font := _toast.get_theme_font("font")
+	var wide := 0.0
+	for l in lines:
+		wide = maxf(wide, font.get_string_size(l, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x)
+	var room := minf(1000.0, get_viewport().get_visible_rect().size.x - 300.0)
+	_toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if wide > room else TextServer.AUTOWRAP_OFF
+	_toast.custom_minimum_size.x = room if wide > room else 0.0
 	UiTheme.fit(_toast_box)
+	(func(): UiTheme.fit(_toast_box)).call_deferred()  # again once the label has its new size
 
 
 func _refresh() -> void:

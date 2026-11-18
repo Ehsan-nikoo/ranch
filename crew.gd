@@ -41,16 +41,33 @@ func _match_hired() -> void:
 		c.coat = absi(hash(w.name)) % Cowboy.COATS.size()
 		c.position = herd.free_spot(HOME, 3.0)
 		add_child(c)
-		_riders[w.name] = {node = c, skill = w.skill, target = c.position, wait = _rng.randf_range(0.5, 3.0), leg = 0}
+		_riders[w.name] = {node = c, skill = w.skill, target = c.position, wait = _rng.randf_range(0.5, 3.0), leg = 0, best = INF, stuck = 0.0, home = false}
 
 
 func _night() -> bool:
 	return day.hour < 6.0 or day.hour > 19.5
 
 
+## Off to bed: the door of the nearest ranch house (the hands' bunkhouse), or the porch spot.
+func _bed(from: Vector3) -> Vector3:
+	var best := HOME
+	var d := INF
+	for n in world.get_children():
+		if n is RanchHouse and not n.has_node("Marker") and n.door().distance_to(from) < d:
+			d = n.door().distance_to(from)
+			best = n.door()
+	return best
+
+
 ## The next place this hand rides to, by job.
 func _next(r: Dictionary) -> Vector3:
 	r.leg += 1
+	r.best = INF
+	r.stuck = 0.0
+	if _night() and r.skill != Workers.RIDER:  # everyone but the night guard turns in
+		r.bed = true
+		return _bed(r.node.position)
+	r.bed = false
 	var cows := herd.alive()
 	match r.skill:
 		Workers.HERDER:
@@ -85,19 +102,52 @@ func _edge() -> float:
 
 func _ride(r: Dictionary, delta: float) -> void:
 	var c: Cowboy = r.node
+	if day.speed <= 0.0:  # time stopped behind a board
+		c.walk(delta, 0.0)
+		return
+	if r.home:  # asleep in the house: out again in the morning
+		if not _night():
+			r.home = false
+			c.visible = true
+			c.position = herd.free_spot(c.position + Vector3(0, 0, 2.0), 2.0)
+			r.target = _next(r)
+		return
+	if r.get("bed", false) and not _night():
+		r.target = _next(r)
+	elif not r.get("bed", false) and _night() and r.skill != Workers.RIDER:
+		r.target = _next(r)  # dusk: drop the job and head home
 	var to: Vector3 = r.target - c.position
 	to.y = 0.0
-	if to.length() < 0.6:
+	if to.length() < (1.5 if r.get("bed", false) else 0.6):
 		c.walk(delta, 0.0)
+		if r.get("bed", false):  # at the door: in he goes
+			r.home = true
+			c.visible = false
+			return
 		r.wait -= delta * day.speed
 		if r.wait <= 0.0:
 			r.target = _next(r)
 			r.wait = _rng.randf_range(4.0, 12.0) if r.skill != Workers.RIDER or not _night() else 0.5
 		return
+	# not getting any closer (wedged against a wall or a fence corner): give up on this spot
+	if to.length() < r.best - 0.3:
+		r.best = to.length()
+		r.stuck = 0.0
+	else:
+		r.stuck += delta * maxf(day.speed, 1.0)
+		if r.stuck > 3.0:
+			if r.get("bed", false):  # can't reach the door: close enough, go in anyway
+				r.home = true
+				c.visible = false
+				return
+			r.target = _next(r)
+			return
 	var dir := to.normalized()
 	var step := minf(RIDE * day.speed * delta, to.length())
 	var ahead := minf(step + 2.0, to.length())
-	if herd._blocked(c.position + dir * ahead):  # ride round barns and towers like the cows do
+	# ride round barns and towers like the cows do; one that's standing inside a footprint
+	# (a building was put down on top of him) just rides straight out
+	if not herd._blocked(c.position) and herd._blocked(c.position + dir * ahead):
 		var side := herd._detour(c.position, dir, ahead)
 		if side == Vector3.ZERO:
 			r.target = _next(r)
