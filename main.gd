@@ -311,6 +311,11 @@ func _ready() -> void:
 	add_child(land_ui)
 	if _arg("land", "") != "":
 		land_ui.toggle()
+		if _arg("land", "") == "pick":  # test: the first plot for sale picked, waiting for the yes
+			for i in Land.GRID * Land.GRID:
+				if land.can_buy(i):
+					land_ui.pick(i)
+					break
 	if _arg("unlock", "") != "":  # test: own plot N without paying
 		land.unlock(int(_arg("unlock", "")))
 	if _arg("market", "") != "":

@@ -1,5 +1,5 @@
 ## Land board: a map of the ranch's plots. Owned plots are marked, locked ones next to your land show
-## their price and buy on tap, the rest wait until you own a neighbour. North (-z) is at the top,
+## their price; a tap picks one and a second button confirms the purchase, the rest wait until you own a neighbour. North (-z) is at the top,
 ## the same way round as the default camera view.
 class_name LandUI
 extends CanvasLayer
@@ -11,6 +11,9 @@ var _panel: PanelContainer
 var _dim: ColorRect
 var _grid := GridContainer.new()
 var _info := UiTheme.label("", 22, Color(0.32, 0.18, 0.08))
+var _pick := -1            # plot waiting for the yes
+var _ask := HBoxContainer.new()
+var _ask_text := UiTheme.label("", 24)
 
 
 func _ready() -> void:
@@ -32,12 +35,27 @@ func _ready() -> void:
 	var center := CenterContainer.new()
 	center.add_child(_grid)
 	col.add_child(center)
+	_ask.alignment = BoxContainer.ALIGNMENT_CENTER
+	_ask.add_theme_constant_override("separation", 16)
+	_ask.add_child(builder._button(Button.new(), "نه", func():
+		_pick = -1
+		_refresh(), "cancel"))
+	_ask.add_child(builder._button(Button.new(), "آره، بخر", func(): buy(_pick), "land"))
+	_ask.add_child(_ask_text)
+	col.add_child(_ask)
 	land.changed.connect(_refresh)
 
 
 func toggle() -> void:
 	_panel.visible = not _panel.visible
 	_dim.visible = _panel.visible
+	_pick = -1
+	_refresh()
+
+
+## First tap on a plot: ask before spending the money.
+func pick(i: int) -> void:
+	_pick = i
 	_refresh()
 
 
@@ -45,9 +63,11 @@ func buy(i: int) -> void:
 	var p := land.price()
 	if builder.money < p or not land.can_buy(i):
 		return
+	_pick = -1
 	builder.add_money(-p)
 	land.unlock(i)
 	on_bought.call()
+	_refresh()
 
 
 func _tile(text: String, color: Color) -> PanelContainer:
@@ -71,13 +91,17 @@ func _refresh() -> void:
 		return
 	_info.text = "هر تیکه زمین %s در %s متره. با زمین بیشتر، گاوها جای بیشتری برای چریدن دارن و می‌تونی ساختمون‌های بیشتری بسازی. فقط تیکه‌ای رو می‌تونی بخری که بغل زمین خودت باشه. قیمت تیکه‌ی بعدی: %s دلار" % [
 		UiTheme.fa(int(Land.PLOT)), UiTheme.fa(int(Land.PLOT)), UiTheme.fa(land.price())]
+	_ask.visible = _pick >= 0
+	_ask_text.text = "این تیکه زمین رو %s دلار می‌خری؟" % UiTheme.fa(land.price())
 	for c in _grid.get_children():
 		c.queue_free()
 	for i in Land.GRID * Land.GRID:
 		if land.owned[i] == 1:
 			_grid.add_child(_tile("زمین خودت" + {9: "\nخونه", 10: "\nطویله"}.get(i, ""), Color(0.42, 0.55, 0.25, 0.55)))
 		elif land.can_buy(i):
-			var b := builder._button(Button.new(), "خرید\n%s دلار" % UiTheme.fa(land.price()), buy.bind(i), "land")
+			var b := builder._button(Button.new(), ("همینو می‌خوام" if i == _pick else "خرید") + "\n%s دلار" % UiTheme.fa(land.price()), pick.bind(i), "land")
+			if i == _pick:
+				b.modulate = Color(1.0, 0.85, 0.5)  # the plot waiting for the yes
 			b.custom_minimum_size = Vector2(200, 92)
 			b.add_theme_font_size_override("font_size", 20)
 			b.disabled = builder.money < land.price()
