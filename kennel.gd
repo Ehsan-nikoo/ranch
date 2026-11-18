@@ -10,6 +10,14 @@ const MODEL_TALL := 4.46   # the file's height, nose to paws, as it comes in
 const TALL := 0.72         # a real lab: about 0.57 m at the shoulder, head up a bit higher
 
 
+func upgrades() -> Array:
+	return [1000, 2000]
+
+
+func upgrade_text() -> String:
+	return "سگ‌های بیشتر: خودت ۵ و هر کارگر ۲ تا گاو بیشتر رو می‌چرخونه"
+
+
 func _foot() -> Rect2:
 	return Rect2(-HX - 0.4, -HZ - 0.4, HX * 2 + 0.8, HZ * 2 + 0.8)
 

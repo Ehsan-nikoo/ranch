@@ -18,6 +18,7 @@ var herd: Herd
 var market: Market
 var builder: Builder
 var events: Events
+var rival: Rival
 var notify: Callable
 
 var _due := false
@@ -144,19 +145,22 @@ func _set_n(n: int) -> void:
 
 
 func _go() -> void:
-	builder.add_money(-_n * TRIP)
+	builder.add_money(-_n * TRIP, "trips")
 	_kg = _lot_kg(_n)
 	var p := market.sale_price()
 	var names := BUYERS.duplicate()
 	names.shuffle()
+	var crowd := rival != null and rival.at_auction()  # the neighbours brought cattle too: buyers hold back
 	for b in names.slice(0, _rng.randi_range(3, 4)):
-		_top[b] = snappedf(p * _rng.randf_range(0.85, 1.25), 0.01)
+		_top[b] = snappedf(p * _rng.randf_range(0.85, 1.25) * (0.92 if crowd else 1.0), 0.01)
 	_bid = snappedf(p * OPEN, 0.01)
 	_lead = ""
 	_beat = 1.2
 	_hammer = -1
 	_title.text = "حراج شروع شد!"
 	_text.text = "%s گاو، روی هم %s کیلو. تو بازار %s دلار می‌خریدنش (%s دلار هر کیلو)." % [UiTheme.fa(_n), UiTheme.fa(int(_kg)), UiTheme.fa(int(_kg * p)), UiTheme.fa_price(p)]
+	if crowd:
+		_text.text += "\n%s هم گاو آورده؛ خریدارها دست‌به‌عصاترن." % Rival.NAME
 	_count_row.visible = false
 	_big.visible = true
 	_who.visible = true
@@ -166,10 +170,7 @@ func _go() -> void:
 
 ## Heaviest first, the same cows Herd.sell would take.
 func _lot_kg(n: int) -> float:
-	var w: Array = herd.feeders().filter(func(c): return c.weight >= Herd.READY_KG).map(func(c): return c.weight)
-	w.sort()
-	w.reverse()
-	return w.slice(0, n).reduce(func(a, x): return a + x, 0.0)
+	return herd.sale_lot(n, Herd.READY_KG).reduce(func(a, c): return a + c.weight * Herd.BREEDS[c.breed].sale, 0.0)
 
 
 func _show_bid(status: String) -> void:
@@ -202,7 +203,7 @@ func _sell(cash: int) -> void:
 	var kg := herd.sell(_n, Herd.READY_KG)
 	_n = before - herd.feeders().size()
 	cash = int(kg * _bid)
-	builder.add_money(cash)
+	builder.add_money(cash, "sale")
 	market.sold.emit(cash, false)
 	market.changed.emit()
 	notify.call("تو حراج %s گاو فروختی:  %s+ دلار" % [UiTheme.fa(_n), UiTheme.fa(cash)])

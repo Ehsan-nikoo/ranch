@@ -7,6 +7,7 @@ const SEASONS_OF := ["بهار", "تابستان", "پاییز", "زمستان"]
 
 var market: Market
 var builder: Builder
+var ledger: Ledger
 var _panel: PanelContainer
 var _dim: ColorRect
 var _price := UiTheme.label("", 34)
@@ -44,7 +45,12 @@ func _ready() -> void:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 14)
 	_panel.add_child(col)
-	col.add_child(UiTheme.header("بازار", builder._button(Button.new(), "بستن", toggle, "cancel")))
+	var head := UiTheme.header("بازار", builder._button(Button.new(), "بستن", toggle, "cancel"))
+	head.add_child(builder._button(Button.new(), "دفترچه‌ی حساب", func():
+		toggle()
+		ledger.toggle(), "market"))
+	head.move_child(head.get_child(3), 1)  # beside the close button
+	col.add_child(head)
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 28)

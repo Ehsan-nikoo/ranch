@@ -74,7 +74,7 @@ func _apply() -> void:
 	market.sale_bonus = STATION_BONUS if train else 1.0
 	if herd:
 		var pen := has(Feedlot)
-		herd.gain_mul = FEEDLOT[0] if pen else 1.0
+		herd.gain_mul = FEEDLOT[0] + 0.1 * (Building.best_level(world, Feedlot) - 1) if pen else 1.0
 		herd.appetite_mul = FEEDLOT[1] if pen else 1.0
 	if builder.level != level() or builder.era != era():
 		builder.level = level()
@@ -97,12 +97,12 @@ func hook(h: Herd) -> void:
 func new_day(d: int) -> void:
 	if d % DayCycle.DAYS_PER_SEASON == 0 and has(RodeoArena):
 		var purse := RODEO_PURSE + 150 * level()
-		builder.add_money(purse)
+		builder.add_money(purse, "prize")
 		notify.call("مسابقه‌ی گاوسواری این فصل برگزار شد: %s+ دلار، و رنچت معروف‌تر شد" % UiTheme.fa(purse))
 		add(20.0)
 	if d % DayCycle.DAYS_PER_SEASON == 0 and has(Saloon):
-		var take := CAFE_TAKE + 100 * level()
-		builder.add_money(take)
+		var take := int((CAFE_TAKE + 100 * level()) * (1.0 + 0.5 * (Building.best_level(world, Saloon) - 1)))
+		builder.add_money(take, "prize")
 		notify.call("کافه‌ی رنچ این فصل %s+ دلار درآمد داشت و همه جا از رنچت تعریف می‌کنن" % UiTheme.fa(take))
 		add(8.0)
 	_apply()

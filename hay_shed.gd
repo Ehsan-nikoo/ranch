@@ -10,7 +10,15 @@ const RIDGE := 6.2
 
 
 func hay_room() -> int:
-	return 150
+	return 150 + 75 * (level - 1)
+
+
+func upgrades() -> Array:
+	return [1200, 2400]
+
+
+func upgrade_text() -> String:
+	return "جای ۷۵ بسته یونجه‌ی بیشتر"
 
 
 func _foot() -> Rect2:

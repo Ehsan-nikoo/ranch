@@ -37,6 +37,16 @@ const COWS_PER_BULL := 20
 const SICK_RATE := 0.0008  # chance per cow per game hour when well kept; stress and contagion add to it
 const SICK_DEATH := 36.0   # game hours a sick cow lasts without a vet
 const VACCINE_DAYS := 12   # one year
+# breeds: name, what it's like, weight gain, cold, thirst, sale price per kg, calf price (all multipliers)
+const BREEDS := [
+	{name = "معمولی", about = "همه‌جوره، نه خیلی گرون نه خیلی ارزون", gain = 1.0, cold = 1.0, thirst = 1.0, sale = 1.0, calf = 1.0},
+	{name = "سیاه", about = "زود چاق می‌شه و گوشتش گرون‌تره، ولی گرون‌تره و سرما اذیتش می‌کنه", gain = 1.2, cold = 1.25, thirst = 1.0, sale = 1.1, calf = 1.5},
+	{name = "شاخ‌بلند", about = "ارزون و جون‌سخت: سرما و تشنگی کمتر اذیتش می‌کنه، ولی دیرتر چاق می‌شه", gain = 0.85, cold = 0.5, thirst = 0.7, sale = 0.95, calf = 0.75},
+]
+const NAMES := ["گلی", "ابری", "خال‌خالی", "ماه‌پری", "شکلات", "پنبه", "قهوه", "زری", "نازی", "سیاهه", "بلوطی", "عسل",
+	"مخملی", "لیلی", "تپلی", "شیرین", "گندم", "کهربا", "ستاره", "دودی", "خانم‌گل", "قندی", "فندق", "نارنج", "مهتاب", "پاپی",
+	"کوکو", "بابونه", "زعفرون", "دارچین", "خرمالو", "گیلاس"]
+const BULL_NAMES := ["رستم", "پهلوون", "غول", "سلطان", "تندر", "داش‌آکل", "سهراب", "شیرعلی"]
 
 var day: DayCycle
 var world: Node3D
@@ -58,6 +68,8 @@ var sick_mul := 1.0
 var cure_mul := 1.0
 var gain_mul := 1.0       # the fattening pen: sale cattle put on weight faster...
 var appetite_mul := 1.0   # ...and eat more
+var rain_mul := 1.0       # set by Weather: rain greens the pasture...
+var wet_mul := 1.0        # ...and the cows drink less
 
 var _mm := MultiMesh.new()
 var _buf := PackedFloat32Array()
@@ -111,10 +123,12 @@ func _cell(p: Vector3) -> int:
 	return y * N + x
 
 
-func add_cow(pos: Vector3, weight: float, kind := FEEDER, female := -1) -> Dictionary:
+func add_cow(pos: Vector3, weight: float, kind := FEEDER, female := -1, breed := 0) -> Dictionary:
 	if cows.size() >= MAX_COWS:
 		return {}
 	var c := {
+		breed = breed, fav = false,
+		name = BULL_NAMES[_rng.randi() % BULL_NAMES.size()] if kind == BULL else NAMES[_rng.randi() % NAMES.size()],
 		kind = kind, female = (kind == BREEDER) if kind != FEEDER else (_rng.randf() < 0.5 if female < 0 else female == 1),
 		preg = 0.0,      # game hours left in calf, 0 = open
 		rest = 0.0,      # hours left before she can be bred again
@@ -127,6 +141,12 @@ func add_cow(pos: Vector3, weight: float, kind := FEEDER, female := -1) -> Dicti
 		phase = 0.0, head = 0.0, walk = 0.0,
 		coat = (_rng.randi_range(0, 3) + _rng.randf() * 0.99) / 4.0,  # type in the integer part of coat*4, see cow.gdshader
 	}
+	if breed == 1:  # black all over
+		c.coat = (3.0 + _rng.randf() * 0.99) / 4.0
+	elif breed == 2:  # red and white
+		c.coat = (1.0 + _rng.randf() * 0.99) / 4.0
+	elif floorf(c.coat * 4.0) == 3.0:  # the plain kind isn't black
+		c.coat = (_rng.randi_range(0, 2) + _rng.randf() * 0.99) / 4.0
 	cows.append(c)
 	return c
 
@@ -154,7 +174,7 @@ func of_kind(kind: int) -> Array:
 
 
 func ready_count() -> int:
-	return feeders().filter(func(c): return c.weight >= READY_KG).size()
+	return feeders().filter(func(c): return c.weight >= READY_KG and not c.fav).size()
 
 
 func sick_count() -> int:
@@ -193,15 +213,28 @@ func keep_heifer() -> bool:
 	return true
 
 
-## Removes up to `n` feeders of at least `min_kg`, heaviest first, and returns their total kg.
+## Removes up to `n` feeders of at least `min_kg`, heaviest first (never a favourite), and returns
+## their total kg, each counted at its breed's price (a black cow's kilo fetches more).
 func sell(n: int, min_kg: float) -> float:
-	var pick := feeders().filter(func(c): return c.weight >= min_kg)
-	pick.sort_custom(func(a, b): return a.weight > b.weight)
+	var pick := sale_lot(n, min_kg)
 	var kg := 0.0
-	for c in pick.slice(0, n):
-		kg += c.weight
+	for c in pick:
+		kg += c.weight * BREEDS[c.breed].sale
 		cows.erase(c)
 	return kg
+
+
+## The cows `sell` would take.
+func sale_lot(n: int, min_kg: float) -> Array:
+	var pick := feeders().filter(func(c): return c.weight >= min_kg and not c.fav)
+	pick.sort_custom(func(a, b): return a.weight > b.weight)
+	return pick.slice(0, n)
+
+
+## One cow sold on her own at today's per-kg price; returns the cash.
+func sell_one(c: Dictionary, per_kg: float) -> int:
+	cows.erase(c)
+	return int(c.weight * BREEDS[c.breed].sale * per_kg)
 
 
 ## Animals lost to wolves (the smallest first) or rustlers (the heaviest feeders first); returns how many.
@@ -338,7 +371,7 @@ func _process(delta: float) -> void:
 			else:
 				died.emit("cold" if cold > 0.0 and c.hunger < 0.85 and c.thirst < 0.85 else ("thirst" if c.thirst > c.hunger else "hunger"))
 	for m in calving:  # added after the loop: the list can't grow while it's walked
-		var calf := add_cow(free_spot(m.pos + Vector3(sin(m.yaw), 0, cos(m.yaw)) * -1.5, 1.5), BIRTH_KG)
+		var calf := add_cow(free_spot(m.pos + Vector3(sin(m.yaw), 0, cos(m.yaw)) * -1.5, 1.5), BIRTH_KG, FEEDER, -1, m.breed)
 		if not calf.is_empty():
 			if _rng.randf() < 0.6:  # takes after its mother's coat
 				calf.coat = floorf(m.coat * 4.0) / 4.0 + _rng.randf() * 0.99 / 4.0
@@ -353,7 +386,7 @@ func _process(delta: float) -> void:
 	_tex_t -= delta
 	if _tex_t <= 0.0:
 		_tex_t = 0.5
-		var g: float = _grow_hours / 96.0 * GROWTH[season] * growth_mul  # full regrowth in about four summer days
+		var g: float = _grow_hours / 96.0 * GROWTH[season] * growth_mul * rain_mul  # full regrowth in about four summer days
 		_grow_hours = 0.0
 		if g > 0.0:
 			for i in N * N:
@@ -367,16 +400,17 @@ func _needs(c: Dictionary, hours: float, cold: float) -> void:
 	if c.state == SLEEP:  # resting through the night: hunger and thirst creep up slowly
 		hours *= 0.35
 	var fat: bool = c.kind == FEEDER  # the fattening pen feeds the sale cattle
+	var br: Dictionary = BREEDS[c.breed]
 	c.hunger = minf(1.0, c.hunger + hours / (13.0 if c.preg > 0.0 else 16.0) * (appetite_mul if fat else 1.0))  # eating for two
-	c.thirst = minf(1.0, c.thirst + hours / 18.0 * thirst_mul)
+	c.thirst = minf(1.0, c.thirst + hours / 18.0 * thirst_mul * wet_mul * br.thirst)
 	if c.sick >= 0.0:
 		c.weight -= 1.0 * hours  # off its feed: no gain while sick
 	elif c.hunger < 0.7 and c.thirst < 0.7:
 		var taper := 1.0 if c.weight < READY_KG else clampf((MAX_KG - c.weight) / (MAX_KG - READY_KG), 0.0, 1.0) ** 2
-		c.weight = minf(c.weight + GAIN * (gain_mul if fat else 1.0) * hours * (1.0 - c.hunger) * (1.0 - c.thirst) * taper, MAX_KG)
+		c.weight = minf(c.weight + GAIN * br.gain * (gain_mul if fat else 1.0) * hours * (1.0 - c.hunger) * (1.0 - c.thirst) * taper, MAX_KG)
 	elif c.hunger > 0.85 or c.thirst > 0.85:
 		c.weight -= 1.6 * hours
-	c.weight -= cold * hours
+	c.weight -= cold * br.cold * hours
 
 
 ## Falls sick at random, more often under stress or near sick cows; vaccinated cows seldom do.
@@ -651,7 +685,7 @@ func to_save() -> Dictionary:
 		hay = hay,
 		grass = Marshalls.raw_to_base64(grass.to_byte_array()),
 		cows = alive().map(func(c): return [c.pos.x, c.pos.z, c.yaw, c.hunger, c.thirst, c.weight, c.coat,
-			c.kind, int(c.female), c.preg, c.rest, c.sick, c.vacc, c.peak]),
+			c.kind, int(c.female), c.preg, c.rest, c.sick, c.vacc, c.peak, c.name, int(c.fav), c.breed]),
 	}
 
 
@@ -677,3 +711,7 @@ func from_save(d: Dictionary) -> void:
 			c.sick = v[11]
 			c.vacc = int(v[12])
 			c.peak = v[13]
+		if v.size() >= 17:  # names, favourites and breeds came later
+			c.name = v[14]
+			c.fav = v[15] == 1
+			c.breed = int(v[16])

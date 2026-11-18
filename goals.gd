@@ -101,7 +101,7 @@ func _process(delta: float) -> void:
 		if value(g[2]) >= g[3]:
 			done.append(g[0])
 			if g[4] > 0:
-				builder.add_money(g[4])
+				builder.add_money(g[4], "prize")
 			progress.add(g[5])
 			notify.call("هدف انجام شد: %s!  جایزه: %s" % [text(g), prize(g)])
 			changed.emit()

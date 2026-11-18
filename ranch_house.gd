@@ -10,6 +10,19 @@ const OVER := 0.45
 const PORCH := 2.4
 
 
+## Hands who can sleep here.
+func bunks() -> int:
+	return 3 + 2 * (level - 1)
+
+
+func upgrades() -> Array:
+	return [1500, 3000]
+
+
+func upgrade_text() -> String:
+	return "جای خواب ۲ کارگر بیشتر"
+
+
 func _foot() -> Rect2:
 	return Rect2(-W - 0.4, -D - 0.4, W * 2 + 0.8, D * 2 + PORCH + 1.4)  # porch and steps on +z
 

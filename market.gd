@@ -87,12 +87,12 @@ func new_day(d: int) -> void:
 	_reprice()
 	var n := herd.alive().size()
 	if n > 0:
-		builder.add_money(-upkeep() * n)
+		builder.add_money(-upkeep() * n, "upkeep")
 		notify.call("خرج دیروز گله:  %s- دلار" % UiTheme.fa(upkeep() * n))
 	for c in active.duplicate():
 		if d > c.due:
 			var fine := int(c.count * c.min_kg * c.per_kg * FINE)
-			builder.add_money(-fine)
+			builder.add_money(-fine, "trouble")
 			active.erase(c)
 			missed.emit()
 			notify.call("%s تا گاو قرارداد رو به موقع نرسوندی: %s دلار جریمه شدی" % [UiTheme.fa(c.count), UiTheme.fa(fine)])
@@ -119,7 +119,7 @@ func _offer() -> bool:
 
 
 func eligible(c: Dictionary) -> int:
-	return herd.feeders().filter(func(cow): return cow.weight >= c.min_kg).size()
+	return herd.feeders().filter(func(cow): return cow.weight >= c.min_kg and not cow.fav).size()
 
 
 func accept(o: Dictionary) -> void:
@@ -137,7 +137,7 @@ func deliver(c: Dictionary) -> void:
 	if eligible(c) < c.count:
 		return
 	var cash := int(herd.sell(c.count, c.min_kg) * c.per_kg)
-	builder.add_money(cash)
+	builder.add_money(cash, "sale")
 	active.erase(c)
 	sold.emit(cash, true)
 	notify.call("گاوهای قرارداد رو دادی:  %s+ دلار" % UiTheme.fa(cash))
@@ -148,7 +148,7 @@ func deliver(c: Dictionary) -> void:
 func sell_ready() -> Array:
 	var n := herd.ready_count()
 	var cash := int(herd.sell(n, Herd.READY_KG) * sale_price())
-	builder.add_money(cash)
+	builder.add_money(cash, "sale")
 	if n > 0:
 		sold.emit(cash, false)
 	return [n, cash]

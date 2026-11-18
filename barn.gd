@@ -13,11 +13,19 @@ var vane := Node3D.new()
 
 
 func hay_room() -> int:
-	return 40
+	return 40 + 20 * (level - 1)
 
 
 func shelter_room() -> int:
-	return 15
+	return 15 + 10 * (level - 1)
+
+
+func upgrades() -> Array:
+	return [1500, 3000]
+
+
+func upgrade_text() -> String:
+	return "جای ۱۰ گاو و ۲۰ بسته یونجه‌ی بیشتر"
 
 
 func _foot() -> Rect2:

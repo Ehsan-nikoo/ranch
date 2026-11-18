@@ -24,6 +24,10 @@ var auction := Auction.new()
 var drive := Drive.new()
 var rodeo := RodeoGame.new()
 var building_ui := BuildingUI.new()
+var weather := Weather.new()
+var cow_ui := CowUI.new()
+var rival := Rival.new()
+var ledger := Ledger.new()
 var progress := Progress.new()
 var progress_ui := ProgressUI.new()
 var goals := Goals.new()
@@ -81,7 +85,7 @@ func _ready() -> void:
 		builder.money = saved.money
 		if saved.has("land"):
 			land.from_save(saved.land)
-		layout = saved.buildings.map(func(b): return [load(b[0]), Vector3(b[1], 0, b[2]), b[3]])
+		layout = saved.buildings.map(func(b): return [load(b[0]), Vector3(b[1], 0, b[2]), b[3], int(b[4]) if b.size() > 4 else 1])
 	add_child(day)
 	mask_img = (load(TEX + "ground_mask.png") as Texture2D).get_image()
 	if mask_img.is_compressed():
@@ -98,6 +102,7 @@ func _ready() -> void:
 		var node: Building = b[0].new()
 		node.position = b[1]
 		node.rotation_degrees.y = b[2]
+		node.level = b[3] if b.size() > 3 else 1
 		add_child(node)
 		builder.occupied.append(node.world_footprint())
 	_grass()
@@ -206,6 +211,37 @@ func _ready() -> void:
 	if not saved.is_empty() and saved.has("events"):
 		events.from_save(saved.events)
 	add_child(events)
+	ledger.builder = builder
+	ledger.day = day
+	if not saved.is_empty() and saved.has("ledger"):
+		ledger.from_save(saved.ledger)
+	add_child(ledger)
+	market_ui.ledger = ledger
+	if _arg("ledger", "") != "":
+		ledger.call_deferred("toggle")
+	rival.day = day
+	rival.market = market
+	rival.progress = progress
+	rival.notify = herd_ui.notify
+	if not saved.is_empty() and saved.has("rival"):
+		rival.from_save(saved.rival)
+	add_child(rival)
+	auction.rival = rival
+	rodeo.rival = rival
+	progress_ui.rival = rival
+	weather.day = day
+	weather.events = events
+	weather.herd = herd
+	weather.rig = rig
+	if not saved.is_empty() and saved.has("weather"):
+		weather.from_save(saved.weather)
+	if _arg("weather", "") != "":  # test: --weather=1 rain, 2 storm, 3 snow
+		weather.now = int(_arg("weather", ""))
+		weather.until = 1e9
+		day.overcast = 0.85 if weather.now == Weather.STORM else 0.5
+	add_child(weather)
+	hud.weather = weather
+	weather.detail = Hud.QUALITY[hud._quality][3]
 	auction.day = day
 	auction.herd = herd
 	auction.market = market
@@ -243,6 +279,14 @@ func _ready() -> void:
 	building_ui.world = self
 	building_ui.save = _save
 	building_ui.hay_buy = herd_ui.buy_hay
+	cow_ui.herd = herd
+	cow_ui.builder = builder
+	cow_ui.market = market
+	cow_ui.notify = herd_ui.notify
+	add_child(cow_ui)
+	building_ui.cow_ui = cow_ui
+	if _arg("cowboard", "") != "":  # test: the first cow's board
+		cow_ui.call_deferred("open", herd.cows[0])
 	building_ui.boards = {herd = herd_ui, breed = breed_ui, workers = workers_ui, market = market_ui, progress = progress_ui}
 	add_child(building_ui)
 	if _arg("board", "") != "":  # test: open the board of the first building of this kind, e.g. --board=Barn
@@ -431,7 +475,7 @@ func _debug_herd() -> void:
 				herd_ui.cut_hay()
 			for i in Land.GRID * Land.GRID:  # buy a neighbouring plot when there's money to spare
 				if land.can_buy(i) and builder.money > land.price() + 6000:
-					builder.add_money(-land.price())
+					builder.add_money(-land.price(), "build")
 					land.unlock(i)
 					print("   BOUGHT plot %d" % i)
 					break
@@ -563,6 +607,7 @@ func _on_hour(_h: float) -> void:
 func _on_day(d: int) -> void:
 	if d % DayCycle.DAYS_PER_SEASON == 0:
 		herd_ui.notify(SEASON_NEWS[day.season()])
+	rival.new_day(d)
 	market.new_day(d)
 	workers.new_day(d)
 	progress.new_day(d)
@@ -575,7 +620,7 @@ func _on_day(d: int) -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:
+	if what in [NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_WM_CLOSE_REQUEST, NOTIFICATION_WM_GO_BACK_REQUEST]:
 		_save()  # phone apps get killed in the background without warning
 
 
@@ -585,8 +630,8 @@ func _save() -> void:
 	var buildings := []
 	for n in get_children():
 		if n is Building and not n.has_node("Marker"):
-			buildings.append([n.get_script().resource_path, n.position.x, n.position.z, n.rotation_degrees.y])
-	SaveGame.write({money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), drive = drive.to_save(), delivery = delivery.to_save(), land = land.to_save(), goals = goals.to_save(), legacy = legacy.to_save(), tutorial = tutorial.step if tutorial else 99})
+			buildings.append([n.get_script().resource_path, n.position.x, n.position.z, n.rotation_degrees.y, n.level])
+	SaveGame.write({money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), weather = weather.to_save(), rival = rival.to_save(), ledger = ledger.to_save(), drive = drive.to_save(), delivery = delivery.to_save(), land = land.to_save(), goals = goals.to_save(), legacy = legacy.to_save(), tutorial = tutorial.step if tutorial else 99})
 
 
 # ---------- ground & grass ----------

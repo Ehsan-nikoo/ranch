@@ -12,6 +12,14 @@ func hay_room() -> int:
 	return 30
 
 
+func upgrades() -> Array:
+	return [2000, 4000]
+
+
+func upgrade_text() -> String:
+	return "گاوهای فروشی ۱۰ درصد دیگه هم زودتر چاق می‌شن"
+
+
 func _foot() -> Rect2:
 	return Rect2(-PX - 0.5, -PZ - 0.5, PX * 2 + 1.0, PZ * 2 + 1.0)
 

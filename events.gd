@@ -87,7 +87,8 @@ func new_day(d: int) -> void:
 	if s in [DayCycle.SPRING, DayCycle.SUMMER] and n > 0:
 		pool.append([2, _outbreak])
 	var smith := world.get_children().any(func(b): return b is Blacksmith and not b.has_node("Marker"))
-	if _windmills().size() > 0 and not effects.has("windmill") and not smith:  # the smith keeps them mended
+	var iron := _windmills().all(func(m): return m.level >= 2)  # upgraded mills don't break
+	if _windmills().size() > 0 and not effects.has("windmill") and not smith and not iron:  # the smith keeps them mended
 		pool.append([2, _windmill])
 	if pool.is_empty():
 		return
@@ -114,7 +115,7 @@ func _ask(title: String, text: String, options: Array) -> void:
 		var label: String = o[0] if cost == 0 else "%s  %s دلار" % [o[0], UiTheme.fa(cost)]
 		var b := builder._button(Button.new(), label, func():
 			if cost > 0:
-				builder.add_money(-cost)
+				builder.add_money(-cost, "trouble")
 			_close()
 			o[3].call(), o[2])
 		b.disabled = cost > 0 and builder.money < cost  # "take the risk" stays open even in debt, or the game would be stuck
@@ -202,7 +203,7 @@ func _resolve_rustlers() -> void:
 
 func _resolve_sheriff() -> void:
 	if _rng.randf() < (0.8 if Building.built(world, Watchtower) else 0.5):  # the tower tells the sheriff where they are
-		builder.add_money(150)
+		builder.add_money(150, "prize")
 		notify.call("کلانتر دزدها رو گرفت و ۱۵۰ دلار جایزه گرفتی")
 	else:
 		_resolve_rustlers()

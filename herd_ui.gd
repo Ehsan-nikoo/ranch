@@ -21,6 +21,8 @@ var _panel: PanelContainer
 var _dim: ColorRect
 var _stats := UiTheme.label("", 25)
 var _buy: Button
+var _breed_btn: Button
+var breed := 0          # breed of the calves you buy
 var _sell: Button
 var _cut: Button
 var _buy_hay: Button
@@ -47,6 +49,7 @@ func _ready() -> void:
 	row.add_theme_constant_override("separation", 24)
 	col.add_child(row)
 	_stats.custom_minimum_size = Vector2(560, 0)
+	_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART  # the breed line can be long
 	_stats.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(_stats)
 	var pic := TextureRect.new()
@@ -62,8 +65,12 @@ func _ready() -> void:
 	col.add_child(btns)
 	_sell = builder._button(Button.new(), "", sell, "place")
 	_buy = builder._button(Button.new(), "", buy, "cow")
+	_breed_btn = builder._button(Button.new(), "", func():
+		breed = (breed + 1) % Herd.BREEDS.size()
+		_refresh(), "cow")
 	btns.add_child(_sell)
 	btns.add_child(_buy)
+	btns.add_child(_breed_btn)
 	var hay_btns := HBoxContainer.new()
 	hay_btns.add_theme_constant_override("separation", 16)
 	hay_btns.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -94,11 +101,16 @@ func toggle() -> void:
 	_refresh()
 
 
+## A calf of the breed picked on the board.
+func calf_price() -> int:
+	return int(roundf(market.calf_price() * Herd.BREEDS[breed].calf / 10.0) * 10.0)
+
+
 func buy() -> void:
-	if builder.money < market.calf_price():
+	if builder.money < calf_price():
 		return
-	builder.add_money(-market.calf_price())
-	delivery.order(1, 0)
+	builder.add_money(-calf_price(), "cattle")
+	delivery.order(1, 0, 0, 0, breed)
 	_refresh()
 
 
@@ -129,7 +141,7 @@ func cut_hay() -> void:
 	if got == 0:
 		notify("علف برای چیدن کمه، یا انبار پره")
 		return
-	builder.add_money(-_harvest_cost())
+	builder.add_money(-_harvest_cost(), "hay")
 	notify("%s بسته یونجه چیدی" % UiTheme.fa(got))
 	_refresh()
 
@@ -138,7 +150,7 @@ func buy_hay() -> void:
 	var price: int = HAY_PRICE[herd.day.season()]
 	if builder.money < price or _hay_space() < HAY_LOT:
 		return
-	builder.add_money(-price)
+	builder.add_money(-price, "hay")
 	delivery.order(0, HAY_LOT)
 	_refresh()
 
@@ -193,6 +205,7 @@ func _refresh() -> void:
 		"قیمت امروز:  هر کیلو %s دلار" % UiTheme.fa_price(market.price),
 		"یونجه تو انبار:  %s از %s بسته (زمستون هر گاو روزی ۱ بسته می‌خوره)" % [UiTheme.fa(int(herd.hay)), UiTheme.fa(herd.hay_cap)],
 		"خرج گله:  روزی %s دلار" % UiTheme.fa(market.upkeep() * n),
+		"گوساله‌ی %s: %s" % [Herd.BREEDS[breed].name, Herd.BREEDS[breed].about],
 		"جا تو طویله برای زمستون:  %s تا، برای %s گاو" % [UiTheme.fa(herd.shelter), UiTheme.fa(n)],
 	])
 	var winter := herd.day.season() == DayCycle.WINTER
@@ -202,9 +215,10 @@ func _refresh() -> void:
 	_buy_hay.text = "خرید %s بسته یونجه  %s دلار" % [UiTheme.fa(HAY_LOT), UiTheme.fa(price)]
 	_buy_hay.disabled = builder.money < price or _hay_space() < HAY_LOT
 	_sell.text = "فروش گاوهای آماده  %s دلار" % UiTheme.fa(int(ready_kg * market.sale_price()))
-	_buy.text = "خرید گوساله  %s دلار" % UiTheme.fa(market.calf_price())
+	_buy.text = "خرید گوساله  %s دلار" % UiTheme.fa(calf_price())
+	_breed_btn.text = "نژاد: %s" % Herd.BREEDS[breed].name
 	_sell.disabled = ready == 0
-	_buy.disabled = builder.money < market.calf_price() or n + delivery.pending_animals() >= Herd.MAX_COWS
+	_buy.disabled = builder.money < calf_price() or n + delivery.pending_animals() >= Herd.MAX_COWS
 
 
 func _process(delta: float) -> void:

@@ -58,6 +58,28 @@ func _init() -> void:
 	water = _mats.water
 
 
+var level := 1   # raised with upgrades bought on the building's board
+
+
+## Prices of the next upgrades (to level 2, 3...); [] if this kind can't be upgraded. Subclasses override.
+func upgrades() -> Array:
+	return []
+
+
+## What the next upgrade does, in a few words. Subclasses override.
+func upgrade_text() -> String:
+	return ""
+
+
+## Highest level of the finished buildings of `kind` (0 when there's none).
+static func best_level(world: Node, kind: Script) -> int:
+	var best := 0
+	for n in world.get_children():
+		if n.get_script() == kind and not n.has_node("Marker"):
+			best = maxi(best, n.level)
+	return best
+
+
 ## True when a finished building of `kind` stands on the ranch (a ghost being placed doesn't count).
 static func built(world: Node, kind: Script) -> bool:
 	return world.get_children().any(func(n): return n.get_script() == kind and not n.has_node("Marker"))

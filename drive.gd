@@ -148,7 +148,7 @@ func _set_n(n: int) -> void:
 
 
 func _go() -> void:
-	builder.add_money(-_cost(_n))
+	builder.add_money(-_cost(_n), "trips")
 	var kg := herd.sell(_n, Herd.READY_KG)
 	trail = {n = _n, kg = kg, start = now(), next = 0}
 	notify.call("گله راه افتاد سمت ایستگاه")
@@ -226,7 +226,7 @@ func _arrive() -> void:
 		notify.call("هیچ گاوی به ایستگاه نرسید")
 		return
 	var cash := int(t.kg * market.sale_price() * BONUS)
-	builder.add_money(cash)
+	builder.add_money(cash, "sale")
 	market.sold.emit(cash, false)
 	market.changed.emit()
 	_title.text = "رسیدین ایستگاه!"
@@ -249,7 +249,7 @@ func _ask(title: String, text: String, options: Array) -> void:
 		var label: String = o[0] if cost == 0 else "%s  %s دلار" % [o[0], UiTheme.fa(cost)]
 		list.append([label, o[2], func():
 			if cost > 0:
-				builder.add_money(-cost)
+				builder.add_money(-cost, "trouble")
 			_close()
 			o[3].call(), cost > 0 and builder.money < cost])
 	_buttons(list)

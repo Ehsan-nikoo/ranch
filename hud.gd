@@ -11,6 +11,7 @@ const QUALITY := [
 ]
 
 var day: DayCycle
+var weather: Weather
 var herd: Herd
 var grass: Array[MultiMesh] = []
 var grass_nodes: Array[Node3D] = []
@@ -76,6 +77,8 @@ func _set_quality(i: int) -> void:
 	day.env.glow_enabled = q[4]
 	for mm in grass:
 		mm.visible_instance_count = int(mm.instance_count * q[3])
+	if weather:
+		weather.detail = q[3]  # thinner rain and snow on a slow phone
 	_quality_btn.text = "کیفیت: %s" % q[0]
 
 
@@ -93,7 +96,8 @@ func _process(delta: float) -> void:
 	_tick = 0.25  # relabeling every frame costs text shaping on a slow CPU
 	var rid := get_viewport().get_viewport_rid()
 	# herd = the cattle simulation's own time per frame, which the render CPU number doesn't include
-	_date.text = "%s   ساعت %s" % [day.date_text(), UiTheme.fa("%02d:%02d" % [int(day.hour), int(fmod(day.hour, 1.0) * 60)])]
+	var sky: String = "" if weather == null or weather.now == Weather.CLEAR else "   " + Weather.NAMES[weather.now]
+	_date.text = "%s   ساعت %s%s" % [day.date_text(), UiTheme.fa("%02d:%02d" % [int(day.hour), int(fmod(day.hour, 1.0) * 60)]), sky]
 	UiTheme.fit(_date.get_parent())
 	_label.text = "%d FPS   herd %.1f ms   CPU %.1f ms   GPU %.1f ms   draws %d" % [
 		Engine.get_frames_per_second(),

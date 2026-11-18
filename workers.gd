@@ -53,7 +53,7 @@ func _new_candidates() -> void:
 
 ## Bunks in the ranch houses.
 func slots() -> int:
-	return maxi(BUNKS, BUNKS * world.get_children().filter(func(n): return n is RanchHouse and not n.has_node("Marker")).size())
+	return maxi(BUNKS, world.get_children().filter(func(n): return n is RanchHouse and not n.has_node("Marker")).reduce(func(a, h): return a + h.bunks(), 0))
 
 
 ## Hands on horseback from the stable cover more ground.
@@ -73,9 +73,10 @@ func best(skill: int) -> int:
 ## Cows the owner and the hands can look after.
 func capacity() -> int:
 	var dogs := Building.built(world, Kennel)
-	var c := OWNER_COWS + (DOG_COWS if dogs else 0)
+	var pack := Building.best_level(world, Kennel)  # an upgraded kennel keeps more dogs
+	var c := OWNER_COWS + (DOG_COWS + 5 * (pack - 1) if dogs else 0)
 	for w in hired:
-		c += COWS_PER_HAND + (10 * w.level if w.skill == HERDER else 0) + (10 if mounted() else 0) + (DOG_COWS_HAND if dogs else 0)
+		c += COWS_PER_HAND + (10 * w.level if w.skill == HERDER else 0) + (10 if mounted() else 0) + (DOG_COWS_HAND + 2 * (pack - 1) if dogs else 0)
 	return c
 
 
@@ -112,7 +113,7 @@ func _apply() -> void:
 func new_day(d: int) -> void:
 	var pay := wages()
 	if pay > 0:
-		builder.add_money(-pay)
+		builder.add_money(-pay, "wages")
 		notify.call("حقوق دیروز کارگرها:  %s- دلار" % UiTheme.fa(pay))
 	if d % DayCycle.DAYS_PER_SEASON == 0:
 		_new_candidates()  # new faces looking for work each season

@@ -17,6 +17,7 @@ var world: Node3D
 var save: Callable
 var boards := {}           # name -> board with toggle(): herd, breed, workers, market, progress
 var hay_buy: Callable      # HerdUI.buy_hay
+var cow_ui: CowUI          # a tap on a cow opens hers instead
 
 var _b: Building
 var _panel: PanelContainer
@@ -82,6 +83,10 @@ func _unhandled_input(e: InputEvent) -> void:
 	var d := cam.project_ray_normal(e.position)
 	if d.y >= -0.01:
 		return
+	var cow := cow_ui.pick(o, d) if cow_ui else {}
+	if not cow.is_empty():
+		cow_ui.open(cow)
+		return
 	var hit := o + d * (-o.y / d.y)  # where the tap meets the ground
 	var q := Vector2(hit.x, hit.z)
 	var best: Building = null
@@ -127,15 +132,30 @@ func _process(delta: float) -> void:
 	_tick -= delta
 	if _tick <= 0.0:
 		_tick = 0.5
-		_state.text = _status(_b)
+		_state.text = _status_all(_b)
+
+
+## Level line plus the building's own status.
+func _status_all(b: Building) -> String:
+	var s := _status(b)
+	if not b.upgrades().is_empty():
+		s = "سطح %s از %s.  %s" % [UiTheme.fa(b.level), UiTheme.fa(b.upgrades().size() + 1), s]
+	return s
 
 
 func _refresh() -> void:
-	_state.text = _status(_b)
+	_state.text = _status_all(_b)
 	for c in _row.get_children():
 		c.queue_free()
 	for a in _actions(_b):
 		_add(a[0], a[1], a[2], a[3] if a.size() > 3 else false)
+	var ups: Array = _b.upgrades()
+	if _b.level - 1 < ups.size():
+		var cost: int = ups[_b.level - 1]
+		_add("ارتقا  %s دلار" % UiTheme.fa(cost), "star", _upgrade.bind(cost), builder.money < cost)
+		_about.text = "%s\nارتقای بعدی: %s" % [_entry(_b)[4], _b.upgrade_text()]
+	else:
+		_about.text = _entry(_b)[4]
 	_add("جابه‌جا کن", "rotate", _move)
 	var back := _refund(_b)
 	_add("مطمئنی؟ خرابش کن" if _sure else "خراب کن  %s+ دلار" % UiTheme.fa(back), "cancel", _knock_down)
@@ -177,7 +197,7 @@ func _status(b: Building) -> String:
 	if b is VetClinic:
 		return "گاوهای مریض الان: %s" % UiTheme.fa(herd.sick_count())
 	if b is Saloon:
-		return "هر فصل حدود %s دلار میاره." % UiTheme.fa(Progress.CAFE_TAKE + 100 * progress.level())
+		return "هر فصل حدود %s دلار میاره." % UiTheme.fa(int((Progress.CAFE_TAKE + 100 * progress.level()) * (1.0 + 0.5 * (b.level - 1))))
 	if b is Station:
 		return "قیمت فروش امروز: %s دلار هر کیلو" % UiTheme.fa_price(market.sale_price())
 	if b is RodeoArena:
@@ -200,7 +220,7 @@ func _actions(b: Building) -> Array:
 		return [["کارگرها", "worker", _open_board.bind("workers")]]
 	if b is Windmill and b.broken:
 		return [["تعمیرش کن  ۱۸۰ دلار", "windmill", func():
-			builder.add_money(-180)
+			builder.add_money(-180, "build")
 			events.effects.windmill = 0.0  # ends now: Events mends it next frame
 			close(), builder.money < 180]]
 	if b is VetClinic:
@@ -214,6 +234,16 @@ func _actions(b: Building) -> Array:
 
 func _refund(b: Building) -> int:
 	return int(_entry(b)[2] * 0.5)
+
+
+func _upgrade(cost: int) -> void:
+	if builder.money < cost:
+		return
+	builder.add_money(-cost, "build")
+	_b.level += 1
+	progress._apply()  # bigger perks right away
+	save.call()
+	_refresh()
 
 
 func _move() -> void:
@@ -230,7 +260,7 @@ func _knock_down() -> void:
 	var b := _b
 	close()
 	builder.occupied.erase(b.world_footprint())
-	builder.add_money(_refund(b))
+	builder.add_money(_refund(b), "build")
 	world.remove_child(b)  # off the ranch right away, so the save and the herd don't see it
 	b.queue_free()
 	progress._apply()

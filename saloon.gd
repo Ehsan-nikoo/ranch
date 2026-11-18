@@ -12,6 +12,14 @@ const FRONT := 6.6   # height of the false front
 const PORCH := 2.4
 
 
+func upgrades() -> Array:
+	return [3000, 6000]
+
+
+func upgrade_text() -> String:
+	return "کافه بزرگ‌تر: هر فصل نصف بیشتر پول میاره"
+
+
 func _foot() -> Rect2:
 	return Rect2(-W - 0.5, -D - 0.5, W * 2 + 1.0, D * 2 + PORCH + 2.4)
 

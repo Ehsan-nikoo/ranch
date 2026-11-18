@@ -21,6 +21,7 @@ var builder: Builder
 var progress: Progress
 var events: Events
 var world: Node3D
+var rival: Rival
 var notify: Callable
 
 var x := 0.0               # balance: -1 and 1 are the dirt
@@ -28,6 +29,7 @@ var v := 0.0
 var t := -1.0              # seconds ridden; below 0 the gate count; -1 not riding
 var hold := 0              # -1 left, 1 right (buttons or bot)
 var won := false
+var _rival_t := 0.0       # the neighbour's rider at the town rodeo
 var autopilot := false    # test bot: leans back on its own, a bit late and sloppy
 var others: Array = []     # other boards that stop time; the rodeo waits for them
 var _due := false
@@ -206,7 +208,10 @@ func _invite() -> void:
 	won = false
 	_title.text = "رودئو تو میدون خودت!" if _home else "رودئوی شهر!"
 	var prize := HOME_PRIZE if _home else PRIZE
+	_rival_t = rival.rodeo_time() if rival and not _home else 0.0
 	_text.text = "هرکی %s ثانیه رو گاو وحشی بمونه، %s دلار جایزه می‌بره%s. ورودی %s دلاره. با دکمه‌های چپ و راست خودت رو صاف نگه دار." % [UiTheme.fa(int(RIDE)), UiTheme.fa(prize), " و رنچت معروف‌تر می‌شه" if _home else "", UiTheme.fa(FEE)]
+	if _rival_t > 0.0:
+		_text.text += "\nسوارکار %s %s." % [Rival.NAME, "۸ ثانیه کامل موند! باید تو هم بمونی" if _rival_t >= RIDE else "%s ثانیه موند" % UiTheme.fa(_rival_t).replace(".", "٫")]
 	_ring.visible = false
 	_pads.visible = false
 	_buttons([["سوار می‌شم  %s دلار" % UiTheme.fa(FEE), "rodeo", _start, builder.money < FEE], ["این دفعه نه", "cancel", _close, false]])
@@ -217,7 +222,7 @@ func _invite() -> void:
 
 
 func _start() -> void:
-	builder.add_money(-FEE)
+	builder.add_money(-FEE, "prize")
 	x = _rng.randf_range(-0.05, 0.05)
 	v = 0.0
 	hold = 0
@@ -239,11 +244,14 @@ func _end(stayed: bool) -> void:
 	if stayed:
 		won = true
 		var prize := HOME_PRIZE if _home else PRIZE
-		builder.add_money(prize)
+		var tie := _rival_t >= RIDE  # the neighbour stayed on too: the prize is shared
+		if tie:
+			prize /= 2
+		builder.add_money(prize, "prize")
 		if _home:
 			progress.add(HOME_REP)
 		_title.text = "موندی! برنده شدی!"
-		_text.text = "جمعیت داره برات دست می‌زنه. جایزه: %s دلار%s" % [UiTheme.fa(prize), "، رنچت هم معروف‌تر شد" if _home else ""]
+		_text.text = "جمعیت داره برات دست می‌زنه. جایزه: %s دلار%s%s" % [UiTheme.fa(prize), "، رنچت هم معروف‌تر شد" if _home else "", " (با %s مساوی شدی و جایزه نصف شد)" % Rival.NAME if tie else ""]
 		_buttons([["عالیه", "star", _close, false]])
 	else:
 		_title.text = "افتادی!"

@@ -28,6 +28,9 @@ const KEYS := [
 var hour := 17.2
 var day := 0  # days since the ranch started; day 0 is the first day of spring
 var speed := 1.0
+var overcast := 0.0  # set by Weather: clouds dim the sun and grey the sky
+var haze := 0.0      # drought dust: a yellow-brown haze
+var flash := 0.0     # lightning
 var env := Environment.new()
 var sky_mat := ShaderMaterial.new()
 var dome := MeshInstance3D.new()
@@ -107,24 +110,35 @@ func _apply() -> void:
 		energy *= clampf(inverse_lerp(-4.0, 6.0, elev), 0.0, 1.0)
 	else:
 		energy *= clampf(inverse_lerp(-4.0, -12.0, elev), 0.0, 1.0)
+	energy *= 1.0 - 0.8 * overcast
 	light.light_color = a[1].lerp(b[1], t)
 	light.light_energy = energy
-	var fog: Color = a[7].lerp(b[7], t)
-	sky_mat.set_shader_parameter("top_color", a[3].lerp(b[3], t))
-	sky_mat.set_shader_parameter("horizon_color", a[4].lerp(b[4], t))
+	var fog: Color = _cloud(a[7].lerp(b[7], t))
+	sky_mat.set_shader_parameter("top_color", _cloud(a[3].lerp(b[3], t)))
+	sky_mat.set_shader_parameter("horizon_color", _cloud(a[4].lerp(b[4], t)))
 	sky_mat.set_shader_parameter("below_color", fog)
 	sky_mat.set_shader_parameter("sun_dir", light.global_basis.z)
 	sky_mat.set_shader_parameter("sun_color", light.light_color)
-	sky_mat.set_shader_parameter("sun_visible", 1.0 if is_sun and elev > -1.0 else 0.0)
+	sky_mat.set_shader_parameter("sun_visible", (1.0 if is_sun and elev > -1.0 else 0.0) * (1.0 - overcast))
 	env.background_color = fog
-	env.ambient_light_color = a[5].lerp(b[5], t)
-	env.ambient_light_energy = lerpf(a[6], b[6], t)
+	env.ambient_light_color = a[5].lerp(b[5], t).lerp(Color(0.85, 0.88, 1.0), flash)
+	env.ambient_light_energy = lerpf(a[6], b[6], t) * (1.0 - 0.3 * overcast) + flash * 2.5
 	env.fog_light_color = fog
+	env.fog_density = 0.0022 + 0.004 * overcast + 0.005 * haze
 	var glow: float = lerpf(a[8], b[8], t)
 	Building.window_mat.emission_energy_multiplier = glow * 2.5
 	lamp.light_energy = glow * 2.0
 	lamp.visible = glow > 0.01
 	hour_changed.emit(hour)
+
+
+## A sky colour under today's weather: greyer and darker under clouds, dusty in a drought,
+## white for an instant in a lightning flash.
+func _cloud(c: Color) -> Color:
+	var l := c.get_luminance()
+	c = c.lerp(Color(l, l, l) * 0.8, overcast * 0.85)
+	c = c.lerp(Color(0.86, 0.72, 0.48) * maxf(l * 1.3, 0.15), haze * 0.45)
+	return c.lerp(Color(0.9, 0.92, 1.0), flash * 0.7)
 
 
 func season() -> int:

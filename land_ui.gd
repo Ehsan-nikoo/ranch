@@ -64,7 +64,7 @@ func buy(i: int) -> void:
 	if builder.money < p or not land.can_buy(i):
 		return
 	_pick = -1
-	builder.add_money(-p)
+	builder.add_money(-p, "build")
 	land.unlock(i)
 	on_bought.call()
 	_refresh()

@@ -69,7 +69,7 @@ func buy_bull() -> void:
 	var p := market.bull_price()
 	if builder.money < p or not _room():
 		return
-	builder.add_money(-p)
+	builder.add_money(-p, "cattle")
 	delivery.order(0, 0, 0, 1)
 	_refresh()
 
@@ -78,7 +78,7 @@ func buy_heifer() -> void:
 	var p := market.heifer_price()
 	if builder.money < p or not _room():
 		return
-	builder.add_money(-p)
+	builder.add_money(-p, "cattle")
 	delivery.order(0, 0, 1, 0)
 	_refresh()
 
@@ -106,7 +106,7 @@ func call_vet() -> void:
 	var cost := _vet_cost()
 	if herd.sick_count() == 0 or builder.money < cost:
 		return
-	builder.add_money(-cost)
+	builder.add_money(-cost, "vet")
 	notify.call("دامپزشک %s گاو مریض رو خوب کرد:  %s- دلار" % [UiTheme.fa(herd.cure()), UiTheme.fa(cost)])
 	_refresh()
 
@@ -115,7 +115,7 @@ func vaccinate() -> void:
 	var cost := vaccine(herd.world) * herd.unvaccinated().size()
 	if cost == 0 or builder.money < cost:
 		return
-	builder.add_money(-cost)
+	builder.add_money(-cost, "vet")
 	notify.call("%s تا گاو واکسن زدن؛ تا یه سال خیلی کمتر مریض می‌شن" % UiTheme.fa(herd.vaccinate()))
 	_refresh()
 

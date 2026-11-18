@@ -7,7 +7,15 @@ const H := 11.0
 
 
 func hay_room() -> int:
-	return 60
+	return 60 + 45 * (level - 1)
+
+
+func upgrades() -> Array:
+	return [800, 1600]
+
+
+func upgrade_text() -> String:
+	return "جای ۴۵ بسته یونجه‌ی بیشتر"
 
 
 func _foot() -> Rect2:

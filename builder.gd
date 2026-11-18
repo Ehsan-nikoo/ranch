@@ -149,8 +149,13 @@ func bar_button(text: String, cb: Callable, icon: String) -> Button:
 	return b
 
 
-func add_money(delta: int) -> void:
+signal money_moved(delta: int, why: String)   # for the Ledger
+
+
+## `why` sorts it in the ledger: sale, cattle, vet, hay, upkeep, wages, build, trouble, trips, prize.
+func add_money(delta: int, why := "") -> void:
 	money += delta
+	money_moved.emit(delta, why)
 	_refresh()
 
 
@@ -243,6 +248,7 @@ func place() -> void:
 		return
 	var r := ghost.world_footprint()
 	money -= _cost
+	money_moved.emit(-_cost, "build")
 	occupied.append(r)
 	_drop_marker()
 	on_placed.call(r)

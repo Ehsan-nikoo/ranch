@@ -106,10 +106,14 @@ func blocked_rects() -> Array[Rect2]:
 	return r
 
 
-func order(calves: int, hay: int, heifers := 0, bulls := 0) -> void:
+func order(calves: int, hay: int, heifers := 0, bulls := 0, breed := 0) -> void:
+	var cb := []  # the breed of each calf
+	for i in calves:
+		cb.append(breed)
 	for o in orders:
 		if not o.done:  # a truck is already coming: it brings this too
 			o.calves += calves
+			o.cb.append_array(cb)
 			o.heifers += heifers
 			o.bulls += bulls
 			o.hay += hay
@@ -119,7 +123,7 @@ func order(calves: int, hay: int, heifers := 0, bulls := 0) -> void:
 				o.truck.transform = old.transform
 				old.queue_free()
 			return
-	orders.append({calves = calves, heifers = heifers, bulls = bulls, hay = hay, t = 0.0, truck = null, done = false})
+	orders.append({calves = calves, cb = cb, heifers = heifers, bulls = bulls, hay = hay, t = 0.0, truck = null, done = false})
 
 
 func _truck(o: Dictionary) -> Truck:
@@ -198,7 +202,7 @@ func _unload(o: Dictionary) -> void:
 	o.done = true
 	var back: Vector3 = o.truck.to_global(Vector3(0, 0, -7.5 if o.calves + o.heifers + o.bulls > 0 else -3.5))
 	for i in o.calves:
-		herd.add_cow(herd.free_spot(back, 2.5), HerdUI.CALF_KG)
+		herd.add_cow(herd.free_spot(back, 2.5), HerdUI.CALF_KG, Herd.FEEDER, -1, int(o.cb[i]) if i < o.cb.size() else 0)
 	for i in o.heifers:
 		herd.add_cow(herd.free_spot(back, 2.5), HerdUI.HEIFER_KG, Herd.BREEDER)
 	for i in o.bulls:
@@ -218,7 +222,10 @@ func _cargo(o: Dictionary) -> Array:
 ## Undelivered goods; on load they're ordered again and arrive ARRIVE game hours later.
 func to_save() -> Array:
 	var w := orders.filter(func(o): return not o.done)
-	return [pending_calves(), pending_hay(), w.reduce(func(a, o): return a + o.heifers, 0), w.reduce(func(a, o): return a + o.bulls, 0)]
+	var cb := []
+	for o in w:
+		cb.append_array(o.cb)
+	return [pending_calves(), pending_hay(), w.reduce(func(a, o): return a + o.heifers, 0), w.reduce(func(a, o): return a + o.bulls, 0), cb]
 
 
 func from_save(p: Array) -> void:
@@ -226,3 +233,5 @@ func from_save(p: Array) -> void:
 	var bulls := int(p[3]) if p.size() > 3 else 0
 	if p[0] > 0 or p[1] > 0 or heifers > 0 or bulls > 0:
 		order(int(p[0]), int(p[1]), heifers, bulls)
+		if p.size() > 4:  # each calf's breed
+			orders[-1].cb = p[4].map(func(b): return int(b))
