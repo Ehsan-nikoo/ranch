@@ -483,8 +483,9 @@ func _decide(c: Dictionary) -> void:
 				break
 		c.look = t
 		_go(c, c.target, TO_WATER)
-	elif winter and c.hunger > 0.3 and hay >= 0.5 and not _feeders.is_empty():
-		_go(c, free_spot(_nearest(_feeders, c.pos), 5.0), TO_FEED)  # crowd around the hay at the barn door
+	elif (c.hunger > 0.3 if winter else c.hunger > 0.75) and hay >= 0.5 and not _feeders.is_empty():
+		# crowd around the hay at the barn door: all winter, or when the pasture has run short
+		_go(c, free_spot(_nearest(_feeders, c.pos), 5.0), TO_FEED)
 	elif c.hunger > 0.25:
 		var best: Vector3 = c.pos
 		var best_g := -1.0

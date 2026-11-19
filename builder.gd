@@ -24,6 +24,7 @@ var CATALOG := [
 	["ایستگاه قطار", Station, 12000, "train", "گاوها با قطار می‌رن شهر: هر فروش ۱۰ درصد گرون‌تر و یه خریدار بیشتر.", 1, 1],
 ]
 
+const QUICK := 3          # the first buildings of a new ranch take only the shortest build time
 var money := 12000        # nothing is built and there are no cattle yet: water, a barn, a silo and calves
 var day: DayCycle
 var sites: Array[Building] = []   # buildings going up or being upgraded
@@ -45,6 +46,10 @@ var _marker_mat := StandardMaterial3D.new()
 var _money: Label
 var _build_btn := Button.new()
 var _menu := HBoxContainer.new()
+# bottom bar, right to left the way it's read: building, the animals, money and hands, the ranch
+const BAR := [["ساخت", "زمین"], ["گله", "دامداری"], ["بازار", "کارگرها"], ["رنچ"]]
+var bar := {}            # name -> its button on the bottom bar
+var _gaps: Array[Control] = []
 var _place_bar := HBoxContainer.new()
 var _place_btn := Button.new()
 var _items: Array[Button] = []
@@ -64,17 +69,27 @@ func _ready() -> void:
 	_money = money_box.get_child(0)
 	add_child(money_box)
 
-	for bar in [_menu, _place_bar]:
-		bar.anchor_top = 1.0
-		bar.anchor_bottom = 1.0
-		bar.offset_left = 16
-		bar.offset_top = -122
-		bar.offset_bottom = -12
-		bar.add_theme_constant_override("separation", 4)  # seven buttons have to fit across a phone
-		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(bar)
+	for row in [_menu, _place_bar]:  # centered along the bottom edge
+		row.anchor_left = 0.0
+		row.anchor_right = 1.0
+		row.anchor_top = 1.0
+		row.anchor_bottom = 1.0
+		row.offset_left = 16
+		row.offset_right = -16
+		row.offset_top = -122
+		row.offset_bottom = -12
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 2)  # seven buttons have to fit across a phone
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(row)
+	for i in BAR.size() - 1:
+		var gap := Control.new()
+		gap.custom_minimum_size.x = 22  # a little more room between the groups
+		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_gaps.append(gap)
 
-	_menu.add_child(_button(_build_btn, "ساخت", _toggle_menu, "build"))
+	bar["ساخت"] = _button(_build_btn, "ساخت", _toggle_menu, "build")
+	_arrange()
 	_build_panel()
 	_place_bar.add_child(_button(Button.new(), "چرخش", rotate_ghost, "rotate"))
 	_place_bar.add_child(_button(Button.new(), "لغو", cancel, "cancel"))
@@ -146,11 +161,37 @@ func _build_panel() -> void:
 		_cards.push_front(card)
 
 
-## Adds a button to the bottom bar next to «ساخت» (hidden with it during placement).
+## Adds a button to the bottom bar, in its place from BAR (hidden with the bar during placement).
 func bar_button(text: String, cb: Callable, icon: String) -> Button:
 	var b := _button(Button.new(), text, cb, icon)
-	_menu.add_child(b)
+	bar[text] = b
+	_arrange()
 	return b
+
+
+## Lays the bar out from BAR: groups right to left, a gap between groups; anything else on the left.
+func _arrange() -> void:
+	for c in _menu.get_children():
+		_menu.remove_child(c)
+	var groups := []
+	for g in BAR:
+		var row: Array = g.filter(func(n): return bar.has(n)).map(func(n): return bar[n])
+		if not row.is_empty():
+			groups.append(row)
+	for b in bar.values():  # a touch smaller than board buttons: seven of them fit across a 16:9 screen
+		b.add_theme_constant_override("icon_max_width", 52)
+		b.add_theme_font_size_override("font_size", 25)
+	var order := []  # right to left
+	for i in groups.size():
+		if i > 0:
+			order.append(_gaps[i - 1])
+		order.append_array(groups[i])
+	for n in bar:
+		if not BAR.any(func(g): return n in g):
+			order.append(bar[n])
+	order.reverse()  # a box lays its children out left to right
+	for c in order:
+		_menu.add_child(c)
 
 
 signal money_moved(delta: int, why: String)   # for the Ledger
@@ -174,7 +215,9 @@ func _toggle_menu() -> void:
 
 
 func _refresh() -> void:
-	_money.text = "%s دلار" % UiTheme.fa(money)
+	# in debt: the minus after the number, the way the notices write it, and in red
+	_money.text = "%s دلار" % UiTheme.fa(money) if money >= 0 else "%s- دلار" % UiTheme.fa(-money)
+	_money.add_theme_color_override("font_color", UiTheme.INK if money >= 0 else Color(0.6, 0.08, 0.04))
 	UiTheme.fit(_money.get_parent())  # plank fits the new number
 	for i in _items.size():
 		var need: int = CATALOG[i][5] if CATALOG[i].size() > 5 else 1
@@ -275,6 +318,8 @@ func start_work(b: Building, up: bool) -> void:
 	var lv := b.level + (1 if up else 0)
 	b.upgrading = up
 	b.work_total = Building.work_hours(price_of(b), lv)
+	if not up and world.get_children().filter(func(n): return n is Building and n != b).size() < QUICK:
+		b.work_total = Building.work_hours(0, 1)  # a new ranch's first few go up in the shortest time
 	b.work_left = b.work_total
 	if up:
 		occupied.erase(b.world_footprint())

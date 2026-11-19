@@ -3,6 +3,7 @@ class_name ProgressUI
 extends CanvasLayer
 
 var rival: Rival
+var bank: Bank
 var progress: Progress
 var goals: Goals
 var builder: Builder
@@ -82,6 +83,8 @@ func _refresh() -> void:
 		text += " (ایستگاه قطار باز می‌شه)"
 	if rival:
 		text += "\n" + rival.line()
+	if bank and bank.line() != "":
+		text += "\n" + bank.line()
 	_era.text = text
 	var g := ["هدف‌های الان (%s از %s تا انجام شده):" % [UiTheme.fa(goals.done.size()), UiTheme.fa(Goals.LIST.size())]]
 	for o in goals.open():

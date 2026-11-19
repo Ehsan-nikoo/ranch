@@ -112,6 +112,16 @@ func _apply() -> void:
 
 
 func new_day(d: int) -> void:
+	# hands you can't pay walk off, the dearest first, until the rest can be paid
+	var gone := []
+	while not hired.is_empty() and builder.money < wages():
+		var w: Dictionary = hired.reduce(func(a, b): return a if a.wage >= b.wage else b)
+		hired.erase(w)
+		gone.append(w.name)
+	if not gone.is_empty():
+		_apply()
+		changed.emit()
+		notify.call(("پول نبود حقوقش رو بدی؛ %s رفت" if gone.size() == 1 else "پول نبود حقوقشون رو بدی؛ %s رفتن") % "، ".join(gone))
 	var pay := wages()
 	if pay > 0:
 		builder.add_money(-pay, "wages")

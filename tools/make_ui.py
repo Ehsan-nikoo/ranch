@@ -480,8 +480,26 @@ def horse(d, k):  # a horse's head in profile, mane flying
     d.ellipse([k(7), k(30), k(11), k(34)], fill=INK)
 
 
+def gear(d, k):  # settings: a cog with eight teeth and a hole in the middle
+    pts = []
+    for i in range(8):
+        a = math.radians(i * 45)
+        for da, r in ((-13, 20), (-8, 28), (8, 28), (13, 20)):
+            b = a + math.radians(da)
+            pts.append((32 + math.cos(b) * r, 32 + math.sin(b) * r))
+    shape(d, pts, k)
+    d.ellipse([k(22), k(22), k(42), k(42)], fill=(150, 50, 35, 255), outline=INK, width=k(3))
+    d.ellipse([k(28), k(28), k(36), k(36)], fill=INK)
+
+
+
+def arrow(d, k):  # the tutorial's pointer: a fat arrow pointing down
+    pts = [(22, 4), (42, 4), (42, 30), (56, 30), (32, 60), (8, 30), (22, 30)]
+    d.polygon([(k(x), k(y)) for x, y in pts], fill=(225, 90, 50, 255), outline=INK, width=k(3))
+
+
 button()
 panel()
-for n, f in dict(land=land, market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place, vet=vet, vaccine=vaccine, worker=worker, star=star, stable=stable, smithy=smithy, rodeo=rodeo, pond=pond, kennel=kennel, tower=tower, feedlot=feedlot, saloon=saloon, train=train, corral=corral, horse=horse).items():
+for n, f in dict(land=land, market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place, vet=vet, vaccine=vaccine, worker=worker, star=star, stable=stable, smithy=smithy, rodeo=rodeo, pond=pond, kennel=kennel, tower=tower, feedlot=feedlot, saloon=saloon, train=train, corral=corral, horse=horse, gear=gear, arrow=arrow).items():
     icon(n, f)
 print("ok")

@@ -30,6 +30,8 @@ var weather := Weather.new()
 var cow_ui := CowUI.new()
 var rival := Rival.new()
 var ledger := Ledger.new()
+var bank := Bank.new()
+var warnings := Warnings.new()
 var progress := Progress.new()
 var progress_ui := ProgressUI.new()
 var goals := Goals.new()
@@ -159,6 +161,8 @@ func _ready() -> void:
 	hud.grass_nodes = grass_nodes
 	hud.sfx = sfx
 	add_child(hud)
+	if _arg("settings", "") != "":  # test: the settings board open
+		hud.toggle()
 	builder.rig = rig
 	builder.world = self
 	builder.day = day
@@ -238,6 +242,22 @@ func _ready() -> void:
 	if not saved.is_empty() and saved.has("ledger"):
 		ledger.from_save(saved.ledger)
 	add_child(ledger)
+	bank.builder = builder
+	bank.herd = herd
+	bank.herd_ui = herd_ui
+	bank.delivery = delivery
+	bank.events = events
+	bank.day = day
+	bank.notify = herd_ui.notify
+	if not saved.is_empty() and saved.has("bank"):
+		bank.from_save(saved.bank)
+	add_child(bank)
+	warnings.herd = herd
+	warnings.day = day
+	warnings.delivery = delivery
+	warnings.builder = builder
+	warnings.notify = herd_ui.notify
+	add_child(warnings)
 	market_ui.ledger = ledger
 	if _arg("ledger", "") != "":
 		ledger.call_deferred("toggle")
@@ -387,6 +407,7 @@ func _ready() -> void:
 	progress_ui.progress = progress
 	progress_ui.goals = goals
 	progress_ui.builder = builder
+	progress_ui.bank = bank
 	add_child(progress_ui)
 	progress_ui._refresh()
 	var land_ui := LandUI.new()
@@ -431,6 +452,8 @@ func _ready() -> void:
 		tutorial.step = int(saved.get("tutorial", 0))
 		if _arg("tutorial", "1") == "0" or (not SaveGame.enabled() and _arg("tutorial", "") == ""):
 			tutorial.step = 99  # test runs skip it unless asked with --tutorial=1
+		if _arg("tstep", "") != "":  # test: start the tips at this step
+			tutorial.step = int(_arg("tstep", ""))
 		add_child(tutorial)
 	day.hour_changed.connect(_on_hour)
 	day.day_changed.connect(_on_day)
@@ -445,6 +468,10 @@ func _ready() -> void:
 		var n := o.get_slice("@", 0).split(",")
 		delivery.order(int(n[0]), int(n[1]))
 		delivery.orders[0].t = float(o.get_slice("@", 1))
+	if _arg("barsize", "") != "":  # test: widths of the bottom bar's buttons
+		await get_tree().process_frame
+		await get_tree().process_frame
+		print("BAR ", builder._menu.size, " ", builder._menu.get_children().map(func(c): return [c.get("text"), c.size.x]), " sites ", builder.sites.map(func(b): return b.work_total))
 	if _arg("debug", "") != "":
 		_debug_herd()
 		market.notify = func(t): print("   NOTE ", t)
@@ -462,8 +489,13 @@ func _debug_herd() -> void:
 	drive.notify = breed_ui.notify
 	rodeo.notify = breed_ui.notify
 	progress.notify = breed_ui.notify
+	bank.notify = breed_ui.notify
+	warnings.notify = breed_ui.notify
 	while true:
 		await get_tree().create_timer(4.0).timeout
+		if _arg("yes", "") != "" and events._panel.visible:  # test: --yes=1 takes the first choice on any board
+			print("   ASK ", events._title.text, " | ", events._text.text.replace("\n", " "))
+			events._row.get_child(0).pressed.emit()
 		var st := [0, 0, 0, 0, 0, 0, 0, 0, 0]
 		var h := 0.0
 		var w := 0.0
@@ -534,8 +566,8 @@ func _debug_herd() -> void:
 		print("   riders %s" % [crew_n._riders.values().map(func(r): return "%s%s(%.0f,%.0f)st%.1f" % ["H" if r.home else ("B" if r.get("bed", false) else ""), r.skill, r.node.position.x, r.node.position.z, r.stuck])])
 		print("   hands %d (wages %d, capacity %d)  effects %s  goals %s  legacy %s" % [workers.hired.size(), workers.wages(), workers.capacity(), events.effects.keys().filter(func(k): return events.active(k)), goals.done, legacy.seen])
 		print("   breeders %d (in calf %d)  bulls %d  sick %d  unvaccinated %d" % [herd.of_kind(Herd.BREEDER).size(), preg, herd.of_kind(Herd.BULL).size(), herd.sick_count(), herd.unvaccinated().size()])
-		print("d%d %02dh %s  price %.2f  active %d  cows %d  hunger %.2f kg %d  hay %d/%d  shelter %d  money %d  wander/graze/water/drink/idle/tofeed/feed/topen/sleep %s" % [
-			day.day, int(day.hour), DayCycle.SEASON_NAMES[day.season()], market.price, market.active.size(), cows.size(), h / n, w / n, herd.hay, herd.hay_cap, herd.shelter, builder.money, st])
+		print("d%d %02dh %s  price %.2f  active %d  cows %d  hunger %.2f kg %d  hay %d/%d  shelter %d  money %d  debt %d  wander/graze/water/drink/idle/tofeed/feed/topen/sleep %s" % [
+			day.day, int(day.hour), DayCycle.SEASON_NAMES[day.season()], market.price, market.active.size(), cows.size(), h / n, w / n, herd.hay, herd.hay_cap, herd.shelter, builder.money, bank.debt, st])
 
 
 ## Test hook for renders: `--ghost=<catalog index>@x,z` opens placement there, `--place` confirms.
@@ -728,7 +760,7 @@ func _save() -> void:
 	for n in get_children():
 		if n is Building and not n.has_node("Marker"):
 			buildings.append([n.get_script().resource_path, n.position.x, n.position.z, n.rotation_degrees.y, n.level, n.work_left, n.work_total, n.upgrading])
-	SaveGame.write({yard = 2, money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), weather = weather.to_save(), rival = rival.to_save(), ledger = ledger.to_save(), drive = drive.to_save(), delivery = delivery.to_save(), land = land.to_save(), goals = goals.to_save(), legacy = legacy.to_save(), horses = horses.to_save(), tutorial = tutorial.step if tutorial else 99})
+	SaveGame.write({yard = 2, money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), weather = weather.to_save(), rival = rival.to_save(), ledger = ledger.to_save(), drive = drive.to_save(), delivery = delivery.to_save(), land = land.to_save(), goals = goals.to_save(), legacy = legacy.to_save(), horses = horses.to_save(), bank = bank.to_save(), tutorial = tutorial.step if tutorial else 99})
 
 
 # ---------- ground & grass ----------

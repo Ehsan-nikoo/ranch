@@ -81,8 +81,8 @@ func _ready() -> void:
 	hay_btns.add_child(_cut)
 	# CC-BY 4.0 requires crediting the cow model's author
 
-	_toast_box = UiTheme.plank(25, Control.PRESET_CENTER_TOP)  # below the top button row
-	_toast_box.offset_top = 200
+	_toast_box = UiTheme.plank(25, Control.PRESET_CENTER_TOP)  # below the date plank
+	_toast_box.offset_top = 120
 	_toast_box.modulate.a = 0.0
 	_toast = _toast_box.get_child(0)
 	add_child(_toast_box)
