@@ -1,14 +1,94 @@
-## Wooden plank buttons with straw around the edges (art from tools/make_ui.py), set on the window
-## so every Button in the game picks it up.
+## The look of every board, button and plank, set on the default theme so every Control in the game
+## picks it up. Four looks (art from tools/make_skins.py); the player picks one in the settings.
 class_name UiTheme
+
+## Each look: its name in the settings, button art and its 9-slice margins (left, top, right,
+## bottom), the text inset on a button (sides, top/bottom), board art, its slice margin and text
+## inset (sides, top, bottom), the ink on boards, the ink on buttons and planks, that ink's outline,
+## and the ink of a picked choice in the settings.
+const SKINS := {
+	"saddle": {name = "چرم زین", button = "res://ui/skins/saddle/button.png", bslice = [34, 30, 34, 30], bpad = [44, 20],
+		panel = "res://ui/skins/saddle/panel.png", pslice = 80, ppad = [72, 64, 66],
+		ink = Color(0.2, 0.1, 0.04), text = Color(0.97, 0.89, 0.72), outline = Color(0.12, 0.05, 0.02, 0.7), on = Color(0.72, 1.0, 0.45)},
+	"poster": {name = "اعلامیه", button = "res://ui/skins/poster/button.png", bslice = [32, 30, 32, 30], bpad = [44, 20],
+		panel = "res://ui/skins/poster/panel.png", pslice = 90, ppad = [72, 64, 66],
+		ink = Color(0.17, 0.1, 0.05), text = Color(0.96, 0.88, 0.7), outline = Color(0.1, 0.05, 0.02, 0.7), on = Color(0.72, 1.0, 0.45)},
+	"barn": {name = "انبار کهنه", button = "res://ui/skins/barn/button.png", bslice = [34, 30, 34, 30], bpad = [42, 20],
+		panel = "res://ui/skins/barn/panel.png", pslice = 112, ppad = [68, 60, 62],
+		ink = Color(0.15, 0.09, 0.05), text = Color(0.15, 0.09, 0.05), outline = Color(1.0, 0.92, 0.8, 0.3), on = Color(0.08, 0.34, 0.04)},
+	"rope": {name = "طناب", button = "res://ui/skins/rope/button.png", bslice = [32, 32, 32, 32], bpad = [44, 22],
+		panel = "res://ui/skins/rope/panel.png", pslice = 84, ppad = [68, 60, 62],
+		ink = Color(0.2, 0.1, 0.04), text = Color(0.2, 0.1, 0.04), outline = Color(1.0, 0.88, 0.7, 0.3), on = Color(0.08, 0.34, 0.04)},
+}
+const LOOK := "saddle"   # a new game's look
+static var look := ""    # the look in use; kept while the scene reloads for a new one
+static var skin: Dictionary = SKINS[LOOK]
 
 
 ## Installs the theme and Persian font on the default theme. CanvasLayers cut the window theme
 ## chain, so the default theme is the one place every Control falls back to.
 static func apply() -> void:
+	if look == "":
+		look = LOOK
+		if SaveGame.enabled():  # the player's pick, kept with the other settings
+			var c := ConfigFile.new()
+			if c.load(Hud.CFG) == OK:
+				look = str(c.get_value("game", "look", LOOK))
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("--skin="):  # test: start in this look
+				look = a.get_slice("=", 1)
+		if not SKINS.has(look):
+			look = LOOK
+	skin = SKINS[look]
+	INK = skin.ink
+	ON_PLANK = skin.text
 	var base := ThemeDB.get_default_theme()
 	base.merge_with(make())
 	base.default_font = load("res://ui/fonts/Vazirmatn-Bold.ttf")
+	var tree := Engine.get_main_loop() as SceneTree
+	if not tree.node_added.is_connected(_added):
+		tree.node_added.connect(_added)
+	for b in tree.root.find_children("*", "Button", true, false):
+		_added(b)
+
+
+## Godot puts a button's icon at its edge, far from a short text. Here the icon sits right beside
+## the text and the two are centred together: the button's own icon is drawn clear (it still
+## keeps its room) and drawn again next to the text.
+static func _added(n: Node) -> void:
+	if n.get_class() != "Button" or n.has_meta("icon_by_text"):
+		return
+	var b := n as Button
+	b.set_meta("icon_by_text", true)
+	for c in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_hover_pressed_color", "icon_focus_color", "icon_disabled_color"]:
+		b.add_theme_color_override(c, Color.TRANSPARENT)
+	b.draw.connect(_draw_icon.bind(b))
+
+
+const _STATE := ["normal", "pressed", "hover", "disabled", "hover_pressed"]  # by Button.get_draw_mode()
+
+
+static func _draw_icon(b: Button) -> void:
+	var tex := b.icon
+	if tex == null:
+		return
+	var st := b.get_theme_stylebox(_STATE[b.get_draw_mode()])
+	var at := Vector2(st.get_margin(SIDE_LEFT), st.get_margin(SIDE_TOP))
+	var room := b.size - at - Vector2(st.get_margin(SIDE_RIGHT), st.get_margin(SIDE_BOTTOM))
+	var isz := tex.get_size()
+	var most := b.get_theme_constant("icon_max_width")
+	if most > 0 and isz.x > most:
+		isz *= most / isz.x
+	var mid := at.x + room.x * 0.5
+	var x := mid - isz.x * 0.5
+	if b.text != "":
+		var sep := b.get_theme_constant("h_separation")
+		var tw := b.get_theme_font("font").get_multiline_string_size(b.text, HORIZONTAL_ALIGNMENT_CENTER, -1, b.get_theme_font_size("font_size")).x
+		var group := minf(tw, room.x - isz.x - sep) + sep + isz.x
+		var right := (b.icon_alignment == HORIZONTAL_ALIGNMENT_RIGHT) != b.is_layout_rtl()
+		x = mid + group * 0.5 - isz.x if right else mid - group * 0.5
+	var y := at.y + (room.y - isz.y) * 0.5
+	b.draw_texture_rect(tex, Rect2(Vector2(x, y), isz), false, Color(1, 1, 1, 0.4) if b.disabled else Color.WHITE)
 
 
 ## Price like 1.65 with Persian digits and decimal sign.
@@ -24,11 +104,14 @@ static func fa(n: Variant) -> String:
 	return s
 
 
-const INK := Color(0.24, 0.12, 0.05)
+static var INK := Color(0.24, 0.12, 0.05)
+static var ON_PLANK := INK  # text on buttons and planks
 
 
 ## Centered Persian label in dark "burned into wood" ink.
-static func label(text: String, size: int, color := INK) -> Label:
+static func label(text: String, size: int, color := Color.TRANSPARENT) -> Label:
+	if color == Color.TRANSPARENT:
+		color = INK
 	var l := Label.new()
 	l.text = text
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -42,16 +125,18 @@ static func label(text: String, size: int, color := INK) -> Label:
 static func plank(size: int, anchor: int) -> PanelContainer:
 	var p := PanelContainer.new()
 	var sb := StyleBoxTexture.new()
-	sb.texture = load("res://ui/wood_button.png")
-	sb.set_texture_margin_all(38.0)
+	sb.texture = load(skin.button)
+	_slice(sb, skin.bslice)
 	# text stays well inside the plank's inner frame line, clear of the straw and the screws
-	sb.content_margin_left = 60.0
-	sb.content_margin_right = 60.0
-	sb.content_margin_top = 26.0
-	sb.content_margin_bottom = 26.0
+	sb.content_margin_left = skin.bpad[0] + 16.0
+	sb.content_margin_right = skin.bpad[0] + 16.0
+	sb.content_margin_top = skin.bpad[1] + 4.0
+	sb.content_margin_bottom = skin.bpad[1] + 4.0
 	p.add_theme_stylebox_override("panel", sb)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var l := label("", size)
+	var l := label("", size, ON_PLANK)
+	l.add_theme_color_override("font_outline_color", skin.outline)
+	l.add_theme_constant_override("outline_size", 3)
 	l.add_theme_constant_override("line_spacing", -int(size * 0.35))  # Vazirmatn's tall line gap looks loose on a plank
 	p.add_child(l)
 	p.set_anchors_preset(anchor)
@@ -75,12 +160,12 @@ static func fit(p: Control) -> void:
 static func board() -> PanelContainer:
 	var p := PanelContainer.new()
 	var sb := StyleBoxTexture.new()
-	sb.texture = load("res://ui/wood_panel.png")
-	sb.set_texture_margin_all(72.0)
-	sb.content_margin_left = 64.0
-	sb.content_margin_right = 64.0
-	sb.content_margin_top = 52.0
-	sb.content_margin_bottom = 56.0
+	sb.texture = load(skin.panel)
+	sb.set_texture_margin_all(skin.pslice)
+	sb.content_margin_left = skin.ppad[0]
+	sb.content_margin_right = skin.ppad[0]
+	sb.content_margin_top = skin.ppad[1]
+	sb.content_margin_bottom = skin.ppad[2]
 	p.add_theme_stylebox_override("panel", sb)
 	p.set_anchors_preset(Control.PRESET_CENTER)
 	p.grow_horizontal = Control.GROW_DIRECTION_BOTH
@@ -99,7 +184,7 @@ static func dim(on_tap: Callable) -> ColorRect:
 	return d
 
 
-## Board header: close button on the left, title on the right.
+## Board header: close button on the left, title in the middle.
 static func header(title: String, close: Button) -> HBoxContainer:
 	var head := HBoxContainer.new()
 	head.add_child(close)
@@ -107,12 +192,33 @@ static func header(title: String, close: Button) -> HBoxContainer:
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(gap)
 	head.add_child(label(title, 44))
+	center_head(head)
 	return head
+
+
+## Puts what follows the first stretching gap of a header row in the middle of the row: a matching
+## gap after it, then a blank as wide as the buttons before the first gap.
+static func center_head(head: HBoxContainer) -> void:
+	var gap := Control.new()
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(gap)
+	var pad := Control.new()
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head.add_child(pad)
+	head.sort_children.connect(func():
+		var w := 0.0
+		for c: Control in head.get_children():
+			if c.size_flags_horizontal & Control.SIZE_EXPAND:
+				break
+			w += c.size.x + head.get_theme_constant("separation")
+		w = maxf(0.0, w - head.get_theme_constant("separation"))
+		if absf(pad.custom_minimum_size.x - w) > 0.5:
+			pad.custom_minimum_size.x = w)
 
 
 static func make() -> Theme:
 	var t := Theme.new()
-	var tex: Texture2D = load("res://ui/wood_button.png")
+	var tex: Texture2D = load(skin.button)
 	var tint := {
 		normal = Color.WHITE,
 		hover = Color(1.08, 1.05, 1.0),
@@ -122,22 +228,29 @@ static func make() -> Theme:
 	for state in tint:
 		var sb := StyleBoxTexture.new()
 		sb.texture = tex
-		sb.set_texture_margin_all(38.0)  # straw border + plank corner and nails stay unstretched
+		_slice(sb, skin.bslice)  # straw border + plank corner and nails stay unstretched
 		# stretch, not tile: tiling the middle would repeat the inner frame line in a visible pattern
 		sb.modulate_color = tint[state]
-		sb.content_margin_left = 44.0  # button text and icon clear of the plank's frame line
-		sb.content_margin_right = 44.0
-		sb.content_margin_top = 26.0 if state == "pressed" else 22.0  # text sinks a little when pressed
-		sb.content_margin_bottom = 18.0 if state == "pressed" else 22.0
+		sb.content_margin_left = skin.bpad[0]  # button text and icon clear of the plank's frame line
+		sb.content_margin_right = skin.bpad[0]
+		sb.content_margin_top = skin.bpad[1] + (4.0 if state == "pressed" else 0.0)  # text sinks a little when pressed
+		sb.content_margin_bottom = skin.bpad[1] - (4.0 if state == "pressed" else 0.0)
 		t.set_stylebox(state, "Button", sb)
 	t.set_stylebox("focus", "Button", StyleBoxEmpty.new())
 	# dark brown letters that look burned into the board, like the reference sign
-	var ink := Color(0.24, 0.12, 0.05)
+	var ink: Color = skin.text
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		t.set_color(c, "Button", ink)
-	t.set_color("font_disabled_color", "Button", Color(0.35, 0.25, 0.17, 0.7))
-	t.set_color("font_outline_color", "Button", Color(1.0, 0.85, 0.6, 0.35))  # faint light edge = engraved
+	t.set_color("font_disabled_color", "Button", Color(ink, 0.55))
+	t.set_color("font_outline_color", "Button", skin.outline)  # faint light edge = engraved
 	t.set_constant("outline_size", "Button", 3)
 	t.set_constant("h_separation", "Button", 8)
 	t.set_constant("icon_max_width", "Button", 62)  # icons carry padding for their drop shadow
 	return t
+
+
+static func _slice(sb: StyleBoxTexture, m: Array) -> void:
+	sb.texture_margin_left = m[0]
+	sb.texture_margin_top = m[1]
+	sb.texture_margin_right = m[2]
+	sb.texture_margin_bottom = m[3]

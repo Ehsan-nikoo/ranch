@@ -49,7 +49,7 @@ func _ready() -> void:
 	head.add_child(builder._button(Button.new(), "دفترچه‌ی حساب", func():
 		toggle()
 		ledger.toggle(), "market"))
-	head.move_child(head.get_child(3), 1)  # beside the close button
+	head.move_child(head.get_child(head.get_child_count() - 1), 1)  # beside the close button
 	col.add_child(head)
 
 	var row := HBoxContainer.new()

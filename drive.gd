@@ -65,7 +65,7 @@ func _ready() -> void:
 	col.add_child(_row)
 	_box = UiTheme.plank(24, Control.PRESET_TOP_LEFT)
 	_box.offset_left = 16
-	_box.offset_top = 124  # below the settings button
+	_box.offset_top = 230  # below the settings and «امروز» buttons
 	_box.grow_horizontal = Control.GROW_DIRECTION_END
 	_box_label = _box.get_child(0)
 	_box_label.custom_minimum_size.x = 420  # fixed width: the plank doesn't twitch

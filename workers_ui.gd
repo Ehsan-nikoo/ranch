@@ -32,7 +32,6 @@ func _ready() -> void:
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_list)
 	col.add_child(_scroll)
-	col.add_child(UiTheme.label("مدل اسب: «Free to use - Low Poly Horse» ساخته‌ی chi3dmodel، با مجوز CC-BY 4.0؛ مدل کابوی: Quaternius (CC0)", 17, Color(0.36, 0.22, 0.1)))
 	workers.changed.connect(_rebuild)
 
 
@@ -57,7 +56,6 @@ func _row(w: Dictionary, label: String, cb: Callable, icon: String, enabled: boo
 	var l := UiTheme.label("%s، %s %s:  %s" % [w.name, Workers.SKILLS[w.skill], Workers.LEVELS[w.level - 1], info], 21)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.custom_minimum_size = Vector2(740, 0)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(l)
 	return row

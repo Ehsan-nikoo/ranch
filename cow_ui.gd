@@ -38,7 +38,6 @@ func _ready() -> void:
 	col.add_child(head)
 	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_text.custom_minimum_size = Vector2(560, 0)
-	_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	col.add_child(_text)
 	_row.add_theme_constant_override("separation", 12)
 	_row.alignment = BoxContainer.ALIGNMENT_CENTER

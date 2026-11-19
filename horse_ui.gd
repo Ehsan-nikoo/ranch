@@ -85,7 +85,6 @@ func _row(h: Dictionary) -> HBoxContainer:
 	var l := UiTheme.label("%s، %s  %s%s%s" % [h.name, what, Horses.stars_text(h.stars), age, foal], 22)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.custom_minimum_size = Vector2(740, 0)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(l)
 	return row

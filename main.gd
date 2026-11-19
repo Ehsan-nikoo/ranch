@@ -165,7 +165,10 @@ func _ready() -> void:
 	hud.sfx = sfx
 	add_child(hud)
 	if _arg("settings", "") != "":  # test: the settings board open (--settings=export: after "copy the ranch code")
-		hud.toggle()
+		if not hud._panel.visible:
+			hud.toggle()
+		if _arg("settings", "") == "look" and UiTheme.look != "poster":  # --settings=look: pick the second look a second in
+			get_tree().create_timer(1.0).timeout.connect(func(): hud._look_btns[1].pressed.emit())
 		if _arg("settings", "") == "export":
 			hud.call_deferred("_export")
 		if _arg("settings", "") == "import":  # --settings=import: this ranch's own code pasted back, waiting for the yes

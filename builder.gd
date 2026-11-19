@@ -217,7 +217,7 @@ func _toggle_menu() -> void:
 func _refresh() -> void:
 	# in debt: the minus after the number, the way the notices write it, and in red
 	_money.text = "%s دلار" % UiTheme.fa(money) if money >= 0 else "%s- دلار" % UiTheme.fa(-money)
-	_money.add_theme_color_override("font_color", UiTheme.INK if money >= 0 else Color(0.6, 0.08, 0.04))
+	_money.add_theme_color_override("font_color", UiTheme.ON_PLANK if money >= 0 else Color(0.6, 0.08, 0.04))
 	UiTheme.fit(_money.get_parent())  # plank fits the new number
 	for i in _items.size():
 		var need: int = CATALOG[i][5] if CATALOG[i].size() > 5 else 1

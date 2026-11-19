@@ -1,6 +1,7 @@
 ## Top of the screen: the date plank, and the settings button (top left) with its board:
-## picture quality, grass, music, sounds and phone notifications, kept in user://settings.cfg between
-## runs; and the ranch backup: copy the ranch as a code, or bring a ranch back from one (SaveGame).
+## the look of boards and buttons, picture quality, grass, music, sounds and phone notifications,
+## kept in user://settings.cfg between runs; and the ranch backup: copy the ranch as a code, or bring
+## a ranch back from one (SaveGame).
 ## The test overlay (FPS, frame cost, a time-speed button) is hidden from players: tap the settings
 ## board's title five times in a row to show or hide it (or start with `-- --dev=1`).
 class_name Hud
@@ -32,6 +33,8 @@ var _grass_btns: Array[Button] = []
 var _music_btns: Array[Button] = []
 var _sound_btns: Array[Button] = []
 var _notify_btns: Array[Button] = []
+var _look_btns: Array[Button] = []
+static var _reopen := false        # the board was open when a new look reloaded the ranch
 var _note: Label                   # what the backup buttons did
 var _confirm := HBoxContainer.new()
 var _rows := VBoxContainer.new()   # the settings themselves, out of the way while a backup note shows
@@ -57,21 +60,22 @@ func _ready() -> void:
 	add_child(date_box)
 
 	var gear := _button("تنظیمات", toggle, "gear")
+	gear.custom_minimum_size.x = 240  # as wide as «امروز» under it
 	gear.position = Vector2(12, 8)
 	add_child(gear)
 
-	# test overlay: the speed button under the settings button, frame numbers beside it
+	# test overlay: the speed button beside the settings button, frame numbers beside that
 	_dev.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_dev.visible = false
 	add_child(_dev)
-	_label.position = Vector2(210, 124)
+	_label.position = Vector2(412, 36)
 	_label.add_theme_font_size_override("font_size", 18)
 	_label.add_theme_constant_override("outline_size", 6)
 	_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	_dev.add_child(_label)
 	_speed_btn.custom_minimum_size = Vector2(190, 84)
 	_speed_btn.add_theme_font_size_override("font_size", 24)
-	_speed_btn.position = Vector2(12, 118)
+	_speed_btn.position = Vector2(212, 8)
 	_speed_btn.pressed.connect(func(): _set_speed(_speed + 1))
 	_dev.add_child(_speed_btn)
 
@@ -86,6 +90,10 @@ func _ready() -> void:
 	_set_sound(_sound_on)
 	_set_notify(notify_on)
 	_set_dev(_dev.visible or OS.get_cmdline_user_args().has("--dev=1"))
+	_mark(_look_btns, UiTheme.SKINS.keys().find(UiTheme.look))
+	if _reopen:
+		_reopen = false
+		toggle()
 	# sounds that start later (a cow's moo, the rain) go on the Sounds bus too
 	get_tree().node_added.connect(_route)
 	for n in get_tree().root.find_children("*", "AudioStreamPlayer", true, false) + get_tree().root.find_children("*", "AudioStreamPlayer3D", true, false):
@@ -124,7 +132,6 @@ func _choice_row(col: VBoxContainer, title: String, names: Array, pick: Callable
 	row.add_child(gap)
 	var l := UiTheme.label(title, 30)
 	l.custom_minimum_size.x = 260
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(l)
 	return btns
 
@@ -138,7 +145,7 @@ static func _mark(btns: Array[Button], picked: int) -> void:
 		b.modulate = Color.WHITE if on else Color(1, 1, 1, 0.5)
 		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 			if on:
-				b.add_theme_color_override(c, Color(0.12, 0.36, 0.06))
+				b.add_theme_color_override(c, UiTheme.skin.on)
 			else:
 				b.remove_theme_color_override(c)
 
@@ -162,6 +169,8 @@ func _build_board() -> void:
 	col.add_child(head)
 	_rows.add_theme_constant_override("separation", 6)
 	col.add_child(_rows)
+	var looks := UiTheme.SKINS.values().map(func(k): return k.name)
+	_look_btns = _choice_row(_rows, "ظاهر", looks, _set_look)
 	_quality_btns = _choice_row(_rows, "کیفیت تصویر", ["بالا", "متوسط", "پایین"], _pick.bind(_set_quality, false))
 	_grass_btns = _choice_row(_rows, "علف‌ها", ["روشن", "خاموش"], _pick.bind(_set_grass, true))
 	_music_btns = _choice_row(_rows, "آهنگ", ["روشن", "خاموش"], _pick.bind(_set_music, true))
@@ -180,7 +189,7 @@ func _build_board() -> void:
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(gap)
 	var l := UiTheme.label("پشتیبان رنچ", 30)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	l.custom_minimum_size.x = 260
 	row.add_child(l)
 	_note = UiTheme.label("", 22, Color(0.32, 0.18, 0.08))
 	_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -264,6 +273,19 @@ func _title_tap(e: InputEvent) -> void:
 		_taps = 0
 		_set_dev(not _dev.visible)
 		_store()
+
+
+## A new look for boards and buttons: the ranch is saved and comes back dressed in it, settings open.
+func _set_look(i: int) -> void:
+	var name: String = UiTheme.SKINS.keys()[i]
+	if name == UiTheme.look:
+		return
+	UiTheme.look = name
+	_store()
+	if snapshot.is_valid():
+		SaveGame.write(snapshot.call())
+	_reopen = true
+	get_tree().call_deferred("reload_current_scene")
 
 
 func _set_dev(on: bool) -> void:
@@ -367,6 +389,7 @@ func _store() -> void:
 	c.set_value("game", "sounds", _sound_on)
 	c.set_value("game", "notify", notify_on)
 	c.set_value("game", "dev", _dev.visible)
+	c.set_value("game", "look", UiTheme.look)
 	c.save(CFG)
 
 

@@ -29,6 +29,7 @@ static func _parse(text: String) -> Dictionary:
 
 
 static func read() -> Dictionary:
+	recovered = false  # read again after a reload (a new look): only this read counts
 	if not enabled():
 		return {}
 	for p in [PATH, PREV, DAY]:

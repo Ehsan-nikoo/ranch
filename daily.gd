@@ -1,6 +1,6 @@
 ## Every real day: a prize for coming back (bigger each day in a row, a week round), and three small
 ## jobs for the day with a prize each, plus a bonus for all three. Opened from the «امروز» button at
-## the top left; the button wears a red mark while today's prize is waiting. Days follow the phone's
+## the top left, under the settings; the button wears a red mark while today's prize is waiting. Days follow the phone's
 ## own calendar, not the ranch's clock.
 class_name Daily
 extends CanvasLayer
@@ -44,7 +44,7 @@ var _claim: Button
 var _list := VBoxContainer.new()
 var _bonus := UiTheme.label("", 23, Color(0.32, 0.18, 0.08))
 var _t := 0.0
-var _popped := false
+static var _popped := false  # once per run, not again when a new look reloads the ranch
 
 
 ## Today on the phone's calendar, as a day count.
@@ -54,13 +54,14 @@ static func today() -> int:
 
 
 func _ready() -> void:
+	layer = 0  # under every board: an open board covers the «امروز» button, not the other way
 	_button = Button.new()
 	_button.text = "امروز"
 	_button.icon = load("res://ui/icons/gift.png")
 	_button.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_button.custom_minimum_size = Vector2(170, 104)
+	_button.custom_minimum_size = Vector2(240, 104)  # as wide as «تنظیمات» above it
 	_button.add_theme_font_size_override("font_size", 26)
-	_button.position = Vector2(204, 8)
+	_button.position = Vector2(12, 118)  # under the settings button
 	_button.pressed.connect(toggle)
 	add_child(_button)
 	_mark = UiTheme.label("!", 30, Color.WHITE)

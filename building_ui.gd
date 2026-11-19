@@ -27,7 +27,7 @@ var _title := UiTheme.label("", 40)
 var _icon := TextureRect.new()
 var _about := UiTheme.label("", 24)
 var _state := UiTheme.label("", 26, Color(0.42, 0.12, 0.05))
-var _row := HBoxContainer.new()
+var _row := HFlowContainer.new()  # buttons wrap to a second line instead of running off a phone
 var _down := Vector2.INF
 var _sure := false
 var _busy := false
@@ -52,13 +52,15 @@ func _ready() -> void:
 	_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	head.add_child(_icon)
+	UiTheme.center_head(head)
 	col.add_child(head)
 	for l: Label in [_about, _state]:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.custom_minimum_size = Vector2(980, 0)
 		col.add_child(l)
-	_row.add_theme_constant_override("separation", 14)
-	_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_row.add_theme_constant_override("h_separation", 14)
+	_row.add_theme_constant_override("v_separation", 10)
+	_row.alignment = FlowContainer.ALIGNMENT_CENTER
 	col.add_child(_row)
 
 
