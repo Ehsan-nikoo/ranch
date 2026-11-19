@@ -8,8 +8,17 @@ const LOW := 1.6    # half width at the ground
 const TOP := 1.15   # half width at the platform
 
 
+func upgrades() -> Array:
+	return [1500, 3000]
+
+
+func upgrade_text() -> String:
+	return "دزدها رو زودتر می‌بینن: کمتر گاو می‌برن و راحت‌تر گیر می‌افتن"
+
+
 func _foot() -> Rect2:
-	return Rect2(-LOW - 0.4, -LOW - 0.4, (LOW + 0.4) * 2, (LOW + 0.4) * 2 + 0.8)
+	var x1 := LOW + 0.4 + (3.2 if level >= 3 else 0.0)  # the guard hut at level 3
+	return Rect2(-LOW - 0.4, -LOW - 0.4, x1 + LOW + 0.4, (LOW + 0.4) * 2 + 0.8)
 
 
 func _corner(i: int, y: float) -> Vector3:
@@ -46,4 +55,14 @@ func _ready() -> void:
 	for k in int(H / 0.4):
 		var t := (k + 0.5) / (H / 0.4)
 		_box(Vector3(0.56, 0.05, 0.05), Vector3(0, t * H, lerpf(LOW + 0.7, TOP + 0.38, t)), wood)
+	if level >= 2:  # an alarm bell hung under the roof, its rope down to the platform
+		_box(Vector3(0.1, 0.1, w * 1.9), Vector3(0, H + 2.25, 0), wood)
+		_cyl(0.32, 0.5, Vector3(0, H + 1.95, 0), _plain(Color(0.62, 0.48, 0.22), 0.35, 0.8), 14, 0.18)
+		_box(Vector3(0.02, 0.9, 0.02), Vector3(0.1, H + 1.3, 0), _straw())
+	if level >= 3:  # a flag on the peak and a little guard hut at the foot
+		_beam(Vector3(0, H + 3.4, 0), Vector3(0, H + 5.6, 0), 0.05, iron)
+		_box(Vector3(1.1, 0.65, 0.03), Vector3(0.57, H + 5.25, 0), red)
+		var hut := _wing(Vector3(LOW + 2.0, 0, 0), 1.2, 1.3, 2.3, 3.2, wood)
+		hut._window(Vector3(0, 1.4, 1.3), Vector3(0, 0, 1), null, red)
+		MeshMerge.boxes(hut)
 	MeshMerge.boxes(self)

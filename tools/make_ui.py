@@ -463,8 +463,25 @@ def train(d, k):  # steam engine
         d.ellipse([k(x - r), k(54 - r), k(x + r), k(54 + r)], fill=(150, 50, 35, 255), outline=INK, width=k(3))
 
 
+def corral(d, k):  # rail fence with the gate swung open
+    for y in (24, 37, 50):
+        shape(d, [(4, y - 3), (24, y - 3), (24, y + 3), (4, y + 3)], k)
+        shape(d, [(40, y - 3), (60, y - 3), (60, y + 3), (40, y + 3)], k)
+    for x in (6, 22, 42, 58):
+        shape(d, [(x - 3.5, 14), (x + 3.5, 14), (x + 3.5, 60), (x - 3.5, 60)], k)
+    shape(d, [(26, 20), (38, 28), (38, 54), (26, 46)], k)
+
+
+def horse(d, k):  # a horse's head in profile, mane flying
+    d.polygon([(k(38), k(6)), (k(52), k(12)), (k(60), k(30)), (k(61), k(52)), (k(56), k(60)), (k(50), k(40)), (k(44), k(16))], fill=(150, 50, 35, 255), outline=INK, width=k(3))
+    shape(d, [(38, 6), (46, 14), (52, 30), (56, 60), (30, 60), (28, 46), (18, 40), (8, 38), (4, 32), (8, 24), (22, 14), (32, 10)], k)
+    shape(d, [(34, 12), (37, 1), (42, 11)], k)
+    d.ellipse([k(27), k(18), k(32), k(23)], fill=INK)
+    d.ellipse([k(7), k(30), k(11), k(34)], fill=INK)
+
+
 button()
 panel()
-for n, f in dict(land=land, market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place, vet=vet, vaccine=vaccine, worker=worker, star=star, stable=stable, smithy=smithy, rodeo=rodeo, pond=pond, kennel=kennel, tower=tower, feedlot=feedlot, saloon=saloon, train=train).items():
+for n, f in dict(land=land, market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place, vet=vet, vaccine=vaccine, worker=worker, star=star, stable=stable, smithy=smithy, rodeo=rodeo, pond=pond, kennel=kennel, tower=tower, feedlot=feedlot, saloon=saloon, train=train, corral=corral, horse=horse).items():
     icon(n, f)
 print("ok")

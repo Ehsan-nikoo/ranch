@@ -29,7 +29,9 @@ func upgrade_text() -> String:
 
 
 func _foot() -> Rect2:
-	return Rect2(-5.6, -7.8, 15.4, 15.6)  # includes the lean-to on +x
+	var x0 := -9.8 if level >= 2 else -5.6  # lean-tos on +x (and -x from level 2)
+	var z0 := -12.4 if level >= 3 else -7.8  # the annex out the back at level 3
+	return Rect2(x0, z0, 9.8 - x0, 7.8 - z0)
 
 
 func _process(_delta: float) -> void:
@@ -45,7 +47,14 @@ func _ready() -> void:
 	_front()
 	_sides()
 	_cupola()
-	_lean_to()
+	_lean_to(1.0)
+	if level >= 2:
+		_lean_to(-1.0)
+	if level >= 3:
+		var a := _wing(Vector3(0, 0, -L - 2.55), 3.4, 2.4, 3.4, 5.1, red)
+		a._window(Vector3(-1.6, 1.8, -2.4), Vector3(0, 0, -1))
+		a._window(Vector3(1.6, 1.8, -2.4), Vector3(0, 0, -1))
+		MeshMerge.boxes(a)
 	MeshMerge.boxes(self)
 
 
@@ -135,16 +144,19 @@ func _cupola() -> void:
 		part.reparent(vane, false)
 
 
-func _lean_to() -> void:
-	# open-sided shed on the +X side, rafters resting on the barn wall
-	var x1 := W + 4.2
+func _lean_to(side: float) -> void:
+	# open-sided shed on the +X (or -X) side, rafters resting on the barn wall
+	var x1 := (W + 4.2) * side
 	var z0 := -6.0
 	var z1 := 2.0
 	var y1 := 3.0
 	var zm := (z0 + z1) * 0.5
 	var st := _st()
-	_slab(st, Vector3(W, 4.4, zm), Vector3(x1 + 0.4, y1 - 0.13, zm), Vector3(0, 0, (z1 - z0) * 0.5 + 0.3), roof.get_meta("tile"), false)
+	_slab(st, Vector3(W * side, 4.4, zm), Vector3(x1 + 0.4 * side, y1 - 0.13, zm), Vector3(0, 0, (z1 - z0) * 0.5 + 0.3), roof.get_meta("tile"), false)
 	_commit(st, roof)
 	for z in [z0, zm, z1]:
 		_box(Vector3(0.22, y1, 0.22), Vector3(x1, y1 * 0.5, z), wood)
 	_box(Vector3(0.2, 0.25, z1 - z0 + 0.4), Vector3(x1, y1 - 0.05, zm), wood)
+	var hay := _straw()  # a few bales stored under it
+	for k in 4:
+		_box(Vector3(1.1, 0.55, 0.8), Vector3((W + 1.4 + (k % 2) * 1.2) * side, 0.3 + (k / 2) * 0.58, z0 + 1.2), hay)

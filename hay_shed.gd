@@ -22,7 +22,7 @@ func upgrade_text() -> String:
 
 
 func _foot() -> Rect2:
-	return Rect2(-W - 0.6, -D - 0.6, W * 2 + 1.2, D * 2 + 2.4)
+	return Rect2(-W - 0.6, -D - 0.6, W * 2 + 1.2 + (4.4 if level >= 3 else 0.0), D * 2 + 2.4)
 
 
 func _ready() -> void:
@@ -30,6 +30,9 @@ func _ready() -> void:
 	var st := _st()
 	var t: float = red.get_meta("tile")
 	_wall(st, Vector3(W, 0, -D), Vector3(-W, 0, -D), EAVE, Vector3(0, 0, -1), t, true)  # back wall
+	if level >= 2:  # board up both ends too: the hay keeps drier
+		for s in [-1.0, 1.0]:
+			_wall(st, Vector3(W * s, 0, D * s), Vector3(W * s, 0, -D * s), EAVE, Vector3(s, 0, 0), t, true)
 	for s in [-1.0, 1.0]:  # gable boards high up on the ends, open below
 		var x: float = W * s
 		_poly(st, [Vector3(x, EAVE, -D), Vector3(x, EAVE, D), Vector3(x, RIDGE, 0)], Vector3(s, 0, 0), Vector3.DOWN, Vector3.BACK, t)
@@ -54,6 +57,15 @@ func _ready() -> void:
 				if x > W - 0.7:
 					continue
 				_box(Vector3(1.3, 0.52, 1.1), Vector3(x, 0.38 + l * 0.58, z), hay if (k + l + row) % 2 == 0 else dark)
+	if level >= 3:  # one more bay on +x under a lean-to roof, full of round bales
+		var x1 := W + 4.0
+		for z in [-D, 0.0, D]:
+			_box(Vector3(0.28, EAVE - 1.2, 0.28), Vector3(x1, (EAVE - 1.2) * 0.5, z), wood)
+		var st2 := _st()
+		_slab(st2, Vector3(W, EAVE - 0.1, 0), Vector3(x1 + 0.4, EAVE - 1.25, 0), Vector3(0, 0, D + 0.4), roof.get_meta("tile"))
+		_commit(st2, roof)
+		for k in 6:
+			_cyl(0.75, 1.2, Vector3(W + 1.2 + (k % 2) * 1.6, 0.75, -D + 1.0 + (k / 2) * 2.6), hay, 14).rotation.x = PI * 0.5
 	for p in [Vector3(-3.5, 0, D + 1.3), Vector3(-1.9, 0, D + 1.5), Vector3(4.4, 0, D + 1.3)]:
 		_cyl(0.75, 1.2, p + Vector3(0, 0.75, 0), hay, 14).rotation.z = PI * 0.5  # round bales on their side
 	MeshMerge.boxes(self)

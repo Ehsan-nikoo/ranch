@@ -12,9 +12,10 @@ var CATALOG := [
 	["آسیاب بادی", Windmill, 800, "windmill", "با باد، آب رو از زیر زمین میاره بالا و آب‌خوری گاوها رو پر می‌کنه."],
 	["آبگیر", Pond, 1200, "pond", "برکه‌ی بزرگ برای آب خوردن گاوها. هیچ‌وقت خراب نمی‌شه و تو خشکسالی به دادت می‌رسه."],
 	["انبار یونجه", HayShed, 2200, "hay", "یه انبار بزرگ و سقف‌دار برای ۱۵۰ بسته یونجه. بهار ارزون بخر، زمستون راحت باش."],
+	["آغل", Corral, 600, "corral", "یه محوطه‌ی بزرگ با نرده برای اسب‌ها: روزها توش می‌چرخن و کره‌اسب‌ها زودتر بزرگ می‌شن."],
 	["سگدونی", Kennel, 1500, "kennel", "سگ‌های گله کمک می‌کنن: خودت ۱۰ تا و هر کارگر ۵ تا گاو بیشتر. گرگ‌ها هم فرار می‌کنن."],
 	["برج دیده‌بانی", Watchtower, 2500, "tower", "از بالاش دزدها رو از دور می‌بینن. دزد کمتر گاو می‌بره و کلانتر راحت‌تر می‌گیرتشون.", 2],
-	["اصطبل اسب", HorseStable, 4000, "stable", "کابوی‌ها سوار اسب می‌شن و هر کدوم ۱۰ گاو بیشتر رو می‌چرخونن.", 2],
+	["اصطبل اسب", HorseStable, 4000, "stable", "کابوی‌ها سوار اسب می‌شن و ۱۰ گاو بیشتر رو می‌چرخونن. اینجا اسب هم پرورش می‌دی و می‌فروشی.", 2],
 	["آغل چاق‌کنی", Feedlot, 4500, "feedlot", "گاوهای فروشی ۳۰ درصد زودتر چاق می‌شن، ولی ۲۰ درصد بیشتر علف و یونجه می‌خورن.", 2],
 	["دامپزشکی", VetClinic, 3500, "vet", "دامپزشک تو رنچ می‌مونه: مریض‌ها زودتر خوب می‌شن و دامپزشک و واکسن نصف قیمته.", 2],
 	["آهنگری", Blacksmith, 5000, "smithy", "آهنگر آسیاب‌ها رو سالم نگه می‌داره و خرج هر گاو روزی ۲ دلار کمتر می‌شه.", 3],
@@ -23,7 +24,10 @@ var CATALOG := [
 	["ایستگاه قطار", Station, 12000, "train", "گاوها با قطار می‌رن شهر: هر فروش ۱۰ درصد گرون‌تر و یه خریدار بیشتر.", 1, 1],
 ]
 
-var money := 9000         # enough for water, a barn and a silo to start with: nothing is built yet
+var money := 12000        # nothing is built and there are no cattle yet: water, a barn, a silo and calves
+var day: DayCycle
+var sites: Array[Building] = []   # buildings going up or being upgraded
+var on_finished: Callable          # (building, upgraded) -> void: a site is done
 var rig: CameraRig
 var world: Node3D
 var land: Land
@@ -251,8 +255,92 @@ func place() -> void:
 	money_moved.emit(-_cost, "build")
 	occupied.append(r)
 	_drop_marker()
+	if not _moving:  # a new building: from here it goes up bit by bit
+		start_work(ghost, false)
 	on_placed.call(r)
 	_end()
+
+
+## Price of a building of this kind on the build board.
+func price_of(b: Building) -> int:
+	for c in CATALOG:
+		if c[1] == b.get_script():
+			return c[2]
+	return 1000
+
+
+## Begins the work on `b`: putting it up (level 1), or taking it to the next level when `up`.
+## An upgrade takes the bigger footprint at once, so nothing else can be built there meanwhile.
+func start_work(b: Building, up: bool) -> void:
+	var lv := b.level + (1 if up else 0)
+	b.upgrading = up
+	b.work_total = Building.work_hours(price_of(b), lv)
+	b.work_left = b.work_total
+	if up:
+		occupied.erase(b.world_footprint())
+		b.work_rect = b.footprint_at(lv)
+		occupied.append(b.work_rect)
+	else:
+		b.work_rect = b.world_footprint()
+	_site(b)
+
+
+## Puts a saved site back up after a load (work_left and the rest come from the save).
+func resume_work(b: Building) -> void:
+	b.work_rect = b.footprint_at(b.level + 1) if b.upgrading else b.world_footprint()
+	if b.upgrading:
+		occupied.erase(b.world_footprint())
+		occupied.append(b.work_rect)
+	_site(b)
+
+
+func _site(b: Building) -> void:
+	var lv := b.level + (1 if b.upgrading else 0)
+	b.site = Site.new()
+	b.add_child(b.site)
+	b.site.setup(b, b.upgrading, b.local_foot_at(lv), Building.size_of(lv))
+	b.site.show_at(1.0 - b.work_left / b.work_total)
+	sites.append(b)
+
+
+## Minutes of real time (at normal speed) left on a site.
+static func minutes_left(b: Building) -> int:
+	return ceili(b.work_left * DayCycle.SECONDS_PER_HOUR / 60.0)
+
+
+func _work(delta: float) -> void:
+	var hours := delta * (day.speed if day else 1.0) / DayCycle.SECONDS_PER_HOUR
+	for b in sites.duplicate():
+		if not is_instance_valid(b) or not b.is_inside_tree():  # knocked down meanwhile
+			sites.erase(b)
+			continue
+		if hours <= 0.0:
+			continue
+		b.work_left = maxf(0.0, b.work_left - hours)
+		b.site.show_at(1.0 - b.work_left / b.work_total)
+		if b.work_left <= 0.0:
+			sites.erase(b)
+			_finish(b)
+
+
+func _finish(b: Building) -> void:
+	b.site.finish()
+	if not b.upgrading:
+		b.site.queue_free()
+		b.site = null
+		on_finished.call(b, false)
+		return
+	# the upgrade is done: the bigger, fancier building takes the old one's place
+	var n: Building = b.get_script().new()
+	n.level = b.level + 1
+	n.position = b.position
+	n.rotation = b.rotation
+	world.remove_child(b)
+	b.queue_free()
+	world.add_child(n)
+	occupied.erase(b.work_rect)
+	occupied.append(n.world_footprint())
+	on_finished.call(n, true)
 
 
 func _end() -> void:
@@ -267,7 +355,8 @@ func _snapped(p: Vector3) -> Vector3:
 	return Vector3(roundf(p.x), 0, roundf(p.z))
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_work(delta)
 	if ghost == null:
 		return
 	ghost.position = _snapped(rig.target)

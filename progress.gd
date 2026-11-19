@@ -19,7 +19,6 @@ const ERAS := [
 ]
 const RODEO_PURSE := 500   # gate takings at the seasonal rodeo, plus 150 per reputation level
 const CAFE_TAKE := 250     # the café's takings each season, plus 100 per reputation level
-const STATION_BONUS := 1.1 # cattle sent by train fetch this much more
 const FEEDLOT := [1.3, 1.2]  # the fattening pen: sale cattle gain this much faster and eat this much more
 
 var day: DayCycle
@@ -70,8 +69,8 @@ func _apply() -> void:
 	market.era_mul = ERAS[era()][2]
 	market.max_offers = 2 + (1 if level() >= 3 else 0) + (1 if level() >= 5 else 0) + (1 if train else 0)
 	market.premium = 1.1 if level() >= 5 else 1.0
-	market.upkeep_cut = 2 if has(Blacksmith) else 0
-	market.sale_bonus = STATION_BONUS if train else 1.0
+	market.upkeep_cut = _best(Blacksmith).saving() if has(Blacksmith) else 0
+	market.sale_bonus = 1.0 + _best(Station).bonus() if train else 1.0
 	if herd:
 		var pen := has(Feedlot)
 		herd.gain_mul = FEEDLOT[0] + 0.1 * (Building.best_level(world, Feedlot) - 1) if pen else 1.0
@@ -86,6 +85,15 @@ func has(kind: Script) -> bool:
 	return Building.built(world, kind)
 
 
+## The finished building of `kind` with the highest level (has(kind) must be true).
+func _best(kind: Script) -> Building:
+	var best: Building = null
+	for n in world.get_children():
+		if n.get_script() == kind and n.works() and (best == null or n.level > best.level):
+			best = n
+	return best
+
+
 func hook(h: Herd) -> void:
 	herd = h
 	market.sold.connect(func(cash: int, contract: bool): add(cash / 100.0 + (25.0 if contract else 0.0)))
@@ -96,7 +104,7 @@ func hook(h: Herd) -> void:
 
 func new_day(d: int) -> void:
 	if d % DayCycle.DAYS_PER_SEASON == 0 and has(RodeoArena):
-		var purse := RODEO_PURSE + 150 * level()
+		var purse := int((RODEO_PURSE + 150 * level()) * _best(RodeoArena).prize_mul())
 		builder.add_money(purse, "prize")
 		notify.call("مسابقه‌ی گاوسواری این فصل برگزار شد: %s+ دلار، و رنچت معروف‌تر شد" % UiTheme.fa(purse))
 		add(20.0)

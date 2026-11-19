@@ -11,8 +11,18 @@ const RIDGE := 4.6
 const CHUTE := 3.6   # chute length on +x
 
 
+func upgrades() -> Array:
+	return [2000, 4000]
+
+
+func upgrade_text() -> String:
+	return "مریض‌ها زودتر خوب می‌شن و دامپزشک و واکسن ارزون‌تر می‌شه"
+
+
 func _foot() -> Rect2:
-	return Rect2(-W - 0.5, -D - 0.5, W * 2 + CHUTE + 1.4, D * 2 + 2.6)
+	var x0 := -W - 0.5 - (4.0 if level >= 2 else 0.0)  # sick ward on -x from level 2
+	var z0 := -D - 0.5 - (4.4 if level >= 3 else 0.0)  # recovery pen out the back at level 3
+	return Rect2(x0, z0, W + CHUTE + 0.9 - x0, D + 2.1 - z0)
 
 
 func _ready() -> void:
@@ -47,4 +57,12 @@ func _ready() -> void:
 	_box(Vector3(0.12, 1.9, 1.1), Vector3(cx + CHUTE * 0.5 + 0.1, 0.95, 0), iron)  # head gate
 	_box(Vector3(0.12, 0.35, 1.1), Vector3(cx + CHUTE * 0.5 + 0.1, 1.55, 0), red)
 	_box(Vector3(CHUTE, 0.1, 0.84), Vector3(cx, 0.1, 0), wood)
+	if level >= 2:  # a ward for the sick cows
+		var ward := _wing(Vector3(-W - 1.95, 0, -0.3), 1.9, 2.4, 2.7, 3.9, siding, true)
+		ward._window(Vector3(0, 1.6, 2.4), Vector3(0, 0, 1), white, green)
+		ward._box(Vector3(0.6, 0.6, 0.06), Vector3(0, 3.0, 2.46), red)
+		MeshMerge.boxes(ward)
+	if level >= 3:  # a recovery pen behind
+		_box(Vector3(W * 2, 0.05, 4.0), Vector3(0, 0.025, -D - 2.4), _mud())
+		_pen(Vector3(0, 0, -D - 2.4), W, 2.0, white, 0.0, 1.3)
 	MeshMerge.boxes(self)

@@ -30,9 +30,25 @@ func _ready() -> void:
 	for x in [-3.3, 3.3]:
 		_cyl(0.22, 0.12, Vector3(x, 0.06, 0.9), steel, 12)
 		_cyl(0.18, 0.02, Vector3(x, 0.12, 0.9), water, 12)
+	if level >= 2:  # a shade roof over the doghouses
+		for x in [-HX + 0.3, 0.0, HX - 0.3]:
+			_box(Vector3(0.14, 2.3, 0.14), Vector3(x, 1.15, -HZ + 0.25), wood)
+			_box(Vector3(0.14, 1.9, 0.14), Vector3(x, 0.95, -HZ + 2.3), wood)
+		var st := _st()
+		_slab(st, Vector3(0, 2.35, -HZ), Vector3(0, 1.95, -HZ + 2.6), Vector3(HX - 0.1, 0, 0), roof.get_meta("tile"))
+		_commit(st, roof)
+	if level >= 3:  # feed sacks and a big water trough
+		for k in 3:
+			_box(Vector3(0.5, 0.75, 0.32), Vector3(HX - 0.7, 0.38, 1.6 - k * 0.42), _plain(Color(0.72, 0.62, 0.45), 1.0), Vector3(0, 0, 0.08))
+		_box(Vector3(1.6, 0.35, 0.5), Vector3(-HX + 1.2, 0.18, HZ - 0.6), steel)
+		_box(Vector3(1.45, 0.02, 0.38), Vector3(-HX + 1.2, 0.34, HZ - 0.6), water)
 	MeshMerge.boxes(self)  # before the dogs: their meshes must stay their own
 	_dog(Vector3(-1.35, 0, -0.4), 0.5, Color.WHITE)
 	_dog(Vector3(1.4, 0, -0.1), -2.4, Color(0.62, 0.44, 0.3))
+	if level >= 2:
+		_dog(Vector3(2.6, 0, 1.4), 2.8, Color(0.3, 0.27, 0.25))
+	if level >= 3:
+		_dog(Vector3(-2.8, 0, 1.2), -0.9, Color(0.85, 0.7, 0.5))
 
 
 func _doghouse(at: Vector3) -> void:
@@ -49,7 +65,7 @@ func _dog(at: Vector3, yaw: float, coat: Color) -> void:
 	var dog: Node3D = load(DOG).instantiate()
 	dog.position = at
 	dog.rotation.y = yaw
-	dog.scale = Vector3.ONE * TALL / MODEL_TALL
+	dog.scale = Vector3.ONE * TALL / MODEL_TALL / scale  # a bigger kennel, not bigger dogs
 	add_child(dog)
 	if coat != Color.WHITE:
 		for mi: MeshInstance3D in dog.find_children("*", "MeshInstance3D", true, false):

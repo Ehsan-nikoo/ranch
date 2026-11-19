@@ -24,6 +24,8 @@ var auction := Auction.new()
 var drive := Drive.new()
 var rodeo := RodeoGame.new()
 var building_ui := BuildingUI.new()
+var horses := Horses.new()
+var horse_ui := HorseUI.new()
 var weather := Weather.new()
 var cow_ui := CowUI.new()
 var rival := Rival.new()
@@ -64,7 +66,6 @@ var sfx := Sfx.new()
 var mask_img: Image
 var builder := Builder.new()
 var herd := Herd.new()
-const CORRAL := Rect2(-24.5, -6.5, 16, 19)
 # starting ranch: building, position, yaw in degrees
 # A new ranch starts as bare land: the player builds and places everything. `starter` is the old
 # ready-made yard, for tests (--starter=1, and the bot).
@@ -74,6 +75,7 @@ var starter := [
 	[RanchHouse, Vector3(-13, 0, 26), 90.0],
 	[Windmill, Vector3(17, 0, -5), -30.0],
 	[Silo, Vector3(-2, 0, -11), 0.0],
+	[Corral, Vector3(-16.5, 0, 3), 90.0],
 ]
 
 
@@ -90,7 +92,9 @@ func _ready() -> void:
 		builder.money = saved.money
 		if saved.has("land"):
 			land.from_save(saved.land)
-		layout = saved.buildings.map(func(b): return [load(b[0]), Vector3(b[1], 0, b[2]), b[3], int(b[4]) if b.size() > 4 else 1])
+		layout = saved.buildings.map(func(b): return [load(b[0]), Vector3(b[1], 0, b[2]), b[3], int(b[4]) if b.size() > 4 else 1, b.slice(5)])
+		if not saved.has("yard"):  # a ranch from before the corral was a building: it keeps its corral
+			layout.append([Corral, Vector3(-16.5, 0, 3), 90.0, 1])
 	add_child(day)
 	mask_img = (load(TEX + "ground_mask.png") as Texture2D).get_image()
 	if mask_img.is_compressed():
@@ -98,11 +102,10 @@ func _ready() -> void:
 	herd.init_grass(mask_img)
 	add_child(land)
 	_ground()
-	builder.occupied.append(CORRAL)
 	if _arg("extras", "") != "":  # test: the newer buildings already standing
 		layout.append_array([[Pond, Vector3(38, 0, -16), 0.0], [HayShed, Vector3(-30, 0, -32), 0.0], [Kennel, Vector3(-40, 0, -10), 0.0],
 			[Watchtower, Vector3(40, 0, 8), 0.0], [Feedlot, Vector3(34, 0, 36), 0.0], [VetClinic, Vector3(-38, 0, 10), 90.0],
-			[Saloon, Vector3(-30, 0, 34), 0.0], [Station, Vector3(14, 0, -40), 180.0]])
+			[Saloon, Vector3(-30, 0, 34), 0.0], [Station, Vector3(14, 0, -40), 180.0], [HorseStable, Vector3(18, 0, 18), 0.0]])
 	for b in layout:
 		var node: Building = b[0].new()
 		node.position = b[1]
@@ -110,6 +113,12 @@ func _ready() -> void:
 		node.level = b[3] if b.size() > 3 else 1
 		add_child(node)
 		builder.occupied.append(node.world_footprint())
+		var work: Array = b[4] if b.size() > 4 else []
+		if work.size() >= 3 and float(work[0]) > 0.0:  # a site that was still going up
+			node.work_left = float(work[0])
+			node.work_total = float(work[1])
+			node.upgrading = bool(work[2])
+			builder.resume_work(node)
 	_grass()
 	_props()
 	MeshMerge.boxes(self)
@@ -120,7 +129,7 @@ func _ready() -> void:
 	MeshMerge.boxes(self)
 	herd.land = land
 	builder.land = land
-	herd.extra_blocked = [CORRAL]
+	herd.extra_blocked = []
 	herd.extra_blocked.append_array(delivery.blocked_rects())
 	builder.occupied.append_array(delivery.blocked_rects())
 	add_child(herd)
@@ -128,7 +137,7 @@ func _ready() -> void:
 	delivery.day = day
 	herd._rescan()
 	if saved.is_empty():
-		for i in int(_arg("cows", "6")):  # young stock: the first sale is a way off
+		for i in int(_arg("cows", "6" if not layout.is_empty() else "0")):  # a new ranch has no cattle: the player buys the first calves
 			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), randf_range(200.0, 300.0) if _arg("kg", "") == "" else float(_arg("kg", "")))  # --kg: test herd at this weight
 		for i in int(_arg("calves", "0")):  # test: fresh calves at purchase weight
 			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), HerdUI.CALF_KG)
@@ -152,9 +161,17 @@ func _ready() -> void:
 	add_child(hud)
 	builder.rig = rig
 	builder.world = self
+	builder.day = day
 	builder.on_placed = func(r: Rect2):
 		_clear_grass(r)
-		progress._apply()  # a new building may bring its perk right away
+		progress._apply()
+		_save()
+	builder.on_finished = func(b: Building, up: bool):
+		_clear_grass(b.world_footprint())
+		herd._rescan()
+		progress._apply()  # its perk (or the bigger one) starts now
+		var nm: String = building_ui._entry(b)[0]
+		herd_ui.notify("%s سطح %s شد" % [nm, UiTheme.fa(b.level)] if up else "ساخت %s تموم شد" % nm)
 		_save()
 	add_child(builder)
 	market.day = day
@@ -243,7 +260,8 @@ func _ready() -> void:
 	if _arg("weather", "") != "":  # test: --weather=1 rain, 2 storm, 3 snow
 		weather.now = int(_arg("weather", ""))
 		weather.until = 1e9
-		day.overcast = 0.85 if weather.now == Weather.STORM else 0.5
+		weather._next_roll = 1e9  # --weather=0 stays clear
+		day.overcast = 0.85 if weather.now == Weather.STORM else (0.5 if weather.now != Weather.CLEAR else 0.0)
 	add_child(weather)
 	hud.weather = weather
 	weather.detail = Hud.QUALITY[hud._quality][3]
@@ -292,8 +310,28 @@ func _ready() -> void:
 	building_ui.cow_ui = cow_ui
 	if _arg("cowboard", "") != "":  # test: the first cow's board
 		cow_ui.call_deferred("open", herd.cows[0])
-	building_ui.boards = {herd = herd_ui, breed = breed_ui, workers = workers_ui, market = market_ui, progress = progress_ui}
+	horses.day = day
+	horses.world = self
+	horses.herd = herd
+	horses.builder = builder
+	horses.notify = herd_ui.notify
+	if not saved.is_empty() and saved.has("horses"):
+		horses.from_save(saved.horses)
+	add_child(horses)
+	horse_ui.horses = horses
+	horse_ui.builder = builder
+	add_child(horse_ui)
+	building_ui.horses = horses
+	building_ui.boards = {herd = herd_ui, breed = breed_ui, workers = workers_ui, market = market_ui, progress = progress_ui, horses = horse_ui}
 	add_child(building_ui)
+	if _arg("horses", "") != "":  # test: a stable's worth of horses, --horses=N (some foals, one in foal)
+		for i in int(_arg("horses", "")):
+			var h := horses._add(i % 3 != 0, 1 + i % 5, Horses.ADULT + 1.0 if i < 4 else 2.0 * i)
+			if i == 1:
+				h.foal = 30.0
+				h.sire = 4
+	if _arg("horseboard", "") != "":
+		horse_ui.call_deferred("toggle")
 	if _arg("board", "") != "":  # test: open the board of the first building of this kind, e.g. --board=Barn
 		var bb: Array = get_children().filter(func(n): return n is Building and n.get_script().get_global_name() == _arg("board", ""))
 		if not bb.is_empty():
@@ -520,6 +558,23 @@ func _test_build() -> void:
 		for i in 2:  # let Builder._process validate the spot first
 			await get_tree().process_frame
 		builder.place()
+		var w := _arg("work", "")  # test: --work=0.5 jumps the new site halfway (--work=up@0.5: an upgrade)
+		if w != "" and not builder.sites.is_empty():
+			var b: Building = builder.sites[-1]
+			if w.begins_with("up@"):
+				b.work_left = 0.0
+				b.site.finish()
+				b.site.free()
+				builder.sites.clear()
+				b.work_left = 0.0
+				builder.start_work(b, true)
+				w = w.get_slice("@", 1)
+			b.work_left = b.work_total * (1.0 - float(w))
+			if _arg("freeze", "") != "":
+				day.speed = 0.0
+			b.site.show_at(float(w))
+			if _arg("siteboard", "") != "":  # test: the board of the site
+				building_ui.open(b)
 
 
 ## Hides grass tufts inside a newly placed building's footprint.
@@ -580,6 +635,30 @@ func _shot(shot: String) -> void:
 			rig.target = Vector3(18, 2, -3)
 			rig.dist = 17.0
 			rig.yaw = 0.3
+	var gal := _arg("gallery", "")  # test: --gallery=Barn puts levels 1, 2 and 3 of it side by side
+	if gal != "":
+		var kind: Script = null
+		for c in builder.CATALOG:
+			if c[1].get_global_name() == gal:
+				kind = c[1]
+		var x := 0.0
+		var nodes: Array[Building] = []
+		for lv in [1, 2, 3]:
+			var node: Building = kind.new()
+			node.level = lv
+			var f := node.local_foot_at(lv)
+			var sz := Building.size_of(lv)
+			x += -f.position.x * sz.x
+			node.position = Vector3(x, 0, 0)
+			add_child(node)
+			nodes.append(node)
+			x += f.end.x * sz.x + 4.0
+		var mid := x * 0.5 - 2.0
+		for n in nodes:
+			n.position.x -= mid
+		rig.target = Vector3(0, 2, 0)
+		rig.dist = x * 1.02
+		rig.yaw = 0.0
 	var look := _arg("look", "")  # test: --look=x,z,dist,yaw
 	if look != "":
 		var v := look.split(",")
@@ -632,6 +711,7 @@ func _on_day(d: int) -> void:
 	auction.new_day(d)
 	drive.new_day(d)
 	rodeo.new_day(d)
+	horses.new_day(d)
 	legacy.new_day(d)
 	_save()
 
@@ -647,8 +727,8 @@ func _save() -> void:
 	var buildings := []
 	for n in get_children():
 		if n is Building and not n.has_node("Marker"):
-			buildings.append([n.get_script().resource_path, n.position.x, n.position.z, n.rotation_degrees.y, n.level])
-	SaveGame.write({money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), weather = weather.to_save(), rival = rival.to_save(), ledger = ledger.to_save(), drive = drive.to_save(), delivery = delivery.to_save(), land = land.to_save(), goals = goals.to_save(), legacy = legacy.to_save(), tutorial = tutorial.step if tutorial else 99})
+			buildings.append([n.get_script().resource_path, n.position.x, n.position.z, n.rotation_degrees.y, n.level, n.work_left, n.work_total, n.upgrading])
+	SaveGame.write({yard = 2, money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), weather = weather.to_save(), rival = rival.to_save(), ledger = ledger.to_save(), drive = drive.to_save(), delivery = delivery.to_save(), land = land.to_save(), goals = goals.to_save(), legacy = legacy.to_save(), horses = horses.to_save(), tutorial = tutorial.step if tutorial else 99})
 
 
 # ---------- ground & grass ----------
@@ -754,50 +834,7 @@ func _grass() -> void:
 # ---------- props ----------
 
 func _props() -> void:
-	var hay := StandardMaterial3D.new()
-	hay.albedo_color = Color(0.86, 0.68, 0.33)
-	hay.roughness = 1.0
-	hay.normal_enabled = true
-	hay.normal_texture = load(TEX + "grass_ground_nor_gl.jpg")
-	hay.uv1_triplanar = true
-	hay.albedo_texture = load(TEX + "grass_ground_diff.jpg")
-	hay.uv1_scale = Vector3(3, 3, 3)
-	# hay bale stack in the back corner of the corral (the yard around it is the player's to build on)
-	var spots := [Vector3(7.2, 0.3, -1.0), Vector3(8.4, 0.3, -1.0), Vector3(7.2, 0.3, 0.0), Vector3(8.4, 0.3, 0.0), Vector3(7.8, 0.9, -0.5)]
-	for p: Vector3 in spots:
-		p += Vector3(-29.3, 0, -3.0)
-		var mi := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3(1.15, 0.6, 0.85)
-		mi.mesh = bm
-		mi.material_override = hay
-		mi.position = p
-		mi.rotation.y = randf_range(-0.08, 0.08)
-		add_child(mi)
-	# corral fence on the left
-	var wood := fence_mat
-	var corners := [Vector2(-9, -6), Vector2(-24, -6), Vector2(-24, 12), Vector2(-9, 12)]
-	for i in 3:
-		_fence(corners[i], corners[i + 1], wood)
-	_fence(Vector2(-9, -6), Vector2(-9, 4), wood)
-	# water trough
-	var trough := MeshInstance3D.new()
-	var tm := BoxMesh.new()
-	tm.size = Vector3(0.9, 0.6, 3.0)
-	trough.mesh = tm
-	trough.material_override = wood
-	trough.position = Vector3(-11.5, 0.3, 2)
-	add_child(trough)
-	var water := MeshInstance3D.new()
-	var wm := BoxMesh.new()
-	wm.size = Vector3(0.75, 0.02, 2.85)
-	water.mesh = wm
-	var wmat := StandardMaterial3D.new()
-	wmat.albedo_color = Color(0.15, 0.22, 0.25)
-	wmat.roughness = 0.05
-	water.material_override = wmat
-	water.position = Vector3(-11.5, 0.58, 2)
-	add_child(water)
+	pass  # the old corral, its trough and hay stack are a building now (Corral)
 
 
 ## Rail fence all round the ranch, open where the road comes through the gate at x = gate_x.

@@ -9,8 +9,22 @@ const RZ := 7.0
 const SIDES := 18
 
 
+func upgrades() -> Array:
+	return [4000, 8000]
+
+
+func upgrade_text() -> String:
+	return "جای تماشاچی بیشتر: جایزه و پول بلیت ۲۵ درصد بیشتر"
+
+
+## Share more the home rodeo brings in.
+func prize_mul() -> float:
+	return 1.0 + 0.25 * (level - 1)
+
+
 func _foot() -> Rect2:
-	return Rect2(-RX - 2.6, -RZ - 0.6, (RX + 2.6) * 2, RZ * 2 + 5.4)
+	var z0 := -RZ - 0.6 - (4.8 if level >= 2 else 0.0)  # far-side bleachers from level 2
+	return Rect2(-RX - 2.6, z0, (RX + 2.6) * 2, RZ + 4.8 - z0)
 
 
 func _ready() -> void:
@@ -37,15 +51,27 @@ func _ready() -> void:
 			_box(Vector3(2.4, 2.1, 0.1), Vector3(-RX - 1.3, 1.05, z + side), wood)
 		_box(Vector3(0.1, 1.9, 1.3), Vector3(-RX - 0.05, 0.95, z), red)  # gate
 	_box(Vector3(2.6, 0.12, 4.6), Vector3(-RX - 1.3, 2.15, 0), wood)  # catwalk over the chutes
-	# bleachers outside the +z side
-	for row in 4:
-		var y := 0.45 + row * 0.45
-		var z := RZ + 1.0 + row * 0.75
-		_box(Vector3(12.0, 0.1, 0.55), Vector3(0, y, z), wood)  # seat
-		_box(Vector3(12.0, 0.45, 0.06), Vector3(0, y - 0.22, z - 0.3), wood)  # riser
-	for x in [-6.0, -2.0, 2.0, 6.0]:
-		_beam(Vector3(x, 0, RZ + 0.8), Vector3(x, 1.85, RZ + 3.5), 0.14, wood)
-		_box(Vector3(0.14, 1.9, 0.14), Vector3(x, 0.95, RZ + 3.5), wood)
+	# bleachers outside the +z side (and the -z side from level 2)
+	for side in ([1.0, -1.0] if level >= 2 else [1.0]):
+		for row in 4:
+			var y := 0.45 + row * 0.45
+			var z: float = (RZ + 1.0 + row * 0.75) * side
+			_box(Vector3(12.0, 0.1, 0.55), Vector3(0, y, z), wood)  # seat
+			_box(Vector3(12.0, 0.45, 0.06), Vector3(0, y - 0.22, z - 0.3 * side), wood)  # riser
+		for x in [-6.0, -2.0, 2.0, 6.0]:
+			_beam(Vector3(x, 0, (RZ + 0.8) * side), Vector3(x, 1.85, (RZ + 3.5) * side), 0.14, wood)
+			_box(Vector3(0.14, 1.9, 0.14), Vector3(x, 0.95, (RZ + 3.5) * side), wood)
+	if level >= 3:  # pennants round the ring and two light towers
+		for i in 8:
+			var a := TAU * (i + 0.5) / 8.0
+			var p := Vector3(cos(a) * (RX + 0.4), 0, sin(a) * (RZ + 0.4))
+			_beam(p, p + Vector3(0, 4.2, 0), 0.06, iron)
+			_box(Vector3(0.7, 0.45, 0.03), p + Vector3(0.36, 3.95, 0), red if i % 2 == 0 else white)
+		for s in [-1.0, 1.0]:
+			var t := Vector3(s * (RX + 1.6), 0, 0)
+			_beam(t, t + Vector3(0, 7.5, 0), 0.22, wood)
+			_box(Vector3(1.8, 0.7, 0.3), t + Vector3(0, 7.6, 0), iron)
+			_box(Vector3(1.6, 0.5, 0.08), t + Vector3(-0.2 * s, 7.6, 0), window_mat, Vector3(0, PI * 0.5, 0))
 	# announcer's stand with a flag, at the +x end of the bleachers
 	var ax := 7.6
 	var az := RZ + 2.6

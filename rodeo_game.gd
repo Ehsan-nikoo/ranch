@@ -157,6 +157,11 @@ func home() -> bool:
 	return Building.built(world, RodeoArena)
 
 
+## Prize at your own arena: a bigger arena draws a bigger crowd.
+func _home_prize() -> int:
+	return int(HOME_PRIZE * (1.0 + 0.25 * (Building.best_level(world, RodeoArena) - 1)))
+
+
 ## Called at each day change: the town rodeo on the first day of summer, or every season at home.
 func new_day(d: int) -> void:
 	if d % DayCycle.DAYS_PER_SEASON == 0 and (home() or day.season() == DayCycle.SUMMER):
@@ -207,7 +212,7 @@ func _invite() -> void:
 	_home = home()
 	won = false
 	_title.text = "رودئو تو میدون خودت!" if _home else "رودئوی شهر!"
-	var prize := HOME_PRIZE if _home else PRIZE
+	var prize := _home_prize() if _home else PRIZE
 	_rival_t = rival.rodeo_time() if rival and not _home else 0.0
 	_text.text = "هرکی %s ثانیه رو گاو وحشی بمونه، %s دلار جایزه می‌بره%s. ورودی %s دلاره. با دکمه‌های چپ و راست خودت رو صاف نگه دار." % [UiTheme.fa(int(RIDE)), UiTheme.fa(prize), " و رنچت معروف‌تر می‌شه" if _home else "", UiTheme.fa(FEE)]
 	if _rival_t > 0.0:
@@ -243,7 +248,7 @@ func _end(stayed: bool) -> void:
 	_ring.queue_redraw()
 	if stayed:
 		won = true
-		var prize := HOME_PRIZE if _home else PRIZE
+		var prize := _home_prize() if _home else PRIZE
 		var tie := _rival_t >= RIDE  # the neighbour stayed on too: the prize is shared
 		if tie:
 			prize /= 2

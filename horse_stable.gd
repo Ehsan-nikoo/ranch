@@ -13,8 +13,23 @@ const SHED := 2.0  # shed roof over the stall doors
 const STALLS := 5
 
 
+## Horses it has stalls for (horse breeding).
+func stalls() -> int:
+	return 4 + 3 * (level - 1)
+
+
+func upgrades() -> Array:
+	return [2500, 5000]
+
+
+func upgrade_text() -> String:
+	return "جای ۳ اسب دیگه برای پرورش اسب"
+
+
 func _foot() -> Rect2:
-	return Rect2(-W - 0.5, -D - 0.5, W * 2 + 1.0, D * 2 + SHED + 2.2)  # shed and hitching rail on +z
+	var x0 := -W - 0.5 - (4.4 if level >= 3 else 0.0)  # tack room on -x at level 3
+	var z0 := -D - 0.5 - (6.0 if level >= 2 else 0.0)  # paddock out the back from level 2
+	return Rect2(x0, z0, W + 0.5 - x0, D + SHED + 2.2 - z0)  # shed and hitching rail on +z
 
 
 func _ready() -> void:
@@ -35,6 +50,14 @@ func _ready() -> void:
 	_stalls()
 	_cupola()
 	_rail()
+	if level >= 2:  # a fenced paddock behind the stalls
+		_box(Vector3(W * 2, 0.05, 5.6), Vector3(0, 0.025, -D - 3.3), _mud())
+		_pen(Vector3(0, 0, -D - 3.3), W, 2.8, white, 0.0, 1.4)
+	if level >= 3:  # a tack room for the saddles
+		var tack := _wing(Vector3(-W - 2.2, 0, -0.4), 2.0, 2.5, 2.7, 4.0, red)
+		tack._window(Vector3(0, 1.7, 2.5), Vector3(0, 0, 1))
+		tack._box(Vector3(0.9, 2.0, 0.06), Vector3(-2.03, 1.0, 0.6), green, Vector3(0, PI * 0.5, 0))
+		MeshMerge.boxes(tack)
 	MeshMerge.boxes(self)
 
 

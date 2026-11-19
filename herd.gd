@@ -305,6 +305,10 @@ func _rescan() -> void:
 	for n in world.get_children():
 		if n is not Building or n.has_node("Marker"):  # Marker = still a ghost being placed
 			continue
+		if n.work_left > 0.0 and not (n.upgrading and (n is Windmill or n is Pond)):
+			_rects.append(n.work_rect.grow(0.4))  # a building site: keep off it (but not off the water)
+		if not n.works():
+			continue
 		hay_cap += n.hay_room()
 		shelter += n.shelter_room()
 		if n.hay_room() > 0:
@@ -315,11 +319,12 @@ func _rescan() -> void:
 		if n is Windmill:
 			_rects.append(n.world_footprint(Rect2(-1.6, -1.6, 3.2, 3.2)))  # tower only, tank is a circle
 			if not n.broken:
-				_tanks.append(n.to_global(Windmill.TANK))
-				_tank_r.append(Windmill.TANK_R)
+				for t in n.tanks():
+					_tanks.append(n.to_global(t))
+					_tank_r.append(Windmill.TANK_R * n.scale.x)
 		elif n is Pond:  # round water, no fence: cows walk right up to the rim
 			_tanks.append(n.global_position)
-			_tank_r.append(Pond.R)
+			_tank_r.append(Pond.R * n.scale.x)
 		else:
 			_rects.append(n.world_footprint().grow(0.4))
 	hay = minf(hay, hay_cap)

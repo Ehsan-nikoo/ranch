@@ -18,6 +18,7 @@ var save: Callable
 var boards := {}           # name -> board with toggle(): herd, breed, workers, market, progress
 var hay_buy: Callable      # HerdUI.buy_hay
 var cow_ui: CowUI          # a tap on a cow opens hers instead
+var horses: Horses
 
 var _b: Building
 var _panel: PanelContainer
@@ -29,6 +30,7 @@ var _state := UiTheme.label("", 26, Color(0.42, 0.12, 0.05))
 var _row := HBoxContainer.new()
 var _down := Vector2.INF
 var _sure := false
+var _busy := false
 var _tick := 0.0
 
 
@@ -126,17 +128,25 @@ func close() -> void:
 func _process(delta: float) -> void:
 	if not _panel.visible:
 		return
-	if not is_instance_valid(_b):
+	if not is_instance_valid(_b) or not _b.is_inside_tree():  # knocked down, or swapped for its upgrade
 		close()
 		return
 	_tick -= delta
 	if _tick <= 0.0:
 		_tick = 0.5
+		if _busy != (_b.work_left > 0.0):  # the work just finished: the full board now
+			_refresh()
 		_state.text = _status_all(_b)
 
 
-## Level line plus the building's own status.
+## Level line plus the building's own status (or how the work on it is going).
 func _status_all(b: Building) -> String:
+	if b.work_left > 0.0:
+		var pct := int(100.0 * (1.0 - b.work_left / b.work_total))
+		var mins := Builder.minutes_left(b)
+		var what := "داره سطح %s می‌شه" % UiTheme.fa(b.level + 1) if b.upgrading else "داره ساخته می‌شه"
+		var w := "%s: %s درصد کار تموم شده، حدود %s دقیقه‌ی دیگه." % [what, UiTheme.fa(pct), UiTheme.fa(mins)]
+		return w + ("\n" + _status(b) if b.upgrading else "")
 	var s := _status(b)
 	if not b.upgrades().is_empty():
 		s = "سطح %s از %s.  %s" % [UiTheme.fa(b.level), UiTheme.fa(b.upgrades().size() + 1), s]
@@ -144,21 +154,32 @@ func _status_all(b: Building) -> String:
 
 
 func _refresh() -> void:
+	_busy = _b.work_left > 0.0
 	_state.text = _status_all(_b)
 	for c in _row.get_children():
 		c.queue_free()
-	for a in _actions(_b):
-		_add(a[0], a[1], a[2], a[3] if a.size() > 3 else false)
+	if not _busy or _b.upgrading:  # a site still going up has nothing to offer yet
+		for a in _actions(_b):
+			_add(a[0], a[1], a[2], a[3] if a.size() > 3 else false)
 	var ups: Array = _b.upgrades()
-	if _b.level - 1 < ups.size():
+	if _b.level - 1 < ups.size() and not _busy:
 		var cost: int = ups[_b.level - 1]
-		_add("ارتقا  %s دلار" % UiTheme.fa(cost), "star", _upgrade.bind(cost), builder.money < cost)
-		_about.text = "%s\nارتقای بعدی: %s" % [_entry(_b)[4], _b.upgrade_text()]
+		var room := _room(_b)
+		_add("ارتقا  %s دلار" % UiTheme.fa(cost) if room else "برای ارتقا جا نیست", "star", _upgrade.bind(cost), builder.money < cost or not room)
+		_about.text = "%s\nارتقای بعدی: %s (بزرگ‌تر هم می‌شه)" % [_entry(_b)[4], _b.upgrade_text()]
 	else:
 		_about.text = _entry(_b)[4]
-	_add("جابه‌جا کن", "rotate", _move)
+	if not _busy:
+		_add("جابه‌جا کن", "rotate", _move)
 	var back := _refund(_b)
 	_add("مطمئنی؟ خرابش کن" if _sure else "خراب کن  %s+ دلار" % UiTheme.fa(back), "cancel", _knock_down)
+
+
+## Is there room on your land for the bigger building the next level makes?
+func _room(b: Building) -> bool:
+	var own := b.world_footprint()
+	var r := b.footprint_at(b.level + 1)
+	return builder.land.rect_open(r) and not builder.occupied.any(func(o: Rect2): return o != own and o.intersects(r))
 
 
 func _add(text: String, icon: String, cb: Callable, off := false) -> void:
@@ -203,7 +224,9 @@ func _status(b: Building) -> String:
 	if b is RodeoArena:
 		return "اول هر فصل اینجا رودئو برگزار می‌شه."
 	if b is HorseStable:
-		return "کارگرها سوار اسب‌ان و گاو بیشتری رو می‌چرخونن."
+		return "کارگرها سوار اسب‌ان و گاو بیشتری رو می‌چرخونن.\nاسب‌ها: %s تا، جا برای %s تا." % [UiTheme.fa(horses.list.size()), UiTheme.fa(horses.room())]
+	if b is Corral:
+		return "اسب‌ها روزها اینجا می‌چرخن. الان %s تا اسب داری." % UiTheme.fa(horses.list.size())
 	if b is Blacksmith:
 		return "آسیاب‌ها خراب نمی‌شن و خرج هر گاو کمتره."
 	return ""
@@ -227,7 +250,9 @@ func _actions(b: Building) -> Array:
 		return [["دامداری", "vet", _open_board.bind("breed")]]
 	if b is Station or b is Saloon:
 		return [["بازار", "market", _open_board.bind("market")]]
-	if b is RodeoArena or b is Watchtower or b is Kennel or b is HorseStable:
+	if b is HorseStable or b is Corral:
+		return [["اسب‌ها", "horse", _open_board.bind("horses")]]
+	if b is RodeoArena or b is Watchtower or b is Kennel:
 		return [["رنچ", "star", _open_board.bind("progress")]]
 	return []
 
@@ -236,12 +261,13 @@ func _refund(b: Building) -> int:
 	return int(_entry(b)[2] * 0.5)
 
 
+## Pays for the next level and puts the building into the builders' hands: scaffolding goes up round
+## the bigger footprint, and when the work is done the bigger building stands in its place.
 func _upgrade(cost: int) -> void:
-	if builder.money < cost:
+	if builder.money < cost or not _room(_b):
 		return
 	builder.add_money(-cost, "build")
-	_b.level += 1
-	progress._apply()  # bigger perks right away
+	builder.start_work(_b, true)
 	save.call()
 	_refresh()
 
@@ -259,7 +285,7 @@ func _knock_down() -> void:
 		return
 	var b := _b
 	close()
-	builder.occupied.erase(b.world_footprint())
+	builder.occupied.erase(b.work_rect if b.work_left > 0.0 and b.upgrading else b.world_footprint())
 	builder.add_money(_refund(b), "build")
 	world.remove_child(b)  # off the ranch right away, so the save and the herd don't see it
 	b.queue_free()

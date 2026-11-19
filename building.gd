@@ -58,7 +58,16 @@ func _init() -> void:
 	water = _mats.water
 
 
-var level := 1   # raised with upgrades bought on the building's board
+var level := 1   # raised with upgrades bought on the building's board; each level is bigger and fancier
+
+const GROW := 0.14          # each level is this much wider and longer (and a bit taller)
+
+# Building work: a new building goes up bit by bit, and an upgrade takes time too (see Site).
+var work_left := 0.0        # game hours of work still to do; 0 = finished
+var work_total := 0.0
+var upgrading := false      # the work is an upgrade: meanwhile the building still does its job at its old level
+var work_rect := Rect2()    # world x/z the work takes up (the bigger footprint, for an upgrade)
+var site: Site
 
 
 ## Prices of the next upgrades (to level 2, 3...); [] if this kind can't be upgraded. Subclasses override.
@@ -71,18 +80,82 @@ func upgrade_text() -> String:
 	return ""
 
 
+## Does its job: not a ghost being placed, and not a new building still going up.
+func works() -> bool:
+	return not has_node("Marker") and (work_left <= 0.0 or upgrading)
+
+
+## Scale of a building at `lv`: wider and longer each level, a little taller.
+static func size_of(lv: int) -> Vector3:
+	var k := GROW * (lv - 1)
+	return Vector3(1.0 + k, 1.0 + k * 0.5, 1.0 + k)
+
+
+func _enter_tree() -> void:
+	scale = size_of(level)
+
+
+## Hours of game time to put up level `lv` of a building whose price is `cost`: two minutes at normal
+## speed for the cheapest, longer for the big ones, and longer again for each upgrade.
+static func work_hours(cost: int, lv: int) -> float:
+	var minutes := (2.0 + cost / 3000.0) * (1.0 + 0.6 * (lv - 1))
+	return minutes * 60.0 / DayCycle.SECONDS_PER_HOUR
+
+
+## The building's own footprint (unscaled) at level `lv`: wings added by upgrades widen it.
+func local_foot_at(lv: int) -> Rect2:
+	var keep := level
+	level = lv
+	var f := _foot()
+	level = keep
+	return f
+
+
+## Footprint in world x/z the building would have at level `lv` (bigger levels spread out further).
+func footprint_at(lv: int) -> Rect2:
+	var keep := level
+	var sc := scale
+	level = lv
+	scale = size_of(lv)
+	var r := world_footprint()
+	level = keep
+	scale = sc
+	return r
+
+
 ## Highest level of the finished buildings of `kind` (0 when there's none).
 static func best_level(world: Node, kind: Script) -> int:
 	var best := 0
 	for n in world.get_children():
-		if n.get_script() == kind and not n.has_node("Marker"):
+		if n.get_script() == kind and n.works():
 			best = maxi(best, n.level)
 	return best
 
 
-## True when a finished building of `kind` stands on the ranch (a ghost being placed doesn't count).
+## True when a finished building of `kind` stands on the ranch (not a ghost, not a site still going up).
 static func built(world: Node, kind: Script) -> bool:
+	return world.get_children().any(func(n): return n.get_script() == kind and n.works())
+
+
+## True once a building of `kind` has been put down, finished or still going up.
+static func placed(world: Node, kind: Script) -> bool:
 	return world.get_children().any(func(n): return n.get_script() == kind and not n.has_node("Marker"))
+
+
+## A smaller gabled wing beside the main block, centred at `at` (ridge along x, gables facing +-x), on a
+## stone footing. Built as a little building of its own so its walls don't share the main eave shading.
+func _wing(at: Vector3, w: float, d: float, eave_h: float, ridge: float, wall: StandardMaterial3D, lap := false) -> Building:
+	var b := Building.new()
+	b.position = at
+	add_child(b)
+	b.scale = Vector3.ONE
+	b._gabled(w, d, eave_h, ridge, 0.35, wall, lap)
+	b._box(Vector3(w * 2 + 0.25, 0.35, d * 2 + 0.25), Vector3(0, 0.1, 0), stone)
+	for x in [-w, w]:
+		for z in [-d, d]:
+			b._box(Vector3(0.16, eave_h, 0.16), Vector3(x, eave_h * 0.5, z), white)
+	MeshMerge.boxes(b)
+	return b
 
 
 ## Ground area the building occupies, in its own x/z. Subclasses override.

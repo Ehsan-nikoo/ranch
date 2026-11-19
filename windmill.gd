@@ -19,14 +19,24 @@ func _process(delta: float) -> void:
 
 
 func upgrades() -> Array:
-	return [600]
+	return [600, 1200]
 
 
 func upgrade_text() -> String:
-	return "پره‌های آهنی: دیگه باد خرابش نمی‌کنه"
+	return "پره‌های آهنی: دیگه باد خرابش نمی‌کنه" if level == 1 else "یه آب‌خوری دیگه: گاوهای بیشتری با هم آب می‌خورن"
+
+
+## Stock tanks, local: a second one on the other side from level 3.
+func tanks() -> Array[Vector3]:
+	var t: Array[Vector3] = [TANK]
+	if level >= 3:
+		t.append(Vector3(-TANK.x, 0, TANK.z))
+	return t
 
 
 func _foot() -> Rect2:
+	if level >= 3:
+		return Rect2(-6.0, -3.3, 12.2, 7.0)
 	return Rect2(-1.6, -3.3, 7.8, 7.0)  # tower, tail swing and stock tank
 
 
@@ -65,13 +75,13 @@ func _head() -> void:
 	var y := TOP + 0.45
 	_box(Vector3(0.45, 0.45, 1.0), Vector3(0, y, 0), iron)  # gearbox
 	_beam(Vector3(0, y, -0.4), Vector3(0, y + 0.1, -2.6), 0.06, steel)  # tail boom
-	_box(Vector3(0.03, 1.0, 1.5), Vector3(0, y + 0.25, -2.9), white)  # tail vane
+	_box(Vector3(0.03, 1.0, 1.5), Vector3(0, y + 0.25, -2.9), red if level >= 2 else white)  # tail vane
 	wheel.position = Vector3(0, y, 0.6)
 	add_child(wheel)
 	var blades := 18
 	for k in blades:
 		var a := TAU * k / blades
-		var b := _box(Vector3(0.3, 1.15, 0.02), Vector3(sin(a), cos(a), 0) * 1.0, steel)
+		var b := _box(Vector3(0.3, 1.15, 0.02), Vector3(sin(a), cos(a), 0) * 1.0, iron if level >= 2 else steel)  # iron blades from level 2
 		b.basis = Basis(Vector3.BACK, -a) * Basis(Vector3.UP, 0.35)  # radial, pitched like a fan blade
 		b.reparent(wheel, false)
 		var r := _beam(Vector3(sin(a), cos(a), 0) * 1.55, Vector3(sin(a + TAU / blades), cos(a + TAU / blades), 0) * 1.55, 0.04, iron)
@@ -83,8 +93,10 @@ func _head() -> void:
 
 
 func _tank() -> void:
-	var c := TANK
-	_cyl(TANK_R, 0.85, c + Vector3(0, 0.42, 0), steel, 32)
-	# water sits just above the closed cylinder top so the tank reads as brim-full
-	_cyl(2.1, 0.02, c + Vector3(0, 0.86, 0), water, 32)
-	_beam(Vector3(0.2, 0.5, 0.1), c + Vector3(-1.9, 1.0, -0.6), 0.07, iron)  # outlet pipe
+	for c in tanks():
+		_cyl(TANK_R, 0.85, c + Vector3(0, 0.42, 0), steel, 32)
+		# water sits just above the closed cylinder top so the tank reads as brim-full
+		_cyl(2.1, 0.02, c + Vector3(0, 0.86, 0), water, 32)
+		_beam(Vector3(0.2 * signf(c.x), 0.5, 0.1), c + Vector3(-1.9 * signf(c.x), 1.0, -0.6), 0.07, iron)  # outlet pipe
+	if level >= 2:  # a concrete apron round the foot of the tower
+		_box(Vector3(3.4, 0.08, 3.4), Vector3(0, 0.04, 0), concrete)

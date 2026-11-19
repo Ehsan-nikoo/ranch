@@ -12,8 +12,22 @@ const OVER := 0.4
 const SHED := 3.2  # open shed on +x
 
 
+func upgrades() -> Array:
+	return [2500, 5000]
+
+
+func upgrade_text() -> String:
+	return "خرج هر گاو روزی ۱ دلار دیگه هم کمتر می‌شه"
+
+
+## Dollars off each cow's daily upkeep.
+func saving() -> int:
+	return 2 + (level - 1)
+
+
 func _foot() -> Rect2:
-	return Rect2(-W - 0.5, -D - 0.5, W * 2 + SHED + 1.2, D * 2 + 1.6)
+	var x0 := -W - 0.5 - (4.8 if level >= 3 else 0.0)  # the wagon shop on -x at level 3
+	return Rect2(x0, -D - 0.5, W + SHED + 0.7 - x0, D * 2 + 1.6)
 
 
 func _ready() -> void:
@@ -73,5 +87,19 @@ func _ready() -> void:
 		var r := a * PI / 4.0
 		_beam(Vector3.ZERO, Vector3(sin(r), cos(r), 0) * 0.65, 0.05, wood).reparent(wheel, false)
 		_beam(Vector3(sin(r), cos(r), 0) * 0.68, Vector3(sin(r + PI / 4.0), cos(r + PI / 4.0), 0) * 0.68, 0.09, wood).reparent(wheel, false)
+	if level >= 2:  # a second forge: another chimney, and a heap of coal by the door
+		_box(Vector3(1.0, RIDGE + 1.2, 1.0), Vector3(W - 1.0, (RIDGE + 1.2) * 0.5, -0.8), stone)
+		_box(Vector3(1.15, 0.12, 1.15), Vector3(W - 1.0, RIDGE + 1.25, -0.8), iron)
+		var coal := _plain(Color(0.08, 0.08, 0.08), 0.9)
+		for k in 5:
+			_box(Vector3(0.5, 0.3, 0.45), Vector3(-W * 0.7 + (k % 3) * 0.42, 0.15 + (k / 3) * 0.24, D + 0.6), coal, Vector3(0, k * 0.7, 0))
+	if level >= 3:  # a wagon shop with a wagon waiting outside
+		var shop := _wing(Vector3(-W - 2.45, 0, 0), 2.3, 2.4, 2.8, 4.2, red)
+		shop._x_panel(0, 1.2, 2.0, 2.2, 2.45)
+		MeshMerge.boxes(shop)
+		var bed := Vector3(-W - 2.4, 0, D + 1.1)
+		_box(Vector3(2.6, 0.12, 1.2), bed + Vector3(0, 0.9, 0), wood)
+		for s in [-0.6, 0.6]:
+			_box(Vector3(2.6, 0.35, 0.06), bed + Vector3(0, 1.12, s), wood)
 	MeshMerge.boxes(self)
 	MeshMerge.boxes(wheel)

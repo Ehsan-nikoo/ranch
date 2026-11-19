@@ -57,7 +57,8 @@ func active(name: String) -> bool:
 
 func _process(_delta: float) -> void:
 	herd.growth_mul = 0.15 if active("drought") else 1.0
-	herd.thirst_mul = (1.15 if Building.built(world, Pond) else 1.6) if active("drought_dry") else 1.0  # a pond holds water longer
+	var pond := Building.best_level(world, Pond)  # a pond holds water longer; a bigger one longer still
+	herd.thirst_mul = ((1.2 - 0.07 * pond) if pond > 0 else 1.6) if active("drought_dry") else 1.0
 	herd.cold_mul = 3.0 if active("blizzard") else 1.0
 	if effects.has("windmill") and not active("windmill"):
 		effects.erase("windmill")
@@ -86,7 +87,7 @@ func new_day(d: int) -> void:
 		pool.append([2, _rustlers])
 	if s in [DayCycle.SPRING, DayCycle.SUMMER] and n > 0:
 		pool.append([2, _outbreak])
-	var smith := world.get_children().any(func(b): return b is Blacksmith and not b.has_node("Marker"))
+	var smith := world.get_children().any(func(b): return b is Blacksmith and b.works())
 	var iron := _windmills().all(func(m): return m.level >= 2)  # upgraded mills don't break
 	if _windmills().size() > 0 and not effects.has("windmill") and not smith and not iron:  # the smith keeps them mended
 		pool.append([2, _windmill])
@@ -192,7 +193,7 @@ func _rustlers() -> void:
 
 
 func _resolve_rustlers() -> void:
-	if Building.built(world, Watchtower) and _rng.randf() < 0.6:
+	if Building.built(world, Watchtower) and _rng.randf() < 0.5 + 0.1 * Building.best_level(world, Watchtower):
 		notify.call("دیشب از بالای برج دیده‌بانی دزدها رو از دور دیدن و دزدها پا به فرار گذاشتن")
 	elif _rng.randf() < 0.7:
 		var n := herd.take(_rng.randi_range(2, 4), false)
@@ -202,7 +203,7 @@ func _resolve_rustlers() -> void:
 
 
 func _resolve_sheriff() -> void:
-	if _rng.randf() < (0.8 if Building.built(world, Watchtower) else 0.5):  # the tower tells the sheriff where they are
+	if _rng.randf() < (0.7 + 0.08 * Building.best_level(world, Watchtower) if Building.built(world, Watchtower) else 0.5):  # the tower tells the sheriff where they are
 		builder.add_money(150, "prize")
 		notify.call("کلانتر دزدها رو گرفت و ۱۵۰ دلار جایزه گرفتی")
 	else:
@@ -237,7 +238,7 @@ func _windmill() -> void:
 
 
 func _windmills() -> Array:
-	return world.get_children().filter(func(n): return n is Windmill and not n.has_node("Marker"))
+	return world.get_children().filter(func(n): return n is Windmill and n.works())
 
 
 ## Breaks (or mends) the windmills; with more than one, the first keeps pumping so the herd isn't left dry.

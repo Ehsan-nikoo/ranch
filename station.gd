@@ -14,6 +14,19 @@ const HALF := 12.5   # half length of the track
 static var _paint: StandardMaterial3D
 
 
+func upgrades() -> Array:
+	return [6000, 12000]
+
+
+func upgrade_text() -> String:
+	return "قطار بیشتری میاد: هر فروش ۵ درصد دیگه گرون‌تر"
+
+
+## Extra share on every sale with the station: 10%, then 15%, then 20%.
+func bonus() -> float:
+	return 0.1 + 0.05 * (level - 1)
+
+
 func _foot() -> Rect2:
 	return Rect2(-HALF, -D - 0.5, HALF * 2, D + 0.5 + TRACK + 1.8)
 
@@ -44,6 +57,16 @@ func _ready() -> void:
 		_box(Vector3(HALF * 2, 0.14, 0.08), Vector3(0, 0.3, TRACK + s), steel)
 	_stock_car(Vector3(6.2, 0, TRACK))
 	_water_tower(Vector3(-HALF + 2.2, 0, TRACK - 3.0))
+	if level >= 2:  # a freight shed beside the depot
+		var shed := _wing(Vector3(-W - 2.9, 0, 0.0), 2.4, 2.0, 2.9, 4.1, red)
+		shed._x_panel(0, 1.2, 1.8, 2.2, 2.05)
+		MeshMerge.boxes(shed)
+	if level >= 3:  # a second stock car and a loading pen with a ramp at the far end
+		_stock_car(Vector3(-3.6, 0, TRACK))
+		var pc := Vector3(HALF - 2.0, 0, TRACK - 3.4)
+		_box(Vector3(3.4, 0.05, 2.4), pc + Vector3(0, 0.025, 0), _mud())
+		_pen(pc, 1.7, 1.2, white, 0.0, 1.4)
+		_beam(pc + Vector3(0, 0.1, 1.2), pc + Vector3(0, 1.05, 2.5), 0.9, wood)  # ramp up to the car door
 	MeshMerge.boxes(self)
 
 

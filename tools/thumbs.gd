@@ -7,7 +7,7 @@ extends Node
 var LIST := [["barn", Barn, 40.0, 3.5], ["house", RanchHouse, 26.0, 2.0], ["silo", Silo, 34.0, 6.5], ["windmill", Windmill, 29.0, 5.0], ["cow", null, 7.5, 0.8],
 	["stable", HorseStable, 36.0, 2.2], ["smithy", Blacksmith, 28.0, 2.2], ["rodeo", RodeoArena, 44.0, 1.0],
 	["pond", Pond, 22.0, 0.0], ["hay", HayShed, 34.0, 2.5], ["kennel", Kennel, 20.0, 0.6], ["tower", Watchtower, 26.0, 4.5],
-	["feedlot", Feedlot, 32.0, 1.0], ["vet", VetClinic, 26.0, 2.0], ["saloon", Saloon, 30.0, 3.0], ["train", Station, 46.0, 2.0]]
+	["feedlot", Feedlot, 32.0, 1.0], ["vet", VetClinic, 26.0, 2.0], ["saloon", Saloon, 30.0, 3.0], ["train", Station, 46.0, 2.0], ["corral", Corral, 34.0, 0.8]]
 # --only=a,b renders just those
 var ONLY := []
 

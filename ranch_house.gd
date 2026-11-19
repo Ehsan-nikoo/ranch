@@ -24,7 +24,9 @@ func upgrade_text() -> String:
 
 
 func _foot() -> Rect2:
-	return Rect2(-W - 0.4, -D - 0.4, W * 2 + 0.8, D * 2 + PORCH + 1.4)  # porch and steps on +z
+	var x0 := -W - 0.4 - (4.5 if level >= 3 else 0.0)  # bunk-room wings from level 2
+	var x1 := W + 0.4 + (4.5 if level >= 2 else 0.0)
+	return Rect2(x0, -D - 0.4, x1 - x0, D * 2 + PORCH + 1.4)  # porch and steps on +z
 
 
 func _ready() -> void:
@@ -35,6 +37,13 @@ func _ready() -> void:
 	_openings()
 	_box(Vector3(0.9, RIDGE + 0.9, 0.9), Vector3(-2.8, (RIDGE + 0.9) * 0.5, -1.2), stone)  # chimney
 	_box(Vector3(1.05, 0.12, 1.05), Vector3(-2.8, RIDGE + 0.95, -1.2), iron)
+	for side in ([1.0] if level == 2 else ([1.0, -1.0] if level >= 3 else [])):
+		var wg := _wing(Vector3((W + 2.2) * side, 0, -0.3), 2.3, 2.9, 2.8, 4.3, siding, true)
+		wg._window(Vector3(0, 1.6, 2.9), Vector3(0, 0, 1), null, green)
+		wg._window(Vector3(2.3 * side, 1.6, 0), Vector3(side, 0, 0), null, green)
+		if side < 0.0:  # a second chimney on the far wing
+			wg._box(Vector3(0.8, 4.9, 0.8), Vector3(-1.2, 2.45, -1.0), stone)
+		MeshMerge.boxes(wg)
 	MeshMerge.boxes(self)
 
 

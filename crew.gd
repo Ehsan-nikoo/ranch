@@ -50,7 +50,7 @@ func _night() -> bool:
 
 ## Is there a ranch house to sleep in? With none built yet the hands sleep out by their horses.
 func _housed() -> bool:
-	return world.get_children().any(func(n): return n is RanchHouse and not n.has_node("Marker"))
+	return world.get_children().any(func(n): return n is RanchHouse and n.works())
 
 
 ## Off to bed: the door of the nearest ranch house (the hands' bunkhouse), or the porch spot.
@@ -58,7 +58,7 @@ func _bed(from: Vector3) -> Vector3:
 	var best := HOME
 	var d := INF
 	for n in world.get_children():
-		if n is RanchHouse and not n.has_node("Marker") and n.door().distance_to(from) < d:
+		if n is RanchHouse and n.works() and n.door().distance_to(from) < d:
 			d = n.door().distance_to(from)
 			best = n.door()
 	return best
@@ -86,12 +86,12 @@ func _next(r: Dictionary) -> Vector3:
 				var a: float = TAU * (r.leg % 12) / 12.0
 				return herd.free_spot(Vector3(cos(a), 0, sin(a)) * h, 3.0)
 		Workers.MECHANIC:
-			var spots := world.get_children().filter(func(n): return (n is Windmill or n is Barn) and not n.has_node("Marker"))
+			var spots := world.get_children().filter(func(n): return (n is Windmill or n is Barn) and n.works())
 			if not spots.is_empty():
 				var b: Building = spots[r.leg % spots.size()]
 				return herd.free_spot(b.feed_spot() if b is Barn else b.to_global(Windmill.TANK + Vector3(0, 0, 3.6)), 2.0)
 		Workers.HAND:
-			var barns := world.get_children().filter(func(n): return n is Barn and not n.has_node("Marker"))
+			var barns := world.get_children().filter(func(n): return n is Barn and n.works())
 			if r.leg % 2 == 0 and not barns.is_empty():  # the barn apron
 				return herd.free_spot(barns[r.leg / 2 % barns.size()].feed_spot(), 3.0)
 			return herd.free_spot(Vector3(_rng.randf_range(-40, 40), 0, _rng.randf_range(-40, 40)), 6.0)

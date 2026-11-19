@@ -53,12 +53,12 @@ func _new_candidates() -> void:
 
 ## Bunks in the ranch houses.
 func slots() -> int:
-	return maxi(BUNKS, world.get_children().filter(func(n): return n is RanchHouse and not n.has_node("Marker")).reduce(func(a, h): return a + h.bunks(), 0))
+	return maxi(BUNKS, world.get_children().filter(func(n): return n is RanchHouse and n.works()).reduce(func(a, h): return a + h.bunks(), 0))
 
 
 ## Hands on horseback from the stable cover more ground.
 func mounted() -> bool:
-	return world.get_children().any(func(n): return n is HorseStable and not n.has_node("Marker"))
+	return world.get_children().any(func(n): return n is HorseStable and n.works())
 
 
 ## Best level among the hands with `skill`, 0 if none.
@@ -107,7 +107,8 @@ func _apply() -> void:
 	var over := maxf(0.0, float(n) / capacity() - 1.0)
 	var h := best(HERDER)
 	herd.sick_mul = (1.0 + over * 2.0) * (1.0 - 0.2 * h)
-	herd.cure_mul = 1.0 + h + (2.0 if Building.built(world, VetClinic) else 0.0)
+	var vet := Building.best_level(world, VetClinic)
+	herd.cure_mul = 1.0 + h + (1.0 + vet if vet > 0 else 0.0)
 
 
 func new_day(d: int) -> void:

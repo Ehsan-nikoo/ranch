@@ -21,7 +21,7 @@ func upgrade_text() -> String:
 
 
 func _foot() -> Rect2:
-	return Rect2(-W - 0.5, -D - 0.5, W * 2 + 1.0, D * 2 + PORCH + 2.4)
+	return Rect2(-W - 0.5, -D - 0.5, W * 2 + 1.0 + (5.2 if level >= 3 else 0.0), D * 2 + PORCH + 2.4)
 
 
 func _ready() -> void:
@@ -56,4 +56,23 @@ func _ready() -> void:
 	for x in [-2.6, 2.6]:  # hitching rail
 		_box(Vector3(0.16, 1.1, 0.16), Vector3(x, 0.55, rz), wood)
 	_box(Vector3(5.6, 0.12, 0.12), Vector3(0, 1.0, rz), wood)
+	if level >= 2:  # a balcony on the porch roof, an upstairs door and lanterns
+		var by := 3.62
+		for k in 5:
+			var x := lerpf(-W, W, k / 4.0)
+			_box(Vector3(0.12, 0.95, 0.12), Vector3(x, by + 0.48, z + PORCH - 0.15), wood)
+		_box(Vector3(W * 2 + 0.2, 0.1, 0.12), Vector3(0, by + 0.95, z + PORCH - 0.15), white)
+		for k in 21:
+			_box(Vector3(0.05, 0.7, 0.05), Vector3(lerpf(-W, W, k / 20.0), by + 0.38, z + PORCH - 0.15), wood)
+		_box(Vector3(1.0, 1.9, 0.06), Vector3(0, by + 0.95, z + 0.1), glass)
+		for s in [-1.0, 1.0]:
+			_window(Vector3(2.6 * s, by + 1.2, z + 0.06), Vector3(0, 0, 1), white)
+			_box(Vector3(0.22, 0.32, 0.22), Vector3(1.4 * s, 3.0, z + PORCH - 0.4), window_mat)  # lantern
+	if level >= 3:  # a two-storey hotel wing
+		var hotel := _wing(Vector3(W + 2.7, 0, -0.4), 2.4, 3.0, 5.0, 6.4, siding, true)
+		for y in [1.6, 3.7]:
+			for x in [-1.0, 1.0]:
+				hotel._window(Vector3(x, y, 3.0), Vector3(0, 0, 1), white, red)
+		hotel._box(Vector3(3.6, 0.6, 0.08), Vector3(0, 4.85, 3.08), red)
+		MeshMerge.boxes(hotel)
 	MeshMerge.boxes(self)

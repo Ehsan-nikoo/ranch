@@ -20,13 +20,10 @@ def noise(cells, blur):
 
 dirt = Image.new("L", (N, N), 0)
 d = ImageDraw.Draw(dirt)
-# A new ranch is bare land (the player builds everything), so only the corral is worn in: the
-# trampled pen, around its trough, a path out of the gate and the wagon track out to the road.
+# A new ranch is bare land: the player builds everything, corral too (buildings bring their own dirt).
+# Only the wagon track is worn in, from the middle of the ranch out to the road gate.
 track = [px(-2, 9), px(0.5, 18), px(3, 30), px(8, 45), px(10, 60), px(9.5, 75), px(8.5, 96), px(9, 125)]
 d.line(track, fill=255, width=int(4.5 / SPAN * N), joint="curve")
-d.rectangle([*px(-23.5, -5.5), *px(-9.5, 11.5)], fill=150)
-d.ellipse([*px(-14, -1), *px(-9, 5)], fill=255)
-d.line([px(-9, 8), px(-5, 9.5), px(-2, 9)], fill=230, width=int(2.5 / SPAN * N))
 
 r = np.asarray(dirt.filter(ImageFilter.GaussianBlur(3)), dtype=np.float32) / 255.0
 r = np.clip(r * (0.75 + 0.5 * noise(48, 2)) - 0.1 * noise(96, 1), 0, 1)  # ragged edges

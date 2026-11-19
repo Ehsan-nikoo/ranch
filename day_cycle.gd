@@ -88,7 +88,7 @@ func _process(delta: float) -> void:
 	_lamp_scan -= delta
 	if _lamp_scan <= 0.0:  # the lantern hangs over the first barn's doors, wherever the player put it
 		_lamp_scan = 2.0
-		var barns := get_parent().get_children().filter(func(n): return n is Barn and not n.has_node("Marker"))
+		var barns := get_parent().get_children().filter(func(n): return n is Barn and n.works())
 		_barn = not barns.is_empty()
 		if _barn:
 			lamp.global_position = barns[0].to_global(Vector3(0, 4.9, Barn.L + 0.8))

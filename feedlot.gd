@@ -44,4 +44,21 @@ func _ready() -> void:
 		_box(Vector3(1.2, 0.5, 0.6), Vector3(-PX + 1.4 + k * 1.3, 0.3, z + 1.5), _straw())
 	_box(Vector3(0.6, 0.5, 2.2), Vector3(PX - 0.8, 0.25, 1.5), steel)  # water trough
 	_box(Vector3(0.5, 0.03, 2.0), Vector3(PX - 0.8, 0.49, 1.5), water)
+	if level >= 2:  # a second feed bunk down the -x fence and a round water tank
+		_box(Vector3(0.9, 0.6, PZ * 2 - 3.0), Vector3(-PX + 0.8, 0.3, 0.6), wood)
+		_box(Vector3(0.7, 0.08, PZ * 2 - 3.2), Vector3(-PX + 0.8, 0.62, 0.6), _straw())
+		_cyl(1.0, 0.7, Vector3(PX - 1.5, 0.35, -1.2), steel, 20)
+		_cyl(0.95, 0.02, Vector3(PX - 1.5, 0.71, -1.2), water, 20)
+	if level >= 3:  # an open shelter roof over the +x half
+		for x in [0.6, PX - 0.3]:
+			for pz in [-PZ + 2.4, PZ - 0.4]:
+				_box(Vector3(0.2, 3.2, 0.2), Vector3(x, 1.6, pz), wood)
+		var st2 := _st()
+		_roof_slope(st2, Vector3((0.6 + PX - 0.3) * 0.5, 3.45, 1.0), (PX - 0.9) * 0.5 + 0.35, 3.1 + 0.35)
+		_commit(st2, roof)
 	MeshMerge.boxes(self)
+
+
+## A low-pitched roof sheet centred at `c`, half sizes hx by hz, sloping toward +z.
+func _roof_slope(st: SurfaceTool, c: Vector3, hx: float, hz: float) -> void:
+	_slab(st, c + Vector3(0, 0.3, -hz), c + Vector3(0, -0.3, hz), Vector3(hx, 0, 0), roof.get_meta("tile"))
