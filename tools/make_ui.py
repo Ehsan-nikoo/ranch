@@ -498,8 +498,17 @@ def arrow(d, k):  # the tutorial's pointer: a fat arrow pointing down
     d.polygon([(k(x), k(y)) for x, y in pts], fill=(225, 90, 50, 255), outline=INK, width=k(3))
 
 
+
+def gift(d, k):  # the daily prize: a box tied with ribbon and a bow
+    d.rectangle([k(8), k(26), k(56), k(60)], fill=(150, 50, 35, 255), outline=INK, width=k(3))
+    d.rectangle([k(4), k(18), k(60), k(28)], fill=(150, 50, 35, 255), outline=INK, width=k(3))
+    shape(d, [(28, 18), (36, 18), (36, 60), (28, 60)], k)
+    shape(d, [(32, 18), (18, 6), (12, 12), (20, 18)], k)
+    shape(d, [(32, 18), (46, 6), (52, 12), (44, 18)], k)
+
+
 button()
 panel()
-for n, f in dict(land=land, market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place, vet=vet, vaccine=vaccine, worker=worker, star=star, stable=stable, smithy=smithy, rodeo=rodeo, pond=pond, kennel=kennel, tower=tower, feedlot=feedlot, saloon=saloon, train=train, corral=corral, horse=horse, gear=gear, arrow=arrow).items():
+for n, f in dict(land=land, market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place, vet=vet, vaccine=vaccine, worker=worker, star=star, stable=stable, smithy=smithy, rodeo=rodeo, pond=pond, kennel=kennel, tower=tower, feedlot=feedlot, saloon=saloon, train=train, corral=corral, horse=horse, gear=gear, arrow=arrow, gift=gift).items():
     icon(n, f)
 print("ok")

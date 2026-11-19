@@ -331,6 +331,7 @@ func _rescan() -> void:
 
 
 func _process(delta: float) -> void:
+	delta = minf(delta, DayCycle.MAX_STEP)  # no teleporting cows after the phone wakes the game up
 	var t0 := Time.get_ticks_usec()
 	_scan -= delta
 	if _scan <= 0.0:

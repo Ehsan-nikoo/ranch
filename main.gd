@@ -32,6 +32,8 @@ var rival := Rival.new()
 var ledger := Ledger.new()
 var bank := Bank.new()
 var warnings := Warnings.new()
+var daily := Daily.new()
+var away := Away.new()
 var progress := Progress.new()
 var progress_ui := ProgressUI.new()
 var goals := Goals.new()
@@ -84,6 +86,7 @@ var starter := [
 func _ready() -> void:
 	UiTheme.apply()
 	var saved := SaveGame.read()
+	SaveGame.hold = false  # a ranch code just loaded (if any) is the ranch now
 	day.hour = float(_arg("hour", "17.2"))
 	day.day = int(_arg("day", "0"))
 	if _arg("starter", "") != "" or _arg("bot", "") != "" or _arg("extras", "") != "":
@@ -161,12 +164,20 @@ func _ready() -> void:
 	hud.grass_nodes = grass_nodes
 	hud.sfx = sfx
 	add_child(hud)
-	if _arg("settings", "") != "":  # test: the settings board open
+	if _arg("settings", "") != "":  # test: the settings board open (--settings=export: after "copy the ranch code")
 		hud.toggle()
+		if _arg("settings", "") == "export":
+			hud.call_deferred("_export")
+		if _arg("settings", "") == "import":  # --settings=import: this ranch's own code pasted back, waiting for the yes
+			hud.snapshot = _state
+			(func():
+				hud._incoming = SaveGame.from_code(SaveGame.to_code(_state()))
+				hud._say("رنچ تو این کد: %s دلار، سال %s. رنچ الانت پاک می‌شه و این جاش میاد. مطمئنی؟" % [UiTheme.fa(int(hud._incoming.money)), UiTheme.fa(1)], true)).call_deferred()
 	builder.rig = rig
 	builder.world = self
 	builder.day = day
 	builder.on_placed = func(r: Rect2):
+		away.ask_once()  # a good moment to ask if the phone may say when it's done
 		_clear_grass(r)
 		progress._apply()
 		_save()
@@ -455,6 +466,45 @@ func _ready() -> void:
 		if _arg("tstep", "") != "":  # test: start the tips at this step
 			tutorial.step = int(_arg("tstep", ""))
 		add_child(tutorial)
+	daily.builder = builder
+	daily.market = market
+	daily.herd = herd
+	daily.progress = progress
+	daily.world = self
+	daily.notify = herd_ui.notify
+	daily.can_pop = func(): return (tutorial == null or not tutorial._box.visible) and (SaveGame.enabled() or _arg("daily", "") != "")
+	if not saved.is_empty() and saved.has("daily"):
+		daily.from_save(saved.daily)
+	add_child(daily)
+	if _arg("daily", "") == "claim":  # test: today's prize taken, a job half done, the board open
+		daily.claim()
+		daily._count("cattle", 1)
+		daily.toggle()
+	away.builder = builder
+	away.delivery = delivery
+	away.notify = herd_ui.notify
+	away.name_of = func(b): return building_ui._entry(b)[0]
+	away.notify_on = func(): return hud.notify_on
+	if not saved.is_empty() and saved.has("away"):
+		away.from_save(saved.away)
+	add_child(away)
+	hud.snapshot = _state
+	if _arg("codetest", "") != "":
+		get_tree().create_timer(1.0).timeout.connect(func():
+			var st := _state()
+			var code := SaveGame.to_code(st)
+			var back := SaveGame.from_code("  " + code.substr(0, 40) + "\n" + code.substr(40) + " ")
+			print("CODE len ", code.length(), " json ", JSON.stringify(st).length(), " back ok ", not back.is_empty(), " money ", back.get("money"), " cows ", back.herd.cows.size() if back.has("herd") else -1, " bad ", SaveGame.from_code("RANCH1:abc").is_empty(), SaveGame.from_code("hello").is_empty()))
+	if not saved.is_empty() and saved.has("saved_at"):  # the work went on while the game was closed
+		away.catch_up(Away.now() - float(saved.saved_at))
+	if _arg("away", "") != "":  # test: half a second in, as if the game had been closed this many seconds
+		get_tree().create_timer(0.5).timeout.connect(func():
+			print("AWAY before ", builder.sites.map(func(b): return snappedf(b.work_left, 0.01)), " trucks ", delivery.orders.map(func(o): return snappedf(o.t, 0.01)))
+			print("AWAY coming ", away.coming())
+			away.catch_up(float(_arg("away", "")))
+			print("AWAY after ", builder.sites.map(func(b): return snappedf(b.work_left, 0.01)), " trucks ", delivery.orders.map(func(o): return snappedf(o.t, 0.01))))
+	if SaveGame.recovered:
+		herd_ui.notify("ذخیره‌ی آخر خراب شده بود؛ رنچت از پشتیبان برگشت")
 	day.hour_changed.connect(_on_hour)
 	day.day_changed.connect(_on_day)
 	var autosave := Timer.new()  # also catches buys and sales between day changes
@@ -491,6 +541,9 @@ func _debug_herd() -> void:
 	progress.notify = breed_ui.notify
 	bank.notify = breed_ui.notify
 	warnings.notify = breed_ui.notify
+	daily.notify = breed_ui.notify
+	away.notify = breed_ui.notify
+	print("DAILY jobs ", daily.jobs, " day ", Daily.today(), " next prize day ", daily.next_day())
 	while true:
 		await get_tree().create_timer(4.0).timeout
 		if _arg("yes", "") != "" and events._panel.visible:  # test: --yes=1 takes the first choice on any board
@@ -756,11 +809,16 @@ func _notification(what: int) -> void:
 func _save() -> void:
 	if not is_node_ready():
 		return
+	SaveGame.write(_state())
+
+
+## Everything the save file (and a ranch code) holds.
+func _state() -> Dictionary:
 	var buildings := []
 	for n in get_children():
 		if n is Building and not n.has_node("Marker"):
 			buildings.append([n.get_script().resource_path, n.position.x, n.position.z, n.rotation_degrees.y, n.level, n.work_left, n.work_total, n.upgrading])
-	SaveGame.write({yard = 2, money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), weather = weather.to_save(), rival = rival.to_save(), ledger = ledger.to_save(), drive = drive.to_save(), delivery = delivery.to_save(), land = land.to_save(), goals = goals.to_save(), legacy = legacy.to_save(), horses = horses.to_save(), bank = bank.to_save(), tutorial = tutorial.step if tutorial else 99})
+	return {saved_at = Time.get_unix_time_from_system(), yard = 2, money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), weather = weather.to_save(), rival = rival.to_save(), ledger = ledger.to_save(), drive = drive.to_save(), delivery = delivery.to_save(), land = land.to_save(), goals = goals.to_save(), legacy = legacy.to_save(), horses = horses.to_save(), bank = bank.to_save(), daily = daily.to_save(), away = away.to_save(), tutorial = tutorial.step if tutorial else 99}
 
 
 # ---------- ground & grass ----------

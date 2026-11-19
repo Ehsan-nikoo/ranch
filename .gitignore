@@ -4,3 +4,4 @@ build/
 renders/*
 !renders/barn_wide.png
 !renders/barn_close.png
+android/

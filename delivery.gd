@@ -149,7 +149,7 @@ func pending_hay() -> int:
 
 func _process(delta: float) -> void:
 	var next := INF
-	delta *= day.speed / DayCycle.SECONDS_PER_HOUR  # game hours
+	delta = minf(delta, DayCycle.MAX_STEP) * day.speed / DayCycle.SECONDS_PER_HOUR  # game hours
 	for o in orders.duplicate():
 		o.t += delta
 		var t: float = o.t - (ARRIVE - DRIVE_IN)

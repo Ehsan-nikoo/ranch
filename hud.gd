@@ -1,5 +1,6 @@
 ## Top of the screen: the date plank, and the settings button (top left) with its board:
-## picture quality, grass, music and sounds, kept in user://settings.cfg between runs.
+## picture quality, grass, music, sounds and phone notifications, kept in user://settings.cfg between
+## runs; and the ranch backup: copy the ranch as a code, or bring a ranch back from one (SaveGame).
 ## The test overlay (FPS, frame cost, a time-speed button) is hidden from players: tap the settings
 ## board's title five times in a row to show or hide it (or start with `-- --dev=1`).
 class_name Hud
@@ -30,6 +31,13 @@ var _quality_btns: Array[Button] = []
 var _grass_btns: Array[Button] = []
 var _music_btns: Array[Button] = []
 var _sound_btns: Array[Button] = []
+var _notify_btns: Array[Button] = []
+var _note: Label                   # what the backup buttons did
+var _confirm := HBoxContainer.new()
+var _rows := VBoxContainer.new()   # the settings themselves, out of the way while a backup note shows
+var _incoming := {}                # a ranch read from a code, waiting for the yes
+var snapshot: Callable             # () -> the ranch as the save holds it
+var notify_on := true
 var _speed := 0
 var _quality := 1
 var _grass_on := true
@@ -52,18 +60,18 @@ func _ready() -> void:
 	gear.position = Vector2(12, 8)
 	add_child(gear)
 
-	# test overlay: the speed button next to the settings button, frame numbers under them
+	# test overlay: the speed button under the settings button, frame numbers beside it
 	_dev.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_dev.visible = false
 	add_child(_dev)
-	_label.position = Vector2(16, 116)
+	_label.position = Vector2(210, 124)
 	_label.add_theme_font_size_override("font_size", 18)
 	_label.add_theme_constant_override("outline_size", 6)
 	_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	_dev.add_child(_label)
 	_speed_btn.custom_minimum_size = Vector2(190, 84)
 	_speed_btn.add_theme_font_size_override("font_size", 24)
-	_speed_btn.position = Vector2(206, 18)
+	_speed_btn.position = Vector2(12, 118)
 	_speed_btn.pressed.connect(func(): _set_speed(_speed + 1))
 	_dev.add_child(_speed_btn)
 
@@ -76,6 +84,7 @@ func _ready() -> void:
 	if sfx and not sfx.is_node_ready():  # the tune starts playing in its _ready: stop it after that
 		sfx.ready.connect(func(): _set_music(_music_on), CONNECT_ONE_SHOT)
 	_set_sound(_sound_on)
+	_set_notify(notify_on)
 	_set_dev(_dev.visible or OS.get_cmdline_user_args().has("--dev=1"))
 	# sounds that start later (a cow's moo, the rain) go on the Sounds bus too
 	get_tree().node_added.connect(_route)
@@ -104,7 +113,7 @@ func _choice_row(col: VBoxContainer, title: String, names: Array, pick: Callable
 	for i in range(names.size() - 1, -1, -1):
 		var b := Button.new()
 		b.text = names[i]
-		b.custom_minimum_size = Vector2(180, 90)
+		b.custom_minimum_size = Vector2(180, 80)
 		b.add_theme_font_size_override("font_size", 26)
 		b.pressed.connect(pick.bind(i))
 		row.add_child(b)
@@ -143,7 +152,7 @@ func _build_board() -> void:
 	over.add_child(_dim)
 	over.add_child(_panel)
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 14)
+	col.add_theme_constant_override("separation", 6)
 	_panel.add_child(col)
 	var close := _button("بستن", toggle, "cancel")
 	var head := UiTheme.header("تنظیمات", close)
@@ -151,12 +160,41 @@ func _build_board() -> void:
 	title.mouse_filter = Control.MOUSE_FILTER_STOP
 	title.gui_input.connect(_title_tap)
 	col.add_child(head)
-	_quality_btns = _choice_row(col, "کیفیت تصویر", ["بالا", "متوسط", "پایین"], _pick.bind(_set_quality, false))
-	_grass_btns = _choice_row(col, "علف‌ها", ["روشن", "خاموش"], _pick.bind(_set_grass, true))
-	_music_btns = _choice_row(col, "آهنگ", ["روشن", "خاموش"], _pick.bind(_set_music, true))
-	_sound_btns = _choice_row(col, "صداها", ["روشن", "خاموش"], _pick.bind(_set_sound, true))
-	var tip := UiTheme.label("اگه بازی رو گوشیت کند بود، کیفیت رو پایین بیار یا علف‌ها رو خاموش کن", 22, Color(0.32, 0.18, 0.08))
-	col.add_child(tip)
+	_rows.add_theme_constant_override("separation", 6)
+	col.add_child(_rows)
+	_quality_btns = _choice_row(_rows, "کیفیت تصویر", ["بالا", "متوسط", "پایین"], _pick.bind(_set_quality, false))
+	_grass_btns = _choice_row(_rows, "علف‌ها", ["روشن", "خاموش"], _pick.bind(_set_grass, true))
+	_music_btns = _choice_row(_rows, "آهنگ", ["روشن", "خاموش"], _pick.bind(_set_music, true))
+	_sound_btns = _choice_row(_rows, "صداها", ["روشن", "خاموش"], _pick.bind(_set_sound, true))
+	_notify_btns = _choice_row(_rows, "خبر روی گوشی", ["روشن", "خاموش"], _pick.bind(_set_notify, true))
+	# backup: the ranch as a code to keep somewhere safe, and back from one
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	col.add_child(row)
+	for b in [["برگردوندن از کد", _import, "rotate"], ["کپی کد رنچ", _export, "place"]]:
+		var btn := _button(b[0], b[1], b[2])
+		btn.custom_minimum_size = Vector2(260, 80)
+		btn.add_theme_font_size_override("font_size", 24)
+		row.add_child(btn)
+	var gap := Control.new()
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(gap)
+	var l := UiTheme.label("پشتیبان رنچ", 30)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(l)
+	_note = UiTheme.label("", 22, Color(0.32, 0.18, 0.08))
+	_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_note.custom_minimum_size.x = 900
+	_note.visible = false
+	col.add_child(_note)
+	_confirm.alignment = BoxContainer.ALIGNMENT_CENTER
+	_confirm.add_theme_constant_override("separation", 16)
+	for b in [["نه", func(): _say(""), "cancel"], ["آره، بیارش", _swap, "place"]]:
+		var btn := _button(b[0], b[1], b[2])
+		btn.custom_minimum_size = Vector2(240, 80)
+		_confirm.add_child(btn)
+	_confirm.visible = false
+	col.add_child(_confirm)
 
 
 ## A choice on the board: `on_off` rows pass "on" (the first choice) instead of the index.
@@ -169,6 +207,50 @@ func toggle() -> void:
 	_panel.visible = not _panel.visible
 	_dim.visible = _panel.visible
 	_taps = 0
+	_say("")
+
+
+func _say(text: String, ask := false) -> void:
+	_note.text = text
+	_note.visible = text != ""
+	_rows.visible = text == ""
+	_confirm.visible = ask
+	_recenter.call_deferred()
+	if not ask:
+		_incoming = {}
+
+
+## Shrinks or grows the board to what it now holds, still in the middle of the screen.
+func _recenter() -> void:
+	_panel.offset_left = 0
+	_panel.offset_right = 0
+	_panel.offset_top = 0
+	_panel.offset_bottom = 0
+
+
+## Copies the ranch, packed into one line, for the player to paste somewhere safe.
+func _export() -> void:
+	var code := SaveGame.to_code(snapshot.call())
+	DisplayServer.clipboard_set(code)
+	_say("کد رنچت کپی شد. یه جای امن نگهش دار، مثلاً تو پیام‌های ذخیره‌شده‌ت. با همین کد، رو گوشی تازه هم رنچت برمی‌گرده")
+
+
+## Reads a ranch code from the clipboard and asks before it replaces this ranch.
+func _import() -> void:
+	var d := SaveGame.from_code(DisplayServer.clipboard_get())
+	if d.is_empty():
+		_say("اول کد رنچت رو کپی کن، بعد این دکمه رو بزن")
+		return
+	var day := int(d.get("day", 0))
+	_say("رنچ تو این کد: %s دلار، سال %s. رنچ الانت پاک می‌شه و این جاش میاد. مطمئنی؟" % [UiTheme.fa(int(d.money)), UiTheme.fa(day / (DayCycle.DAYS_PER_SEASON * 4) + 1)], true)
+	_incoming = d
+
+
+func _swap() -> void:
+	if _incoming.is_empty():
+		return
+	SaveGame.replace_with(_incoming)
+	get_tree().call_deferred("reload_current_scene")
 
 
 func _title_tap(e: InputEvent) -> void:
@@ -239,6 +321,11 @@ func _set_sound(on: bool) -> void:
 	_mark(_sound_btns, 0 if on else 1)
 
 
+func _set_notify(on: bool) -> void:
+	notify_on = on
+	_mark(_notify_btns, 0 if on else 1)
+
+
 func _sound_bus() -> int:
 	var i := AudioServer.get_bus_index("Sounds")
 	if i < 0:
@@ -266,6 +353,7 @@ func _load() -> void:
 	_grass_on = bool(c.get_value("game", "grass", true))
 	_music_on = bool(c.get_value("game", "music", true))
 	_sound_on = bool(c.get_value("game", "sounds", true))
+	notify_on = bool(c.get_value("game", "notify", true))
 	_dev.visible = bool(c.get_value("game", "dev", false))
 
 
@@ -277,6 +365,7 @@ func _store() -> void:
 	c.set_value("game", "grass", _grass_on)
 	c.set_value("game", "music", _music_on)
 	c.set_value("game", "sounds", _sound_on)
+	c.set_value("game", "notify", notify_on)
 	c.set_value("game", "dev", _dev.visible)
 	c.save(CFG)
 

@@ -6,6 +6,7 @@ signal hour_changed(hour: float)
 signal day_changed(day: int)
 
 const SECONDS_PER_HOUR := 75.0  # full day = 30 real minutes at 1x
+const MAX_STEP := 0.25            # longest frame the ranch's time takes, in real seconds
 const DAYS_PER_SEASON := 3       # a season is 90 real minutes at 1x, a year six hours
 enum { SPRING, SUMMER, AUTUMN, WINTER }
 const SEASON_NAMES := ["بهار", "تابستان", "پاییز", "زمستان"]
@@ -92,7 +93,9 @@ func _process(delta: float) -> void:
 		_barn = not barns.is_empty()
 		if _barn:
 			lamp.global_position = barns[0].to_global(Vector3(0, 4.9, Barn.L + 0.8))
-	hour += delta * speed / SECONDS_PER_HOUR
+	# a phone coming back from the background can hand over the whole time it was away as one frame:
+	# the clock doesn't jump (Away moves on what should go on while you're gone)
+	hour += minf(delta, MAX_STEP) * speed / SECONDS_PER_HOUR
 	if hour >= 24.0:
 		hour -= 24.0
 		day += 1

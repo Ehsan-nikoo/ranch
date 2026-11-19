@@ -54,13 +54,31 @@ jobs:
           EOF
           done
 
-      - name: Export APK
+      # The Gradle build carries the phone-notification plugin (addons/ranch_notify).
+      - name: Export APK (Gradle build, with phone notifications)
+        id: gradle
+        continue-on-error: true
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/debug.keystore
           GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p build
+          godot --headless --import || true
+          godot --headless --install-android-build-template --export-debug "Android" build/ranch-sim.apk
+          test -f build/ranch-sim.apk
+
+      # If that fails, the game still ships: the plain export, without the plugin (no notifications).
+      - name: Export APK without notifications (only if the Gradle build failed)
+        if: steps.gradle.outcome == 'failure'
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          rm -f build/ranch-sim.apk
+          sed -i 's|^gradle_build/use_gradle_build=true|gradle_build/use_gradle_build=false|' export_presets.cfg
+          sed -i '/ranch_notify\/plugin.cfg/d' project.godot
           godot --headless --import || true
           godot --headless --export-debug "Android" build/ranch-sim.apk
           test -f build/ranch-sim.apk
@@ -71,5 +89,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete apk-latest --yes --cleanup-tag || true
+          notes="Debug build of ${GITHUB_SHA::7}"
+          if [ "${{ steps.gradle.outcome }}" != "success" ]; then notes="$notes (without phone notifications: the Gradle build failed, see the Actions log)"; fi
           gh release create apk-latest build/ranch-sim.apk --prerelease \
-            --title "Latest APK" --notes "Debug build of ${GITHUB_SHA::7}"
+            --title "Latest APK" --notes "$notes"

@@ -354,7 +354,7 @@ static func minutes_left(b: Building) -> int:
 
 
 func _work(delta: float) -> void:
-	var hours := delta * (day.speed if day else 1.0) / DayCycle.SECONDS_PER_HOUR
+	var hours := minf(delta, DayCycle.MAX_STEP) * (day.speed if day else 1.0) / DayCycle.SECONDS_PER_HOUR
 	for b in sites.duplicate():
 		if not is_instance_valid(b) or not b.is_inside_tree():  # knocked down meanwhile
 			sites.erase(b)
