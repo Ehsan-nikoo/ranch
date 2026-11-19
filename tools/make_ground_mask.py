@@ -20,22 +20,13 @@ def noise(cells, blur):
 
 dirt = Image.new("L", (N, N), 0)
 d = ImageDraw.Draw(dirt)
-# wagon track from the barn doors out to the edge, with a gentle bend
-track = [px(0, 8), px(0.5, 18), px(3, 30), px(8, 45), px(10, 60), px(9.5, 75), px(8.5, 96), px(9, 125)]
+# A new ranch is bare land (the player builds everything), so only the corral is worn in: the
+# trampled pen, around its trough, a path out of the gate and the wagon track out to the road.
+track = [px(-2, 9), px(0.5, 18), px(3, 30), px(8, 45), px(10, 60), px(9.5, 75), px(8.5, 96), px(9, 125)]
 d.line(track, fill=255, width=int(4.5 / SPAN * N), joint="curve")
-# apron in front of the doors, under the lean-to, trampled corral, around the trough
-d.ellipse([*px(-6, 6), *px(6, 13)], fill=255)
-d.rectangle([*px(5, -6.5), *px(10, 2.5)], fill=200)
 d.rectangle([*px(-23.5, -5.5), *px(-9.5, 11.5)], fill=150)
 d.ellipse([*px(-14, -1), *px(-9, 5)], fill=255)
-# path from corral gate to barn
 d.line([px(-9, 8), px(-5, 9.5), px(-2, 9)], fill=230, width=int(2.5 / SPAN * N))
-# house: yard in front of the porch and a walk out to the wagon track
-d.ellipse([*px(-8, 23), *px(-4, 29)], fill=170)
-d.line([px(-6, 26), px(-1, 26.5), px(3.5, 27)], fill=230, width=int(2.2 / SPAN * N))
-# cattle-trampled ground around the stock tank, apron at the silo door
-d.ellipse([*px(15.5, -6.5), *px(23.5, 2)], fill=180)
-d.ellipse([*px(-5, -14), *px(1, -7.5)], fill=200)
 
 r = np.asarray(dirt.filter(ImageFilter.GaussianBlur(3)), dtype=np.float32) / 255.0
 r = np.clip(r * (0.75 + 0.5 * noise(48, 2)) - 0.1 * noise(96, 1), 0, 1)  # ragged edges

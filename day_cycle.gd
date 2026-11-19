@@ -80,7 +80,18 @@ func _ready() -> void:
 	_apply()
 
 
+var _lamp_scan := 0.0
+var _barn := false
+
+
 func _process(delta: float) -> void:
+	_lamp_scan -= delta
+	if _lamp_scan <= 0.0:  # the lantern hangs over the first barn's doors, wherever the player put it
+		_lamp_scan = 2.0
+		var barns := get_parent().get_children().filter(func(n): return n is Barn and not n.has_node("Marker"))
+		_barn = not barns.is_empty()
+		if _barn:
+			lamp.global_position = barns[0].to_global(Vector3(0, 4.9, Barn.L + 0.8))
 	hour += delta * speed / SECONDS_PER_HOUR
 	if hour >= 24.0:
 		hour -= 24.0
@@ -128,7 +139,7 @@ func _apply() -> void:
 	var glow: float = lerpf(a[8], b[8], t)
 	Building.window_mat.emission_energy_multiplier = glow * 2.5
 	lamp.light_energy = glow * 2.0
-	lamp.visible = glow > 0.01
+	lamp.visible = glow > 0.01 and _barn
 	hour_changed.emit(hour)
 
 

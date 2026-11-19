@@ -97,7 +97,7 @@ func _refresh() -> void:
 		c.queue_free()
 	for i in Land.GRID * Land.GRID:
 		if land.owned[i] == 1:
-			_grid.add_child(_tile("زمین خودت" + {9: "\nخونه", 10: "\nطویله"}.get(i, ""), Color(0.42, 0.55, 0.25, 0.55)))
+			_grid.add_child(_tile("زمین خودت", Color(0.42, 0.55, 0.25, 0.55)))
 		elif land.can_buy(i):
 			var b := builder._button(Button.new(), ("همینو می‌خوام" if i == _pick else "خرید") + "\n%s دلار" % UiTheme.fa(land.price()), pick.bind(i), "land")
 			if i == _pick:

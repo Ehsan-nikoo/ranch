@@ -48,6 +48,11 @@ func _night() -> bool:
 	return day.hour < 6.0 or day.hour > 19.5
 
 
+## Is there a ranch house to sleep in? With none built yet the hands sleep out by their horses.
+func _housed() -> bool:
+	return world.get_children().any(func(n): return n is RanchHouse and not n.has_node("Marker"))
+
+
 ## Off to bed: the door of the nearest ranch house (the hands' bunkhouse), or the porch spot.
 func _bed(from: Vector3) -> Vector3:
 	var best := HOME
@@ -86,8 +91,9 @@ func _next(r: Dictionary) -> Vector3:
 				var b: Building = spots[r.leg % spots.size()]
 				return herd.free_spot(b.feed_spot() if b is Barn else b.to_global(Windmill.TANK + Vector3(0, 0, 3.6)), 2.0)
 		Workers.HAND:
-			if r.leg % 2 == 0:
-				return herd.free_spot(Vector3(4, 0, 14), 3.0)  # the barn apron
+			var barns := world.get_children().filter(func(n): return n is Barn and not n.has_node("Marker"))
+			if r.leg % 2 == 0 and not barns.is_empty():  # the barn apron
+				return herd.free_spot(barns[r.leg / 2 % barns.size()].feed_spot(), 3.0)
 			return herd.free_spot(Vector3(_rng.randf_range(-40, 40), 0, _rng.randf_range(-40, 40)), 6.0)
 	return herd.free_spot(HOME, 4.0)
 
@@ -122,7 +128,7 @@ func _ride(r: Dictionary, delta: float) -> void:
 		c.walk(delta, 0.0)
 		if r.get("bed", false):  # at the door: in he goes
 			r.home = true
-			c.visible = false
+			c.visible = not _housed()
 			return
 		r.wait -= delta * day.speed
 		if r.wait <= 0.0:
@@ -138,7 +144,7 @@ func _ride(r: Dictionary, delta: float) -> void:
 		if r.stuck > 3.0:
 			if r.get("bed", false):  # can't reach the door: close enough, go in anyway
 				r.home = true
-				c.visible = false
+				c.visible = not _housed()
 				return
 			r.target = _next(r)
 			return

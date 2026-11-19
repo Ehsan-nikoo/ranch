@@ -23,7 +23,7 @@ var CATALOG := [
 	["ایستگاه قطار", Station, 12000, "train", "گاوها با قطار می‌رن شهر: هر فروش ۱۰ درصد گرون‌تر و یه خریدار بیشتر.", 1, 1],
 ]
 
-var money := 6000
+var money := 9000         # enough for water, a barn and a silo to start with: nothing is built yet
 var rig: CameraRig
 var world: Node3D
 var land: Land

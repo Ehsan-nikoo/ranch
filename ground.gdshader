@@ -12,6 +12,7 @@ uniform float span = 160.0;
 uniform vec3 grass_tint : source_color = vec3(0.7, 0.68, 0.5);
 uniform vec3 lush_tint : source_color = vec3(0.52, 0.62, 0.36);
 uniform float snow = 0.0;
+uniform float boost = 1.0;  // brightens a darker green grass texture under the season tints
 uniform sampler2D plots : filter_nearest, repeat_disable;  // Land: 1 = owned plot
 uniform float land_half = 96.0;  // winter cover 0..1, set by main.gd per season
 
@@ -28,7 +29,7 @@ void fragment() {
 	float inside = step(0.0, muv.x) * step(muv.x, 1.0) * step(0.0, muv.y) * step(muv.y, 1.0);
 	float mac = texture(macro, wpos.xz / 97.0).r * 0.6 + texture(macro, wpos.xz / 23.0).r * 0.4;
 	float lush = max(m.g * inside, smoothstep(0.62, 0.8, mac) * 0.6);
-	vec3 g = texture(grass_alb, uv).rgb * mix(grass_tint, lush_tint, lush) * (0.8 + 0.4 * mac);
+	vec3 g = texture(grass_alb, uv).rgb * mix(grass_tint, lush_tint, lush) * boost * (0.8 + 0.4 * mac);
 	vec3 d = texture(dirt_alb, uv * 1.3).rgb * vec3(1.05, 0.95, 0.85);
 	float k = smoothstep(0.3, 0.65, m.r * inside + (mac - 0.5) * 0.25);
 	k = max(k, smoothstep(0.7, 0.1, texture(grazed, muv).r) * inside * 0.75);  // grazed-out ground goes bare

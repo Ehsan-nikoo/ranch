@@ -66,7 +66,10 @@ var builder := Builder.new()
 var herd := Herd.new()
 const CORRAL := Rect2(-24.5, -6.5, 16, 19)
 # starting ranch: building, position, yaw in degrees
-var layout := [
+# A new ranch starts as bare land: the player builds and places everything. `starter` is the old
+# ready-made yard, for tests (--starter=1, and the bot).
+var layout := []
+var starter := [
 	[Barn, Vector3(0, 0, 0), 0.0],
 	[RanchHouse, Vector3(-13, 0, 26), 90.0],
 	[Windmill, Vector3(17, 0, -5), -30.0],
@@ -79,6 +82,8 @@ func _ready() -> void:
 	var saved := SaveGame.read()
 	day.hour = float(_arg("hour", "17.2"))
 	day.day = int(_arg("day", "0"))
+	if _arg("starter", "") != "" or _arg("bot", "") != "" or _arg("extras", "") != "":
+		layout = starter.duplicate()
 	if not saved.is_empty():
 		day.day = saved.day
 		day.hour = saved.hour
@@ -585,6 +590,7 @@ func _shot(shot: String) -> void:
 
 
 func _on_hour(_h: float) -> void:
+	_water_check()
 	var night := Building.window_mat.emission_energy_multiplier / 2.5
 	crickets.volume_db = linear_to_db(maxf(night, 0.001)) - 8.0
 	grass_mat.set_shader_parameter("to_sun", day.light.global_basis.z)
@@ -602,6 +608,17 @@ func _on_hour(_h: float) -> void:
 	crickets.stream_paused = s == DayCycle.WINTER  # no crickets in the snow
 	# birds by day, fewer in winter
 	prairie.volume_db = linear_to_db(maxf(1.0 - night, 0.001)) - (16.0 if s == DayCycle.WINTER else 8.0)
+
+
+## No windmill or pond yet and the cows getting thirsty: a reminder every few game hours.
+var _dry_warn := 0.0
+func _water_check() -> void:
+	var t := day.day * 24.0 + day.hour
+	if t < _dry_warn or not herd._tanks.is_empty():
+		return
+	if herd.alive().any(func(c): return c.thirst > 0.45):
+		_dry_warn = t + 3.0
+		herd_ui.notify("گاوها تشنه‌ان و آب ندارن! از «ساخت» یه آسیاب بادی یا آبگیر بساز")
 
 
 func _on_day(d: int) -> void:
@@ -639,7 +656,12 @@ func _save() -> void:
 func _ground() -> void:
 	var sm := ground_mat
 	sm.shader = load("res://ground.gdshader")
-	for p in [["grass_alb", "grass_ground_diff.jpg"], ["grass_nrm", "grass_ground_nor_gl.jpg"],
+	var opt := _arg("ground", "")  # test: a different grass texture from textures/opts
+	var alb := "grass_ground_diff.jpg" if opt == "" else "opts/%s_col.jpg" % opt
+	var nrm := "grass_ground_nor_gl.jpg" if opt == "" else "opts/%s_nrm.jpg" % opt
+	if opt != "":
+		sm.set_shader_parameter("boost", 1.35)
+	for p in [["grass_alb", alb], ["grass_nrm", nrm],
 			["dirt_alb", "dirt_diff.jpg"], ["dirt_nrm", "dirt_nor_gl.jpg"],
 			["mask", "ground_mask.png"], ["macro", "macro_noise.png"]]:
 		sm.set_shader_parameter(p[0], load(TEX + p[1]))
@@ -740,9 +762,10 @@ func _props() -> void:
 	hay.uv1_triplanar = true
 	hay.albedo_texture = load(TEX + "grass_ground_diff.jpg")
 	hay.uv1_scale = Vector3(3, 3, 3)
-	# hay bale stack under the lean-to
+	# hay bale stack in the back corner of the corral (the yard around it is the player's to build on)
 	var spots := [Vector3(7.2, 0.3, -1.0), Vector3(8.4, 0.3, -1.0), Vector3(7.2, 0.3, 0.0), Vector3(8.4, 0.3, 0.0), Vector3(7.8, 0.9, -0.5)]
-	for p in spots:
+	for p: Vector3 in spots:
+		p += Vector3(-29.3, 0, -3.0)
 		var mi := MeshInstance3D.new()
 		var bm := BoxMesh.new()
 		bm.size = Vector3(1.15, 0.6, 0.85)
