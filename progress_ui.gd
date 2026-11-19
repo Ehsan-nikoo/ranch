@@ -17,7 +17,7 @@ var _goals := UiTheme.label("", 23)
 
 
 func _ready() -> void:
-	builder.bar_button("رنچ", toggle, "star")
+	builder.bar_button("شهرت و هدف‌ها", toggle, "star")
 	_dim = UiTheme.dim(toggle)
 	_panel = UiTheme.board()
 	add_child(_dim)

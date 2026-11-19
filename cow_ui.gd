@@ -141,12 +141,16 @@ func _refresh() -> void:
 		_refresh(), "star")
 	_row.add_child(fav)
 	var price := _price(_c)
+	var c := _c
 	var sell := builder._button(Button.new(), "بفروشش  %s دلار" % UiTheme.fa(price), func():
-		var cash := herd.sell_one(_c, market.sale_price())
-		builder.add_money(cash, "sale")
-		market.sold.emit(cash, false)
-		market.changed.emit()
-		notify.call("%s رو فروختی:  %s+ دلار" % [_c.name, UiTheme.fa(cash)])
-		close(), "market")
+		UiTheme.confirm("«%s» رو بفروشی؟ %s دلار" % [c.name, UiTheme.fa(price)], "آره، بفروش", "market", func():
+			if not c in herd.alive():  # gone while the question was up
+				return
+			var cash := herd.sell_one(c, market.sale_price())
+			builder.add_money(cash, "sale")
+			market.sold.emit(cash, false)
+			market.changed.emit()
+			notify.call("%s رو فروختی:  %s+ دلار" % [c.name, UiTheme.fa(cash)])
+			close()), "market")
 	sell.disabled = _c.fav  # a favourite has to be un-favourited first
 	_row.add_child(sell)

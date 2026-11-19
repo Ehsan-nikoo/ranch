@@ -29,7 +29,6 @@ var _about := UiTheme.label("", 24)
 var _state := UiTheme.label("", 26, Color(0.42, 0.12, 0.05))
 var _row := HFlowContainer.new()  # buttons wrap to a second line instead of running off a phone
 var _down := Vector2.INF
-var _sure := false
 var _busy := false
 var _tick := 0.0
 
@@ -111,7 +110,6 @@ func _entry(b: Building) -> Array:
 
 func open(b: Building) -> void:
 	_b = b
-	_sure = false
 	var c := _entry(b)
 	_title.text = c[0]
 	_icon.texture = load("res://ui/icons/%s.png" % c[3])
@@ -174,7 +172,8 @@ func _refresh() -> void:
 	if not _busy:
 		_add("جابه‌جا کن", "rotate", _move)
 	var back := _refund(_b)
-	_add("مطمئنی؟ خرابش کن" if _sure else "خراب کن  %s+ دلار" % UiTheme.fa(back), "cancel", _knock_down)
+	_add("خراب کن  %s+ دلار" % UiTheme.fa(back), "cancel", func():
+		UiTheme.confirm("«%s» رو خراب کنی؟ %s دلار بهت برمی‌گرده، ولی خودش دیگه برنمی‌گرده" % [_entry(_b)[0], UiTheme.fa(back)], "آره، خرابش کن", "cancel", _knock_down))
 
 
 ## Is there room on your land for the bigger building the next level makes?
@@ -281,9 +280,7 @@ func _move() -> void:
 
 
 func _knock_down() -> void:
-	if not _sure:  # one more tap to be sure
-		_sure = true
-		_refresh()
+	if _b == null or not is_instance_valid(_b):
 		return
 	var b := _b
 	close()

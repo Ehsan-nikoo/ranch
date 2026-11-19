@@ -74,8 +74,9 @@ func _row(h: Dictionary) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 16)
 	var b := builder._button(Button.new(), "بفروش  %s دلار" % UiTheme.fa(horses.value(h)), func():
-		horses.sell(h)
-		_rebuild(), "market")
+		UiTheme.confirm("«%s» رو بفروشی؟ %s دلار" % [h.name, UiTheme.fa(horses.value(h))], "آره، بفروش", "market", func():
+			horses.sell(h)
+			_rebuild()), "market")
 	b.custom_minimum_size = Vector2(250, 80)
 	b.add_theme_font_size_override("font_size", 22)
 	row.add_child(b)

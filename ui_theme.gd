@@ -174,6 +174,49 @@ static func board() -> PanelContainer:
 	return p
 
 
+## Asks before something that can't be taken back (selling, knocking down, letting a hand go): a small
+## board over everything with «نه» and the yes. The yes wakes up a moment late, so a double tap on the
+## button that asked can't answer for the player; a tap beside the board is a no.
+static func confirm(text: String, yes: String, icon: String, on_yes: Callable) -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	var layer := CanvasLayer.new()
+	layer.layer = 6  # over every board, the tips' arrow too
+	var d := dim(layer.queue_free)
+	d.visible = true
+	layer.add_child(d)
+	var p := board()
+	p.visible = true
+	layer.add_child(p)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 26)
+	p.add_child(col)
+	var l := label(text, 28)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size.x = 660
+	col.add_child(l)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 48)
+	col.add_child(row)
+	var ok := Button.new()
+	var no := Button.new()
+	for b in [[ok, yes, icon], [no, "نه", "cancel"]]:
+		var btn: Button = b[0]
+		btn.text = b[1]
+		btn.icon = load("res://ui/icons/%s.png" % b[2])
+		btn.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		btn.custom_minimum_size = Vector2(250, 96)
+		btn.add_theme_font_size_override("font_size", 26)
+		row.add_child(btn)  # the yes on the left, «نه» on the right where the eye starts
+	ok.disabled = true
+	ok.pressed.connect(func():
+		layer.queue_free()
+		on_yes.call())
+	no.pressed.connect(layer.queue_free)
+	tree.root.add_child(layer)
+	tree.create_timer(0.45).timeout.connect(func(): if is_instance_valid(ok): ok.disabled = false)
+
+
 ## Full-screen dimmer behind a board; tapping it calls `on_tap` (usually close).
 static func dim(on_tap: Callable) -> ColorRect:
 	var d := ColorRect.new()

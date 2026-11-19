@@ -370,6 +370,12 @@ func _ready() -> void:
 		var bb: Array = get_children().filter(func(n): return n is Building and n.get_script().get_global_name() == _arg("board", ""))
 		if not bb.is_empty():
 			building_ui.call_deferred("open", bb[0])
+	if _arg("manage", "") != "":  # test: the «مدیریت رنچ» board open
+		builder.call_deferred("_toggle_manage")
+	if _arg("ask", "") != "":  # test: the question before selling (--cowboard=1 --ask=1) or knocking down (--board=Barn --ask=1)
+		get_tree().create_timer(0.3).timeout.connect(func():
+			var row: Container = cow_ui._row if cow_ui._panel.visible else building_ui._row
+			row.get_child(row.get_child_count() - 1 if row == building_ui._row else 1).pressed.emit())
 	if _arg("toast", "") != "":  # test: a pile of long notices
 		for t in ["خرج دیروز گله:  ۲۳۰- دلار", "یه خریدار می‌خواد ازت گاو بخره؛ برو تو «بازار» و ببین چی می‌خواد، شاید بیشتر از قیمت بازار بده", "حقوق دیروز کارگرها:  ۱۲۰- دلار", "تو رنچ‌های همسایه مریضی اومده؛ گاوهای تو واکسن زدن و چیزیشون نمی‌شه، ولی حواست به گوساله‌های تازه باشه"]:
 			herd_ui.call_deferred("notify", t)

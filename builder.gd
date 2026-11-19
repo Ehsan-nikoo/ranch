@@ -46,10 +46,15 @@ var _marker_mat := StandardMaterial3D.new()
 var _money: Label
 var _build_btn := Button.new()
 var _menu := HBoxContainer.new()
-# bottom bar, right to left the way it's read: building, the animals, money and hands, the ranch
-const BAR := [["ساخت", "زمین"], ["گله", "دامداری"], ["بازار", "کارگرها"], ["رنچ"]]
-var bar := {}            # name -> its button on the bottom bar
-var _gaps: Array[Control] = []
+# the bottom bar holds just two buttons, right to left the way it's read: building, and the ranch
+# board that opens every other board
+const BAR := ["ساخت", "مدیریت رنچ"]
+# the «مدیریت رنچ» board, three to a row, right to left
+const MANAGE := ["گله", "دامداری", "کارگرها", "بازار", "زمین", "شهرت و هدف‌ها"]
+var bar := {}            # name -> its button, on the bottom bar or the «مدیریت رنچ» board
+var _manage: PanelContainer
+var _manage_dim: ColorRect
+var _grid := GridContainer.new()
 var _place_bar := HBoxContainer.new()
 var _place_btn := Button.new()
 var _items: Array[Button] = []
@@ -79,16 +84,15 @@ func _ready() -> void:
 		row.offset_top = -122
 		row.offset_bottom = -12
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 2)  # seven buttons have to fit across a phone
+		row.add_theme_constant_override("separation", 24)
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(row)
-	for i in BAR.size() - 1:
-		var gap := Control.new()
-		gap.custom_minimum_size.x = 22  # a little more room between the groups
-		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_gaps.append(gap)
 
 	bar["ساخت"] = _button(_build_btn, "ساخت", _toggle_menu, "build")
+	bar["مدیریت رنچ"] = _button(Button.new(), "مدیریت رنچ", _toggle_manage, "house")
+	for b in bar.values():
+		b.custom_minimum_size = Vector2(250, 104)
+	_build_manage()
 	_arrange()
 	_build_panel()
 	_place_bar.add_child(_button(Button.new(), "چرخش", rotate_ghost, "rotate"))
@@ -161,37 +165,73 @@ func _build_panel() -> void:
 		_cards.push_front(card)
 
 
-## Adds a button to the bottom bar, in its place from BAR (hidden with the bar during placement).
+## Adds a board's button to the «مدیریت رنچ» board, in its place from MANAGE. Pressing it closes
+## that board and opens its own.
 func bar_button(text: String, cb: Callable, icon: String) -> Button:
-	var b := _button(Button.new(), text, cb, icon)
+	var b := _button(Button.new(), text, func():
+		if _manage and _manage.visible:
+			_toggle_manage()
+		cb.call(), icon)
+	b.custom_minimum_size = Vector2(320, 120)
+	b.add_theme_font_size_override("font_size", 28)
 	bar[text] = b
 	_arrange()
 	return b
 
 
-## Lays the bar out from BAR: groups right to left, a gap between groups; anything else on the left.
+## The button to tap on the way to a board, for the tips' arrow: on the «مدیریت رنچ» board while
+## it's open, else «مدیریت رنچ» itself.
+func bar_target(name: String) -> Control:
+	if name in BAR or (_manage and _manage.visible):
+		return bar.get(name)
+	return bar.get("مدیریت رنچ")
+
+
+## Lays out the bottom bar from BAR and the «مدیریت رنچ» board from MANAGE, both right to left;
+## a board's button named in neither goes at the end of the board.
 func _arrange() -> void:
 	for c in _menu.get_children():
 		_menu.remove_child(c)
-	var groups := []
-	for g in BAR:
-		var row: Array = g.filter(func(n): return bar.has(n)).map(func(n): return bar[n])
-		if not row.is_empty():
-			groups.append(row)
-	for b in bar.values():  # a touch smaller than board buttons: seven of them fit across a 16:9 screen
-		b.add_theme_constant_override("icon_max_width", 52)
-		b.add_theme_font_size_override("font_size", 25)
-	var order := []  # right to left
-	for i in groups.size():
-		if i > 0:
-			order.append(_gaps[i - 1])
-		order.append_array(groups[i])
-	for n in bar:
-		if not BAR.any(func(g): return n in g):
-			order.append(bar[n])
-	order.reverse()  # a box lays its children out left to right
-	for c in order:
-		_menu.add_child(c)
+	var low: Array = BAR.filter(func(n): return bar.has(n))
+	low.reverse()  # a box lays its children out left to right
+	for n in low:
+		_menu.add_child(bar[n])
+	for c in _grid.get_children():
+		_grid.remove_child(c)
+		if not c in bar.values():
+			c.queue_free()
+	var rest: Array = MANAGE.filter(func(n): return bar.has(n)) + bar.keys().filter(func(n): return not n in BAR and not n in MANAGE)
+	for i in range(0, rest.size(), 3):
+		var row: Array = rest.slice(i, i + 3).map(func(n): return bar[n])
+		row.reverse()
+		while row.size() < 3:  # a short last row starts on the right too
+			var gap := Control.new()
+			gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			row.push_front(gap)
+		for c in row:
+			_grid.add_child(c)
+
+
+## The «مدیریت رنچ» board: one big button for each board of the ranch.
+func _build_manage() -> void:
+	_manage = UiTheme.board()
+	_manage_dim = UiTheme.dim(_toggle_manage)
+	add_child(_manage_dim)
+	add_child(_manage)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 20)
+	_manage.add_child(col)
+	col.add_child(UiTheme.header("مدیریت رنچ", _button(Button.new(), "بستن", _toggle_manage, "cancel")))
+	_grid.columns = 3
+	_grid.add_theme_constant_override("h_separation", 20)
+	_grid.add_theme_constant_override("v_separation", 18)
+	col.add_child(_grid)
+
+
+func _toggle_manage() -> void:
+	_manage.visible = not _manage.visible
+	_manage_dim.visible = _manage.visible
+	_menu.visible = not _manage.visible  # the board has its own close button
 
 
 signal money_moved(delta: int, why: String)   # for the Ledger

@@ -71,7 +71,10 @@ func _rebuild() -> void:
 	if workers.hired.is_empty():
 		_list.add_child(UiTheme.label("هنوز کسی رو نیاوردی سر کار", 21, Color(0.32, 0.18, 0.08)))
 	for w in workers.hired:
-		_list.add_child(_row(w, "بیرونش کن  (روزی %s)" % UiTheme.fa(w.wage), workers.fire.bind(w), "cancel", true))
+		_list.add_child(_row(w, "بیرونش کن  (روزی %s)" % UiTheme.fa(w.wage), func():
+			UiTheme.confirm("«%s» رو بیرون کنی؟ دیگه برنمی‌گرده سر کار" % w.name, "آره، بیرونش کن", "cancel", func():
+				if w in workers.hired:
+					workers.fire(w)), "cancel", true))
 	_list.add_child(UiTheme.label("دنبال کار می‌گردن (هر فصل آدمای تازه میان)", 26))
 	var full := workers.hired.size() >= workers.slots()
 	for w in workers.candidates:

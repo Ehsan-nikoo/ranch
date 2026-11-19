@@ -1,7 +1,7 @@
 ## Warnings before cows die, while there's still time to do something: hay running low with winter
 ## near or here, cows going hungry or thirsty, no room in a barn for the cold, and a cow wasting away.
 ## Checked every game hour; each kind of warning at most once every few game hours. While cows are
-## being hurt the herd button on the bottom bar blinks red.
+## being hurt «مدیریت رنچ» on the bottom bar and the herd button on its board blink red.
 class_name Warnings
 extends Node
 
@@ -86,11 +86,13 @@ func check() -> void:
 
 
 func _process(delta: float) -> void:
-	var b: Button = builder.bar.get("گله")
-	if b == null:
-		return
 	if danger:
 		_blink += delta * 4.0
-		b.self_modulate = Color(1, 1, 1).lerp(Color(1.0, 0.35, 0.3), 0.5 + 0.5 * sin(_blink))
-	elif b.self_modulate != Color.WHITE:
-		b.self_modulate = Color.WHITE
+	for name in ["گله", "مدیریت رنچ"]:
+		var b: Button = builder.bar.get(name)
+		if b == null:
+			continue
+		if danger:
+			b.self_modulate = Color(1, 1, 1).lerp(Color(1.0, 0.35, 0.3), 0.5 + 0.5 * sin(_blink))
+		elif b.self_modulate != Color.WHITE:
+			b.self_modulate = Color.WHITE

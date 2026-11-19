@@ -30,15 +30,15 @@ func _steps() -> Array:
 		["به رنچت خوش اومدی! اینجا گوساله می‌خری، چاقشون می‌کنی و می‌فروشی. با یه انگشت دوربین رو بکش، با دو انگشت زوم کن", null, null, 0],
 		["زمینت خالیه و همه‌چی رو خودت می‌سازی. اول از «ساخت» یه آسیاب بادی بساز تا گاوها آب داشته باشن", func(): return Building.placed(builder.world, Windmill) or Building.placed(builder.world, Pond), _build_target.bind(Windmill), PRIZE],
 		["ساختمون یهو ساخته نمی‌شه: اول داربست می‌زنن و کم‌کم بالا میاد. سه تا ساختمون اولت زودتر تموم می‌شن. روش بزنی می‌بینی چقدر مونده", null, null, 0],
-		["تا ساخته بشه، از «گله» چندتا گوساله بخر؛ با کامیون میان دم در رنچ", func(): return not herd_ui.herd.alive().is_empty() or not herd_ui.delivery.orders.is_empty(), func(): return herd_ui._buy if herd_ui._panel.visible else builder.bar.get("گله"), PRIZE],
+		["تا ساخته بشه، از «مدیریت رنچ» برو تو «گله» و چندتا گوساله بخر؛ با کامیون میان دم در رنچ", func(): return not herd_ui.herd.alive().is_empty() or not herd_ui.delivery.orders.is_empty(), func(): return herd_ui._buy if herd_ui._panel.visible else builder.bar_target("گله"), PRIZE],
 		["یه طویله هم بساز: شب‌ها گاوها توش می‌خوابن و یونجه رو هم نگه می‌داره. سیلو هم جای یونجه‌ی بیشتره", func(): return Building.placed(builder.world, Barn), _build_target.bind(Barn), PRIZE],
-		["دکمه‌ی «گله» رو بزن: می‌بینی گاوهات چندتان، چقدر وزن دارن و کدوما آماده‌ی فروشن", func(): return herd_ui._panel.visible, func(): return builder.bar.get("گله"), PRIZE_BOARD],
+		["از «مدیریت رنچ» دکمه‌ی «گله» رو بزن: می‌بینی گاوهات چندتان، چقدر وزن دارن و کدوما آماده‌ی فروشن", func(): return herd_ui._panel.visible, func(): return builder.bar_target("گله"), PRIZE_BOARD],
 		["گاوها خودشون علف می‌خورن و از آسیاب بادی آب می‌خورن. وقتی وزنشون از ۵۰۰ کیلو رد شد، از «گله» بفروششون", null, null, 0],
-		["زمستون علف درنمیاد: از «گله» یونجه بخر یا تابستون بچین، که گاوها گرسنه نمونن. اگه گاوها تو خطر باشن، دکمه‌ی «گله» قرمز چشمک می‌زنه", null, null, 0],
-		["توی «بازار» قیمت امروز رو ببین و قرارداد بگیر؛ قرارداد پول و شهرت بیشتری میاره", func(): return market_ui._panel.visible, func(): return builder.bar.get("بازار"), PRIZE_BOARD],
+		["زمستون علف درنمیاد: از «گله» یونجه بخر یا تابستون بچین، که گاوها گرسنه نمونن. اگه گاوها تو خطر باشن، دکمه‌ی «مدیریت رنچ» قرمز چشمک می‌زنه", null, null, 0],
+		["از «مدیریت رنچ» برو تو «بازار»: قیمت امروز رو ببین و قرارداد بگیر؛ قرارداد پول و شهرت بیشتری میاره", func(): return market_ui._panel.visible, func(): return builder.bar_target("بازار"), PRIZE_BOARD],
 		["با «ساخت» خونه‌ی کارگرها بساز. روی هر ساختمون بزنی منوش باز می‌شه و می‌تونی ارتقاش بدی: بزرگ‌تر و بهتر می‌شه", null, null, 0],
-		["هر کارگر حواسش به ۲۰ تا گاو هست. از «کارگرها» یکی بیار سر کار", func(): return workers_ui._panel.visible, func(): return builder.bar.get("کارگرها"), PRIZE_BOARD],
-		["توی «رنچ» هدف‌هات رو ببین؛ هر هدف جایزه داره. رنچت نسل به نسل تو خانواده‌ت می‌مونه. موفق باشی!", func(): return progress_ui._panel.visible, func(): return builder.bar.get("رنچ"), PRIZE_BOARD],
+		["هر کارگر حواسش به ۲۰ تا گاو هست. از «مدیریت رنچ» برو تو «کارگرها» و یکی بیار سر کار", func(): return workers_ui._panel.visible, func(): return builder.bar_target("کارگرها"), PRIZE_BOARD],
+		["از «مدیریت رنچ»، «شهرت و هدف‌ها» رو بزن و هدف‌هات رو ببین؛ هر هدف جایزه داره. رنچت نسل به نسل تو خانواده‌ت می‌مونه. موفق باشی!", func(): return progress_ui._panel.visible, func(): return builder.bar_target("شهرت و هدف‌ها"), PRIZE_BOARD],
 	]
 
 

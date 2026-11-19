@@ -24,6 +24,7 @@ var _buy: Button
 var _breed_btn: Button
 var breed := 0          # breed of the calves you buy
 var _sell: Button
+var _sell_cash := 0  # what the ready cows would bring, on the button and in its question
 var _cut: Button
 var _buy_hay: Button
 var _toast: Label
@@ -63,7 +64,8 @@ func _ready() -> void:
 	btns.add_theme_constant_override("separation", 16)
 	btns.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_child(btns)
-	_sell = builder._button(Button.new(), "", sell, "place")
+	_sell = builder._button(Button.new(), "", func():
+		UiTheme.confirm("%s تا گاو آماده رو بفروشی؟ حدود %s دلار میاد" % [UiTheme.fa(herd.ready_count()), UiTheme.fa(_sell_cash)], "آره، بفروش", "market", sell), "place")
 	_buy = builder._button(Button.new(), "", buy, "cow")
 	_breed_btn = builder._button(Button.new(), "", func():
 		breed = (breed + 1) % Herd.BREEDS.size()
@@ -214,7 +216,8 @@ func _refresh() -> void:
 	_cut.text = "چیدن %s بسته یونجه  %s" % [UiTheme.fa(_harvest_lot()), "%s دلار" % UiTheme.fa(_harvest_cost()) if _harvest_cost() > 0 else "(کارگر مزرعه)"]
 	_buy_hay.text = "خرید %s بسته یونجه  %s دلار" % [UiTheme.fa(HAY_LOT), UiTheme.fa(price)]
 	_buy_hay.disabled = builder.money < price or _hay_space() < HAY_LOT
-	_sell.text = "فروش گاوهای آماده  %s دلار" % UiTheme.fa(int(ready_kg * market.sale_price()))
+	_sell_cash = int(ready_kg * market.sale_price())
+	_sell.text = "فروش گاوهای آماده  %s دلار" % UiTheme.fa(_sell_cash)
 	_buy.text = "خرید گوساله  %s دلار" % UiTheme.fa(calf_price())
 	_breed_btn.text = "نژاد: %s" % Herd.BREEDS[breed].name
 	_sell.disabled = ready == 0
