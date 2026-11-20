@@ -9,25 +9,19 @@ class_name People
 extends CanvasLayer
 
 const ORDER := ["bill", "henry", "rose", "elsie", "sam", "tom"]
-# looks: skin, hair, hat (0 none, 1 cowboy, 2 bonnet, 3 fur cap, 4 bowler), hat colour, shirt, and extras
+# each one's portrait is ui/people/<id>.png (tools/make_portraits.py)
 const CAST := {
 	bill = {name = "کلانتر بیل", role = "کلانتر شهر", perk = ["کلانتر دزدها رو راحت‌تر می‌گیره", "کلانتر شب‌ها دور رنچت گشت می‌زنه و دزدها اصلاً نمیان"],
-		look = {skin = Color(0.86, 0.66, 0.5), hair = Color(0.35, 0.3, 0.26), hat = 1, hat_col = Color(0.3, 0.22, 0.14), shirt = Color(0.55, 0.42, 0.26), stache = true, star = true},
 		chat = ["این روزا دشت آرومه. خدا کنه همین‌طوری بمونه.", "پدربزرگت یه بار یه گاو فراری رو سه روز دنبال کرد. آدم سمجی بود!", "اگه دزدی دیدی، اول به من خبر بده، بعد تفنگ بردار.", "قهوه‌ی کافه‌ی شهر از هر چیزی تلخ‌تره، ولی من بازم می‌خورم.", "بلک‌وود آدم بدی نیست، فقط زیادی عجوله.", "یه کلانتر خوب بیشتر گوش می‌ده تا حرف بزنه."]},
 	henry = {name = "آقای هنری", role = "خریدار گاو و صاحب مغازه", perk = ["گاوهات رو ۴ درصد گرون‌تر می‌خره", "گاوهات رو ۸ درصد گرون‌تر می‌خره"],
-		look = {skin = Color(0.9, 0.72, 0.58), hair = Color(0.75, 0.75, 0.72), hat = 4, hat_col = Color(0.15, 0.14, 0.13), shirt = Color(0.25, 0.28, 0.35), stache = true, glasses = true, tie = true},
 		chat = ["قیمت گوشت امسال بد نیست. البته برای من که خریدارم، زیادی خوبه!", "یه گاو چاق و سالم، بهترین تبلیغ رنچ توئه.", "مغازه‌م از نمک تا نعل اسب همه چی داره. جز صبر!", "تو این شغل یاد گرفتم آدم‌ها رو از رو دستشون بشناسم.", "اگه قطار بیاد، کار همه‌مون رونق می‌گیره."]},
 	rose = {name = "دکتر رُز", role = "دامپزشک", perk = ["دامپزشک و واکسن ۱۰ درصد ارزون‌تر", "دامپزشک و واکسن ۲۰ درصد ارزون‌تر"],
-		look = {skin = Color(0.82, 0.6, 0.45), hair = Color(0.45, 0.2, 0.1), hat = 0, hat_col = Color(0, 0, 0), shirt = Color(0.85, 0.85, 0.82), female = true, bag = true},
 		chat = ["گاوی که آب تمیز داره، نصف مریضی‌ها رو نمی‌گیره.", "دیشب تا صبح بالای سر یه کره‌اسب بودم. الان سرحاله!", "واکسن یادت نره. پیشگیری همیشه ارزون‌تره.", "حیوون‌ها حرف نمی‌زنن، ولی همه چی رو نشون می‌دن. فقط باید نگاه کنی.", "گاوهات خوش‌اخلاق‌ان. این از صاحبشون میاد."]},
 	elsie = {name = "خانم اِلسی", role = "معلم مدرسه", perk = ["هر روز صبح یه امتیاز شهرت بیشتر", "هر روز صبح دو امتیاز شهرت بیشتر"],
-		look = {skin = Color(0.92, 0.76, 0.64), hair = Color(0.62, 0.42, 0.18), hat = 2, hat_col = Color(0.55, 0.3, 0.4), shirt = Color(0.42, 0.5, 0.62), female = true, brooch = true},
 		chat = ["بچه‌ها امروز یه انشا نوشتن درباره‌ی گاوهای رنچ تو!", "مدرسه فقط یه کلاس داره، ولی بچه‌هاش دنیا رو می‌خوان بشناسن.", "یه روز بچه‌ها رو میارم رنچت ببینن. قول می‌دی گاوها نترسوننشون؟", "کتاب‌های مدرسه از شهر میان، با قطار. اگه قطار بیاد!", "تو شهر همه از رنچت تعریف می‌کنن."]},
 	sam = {name = "سم پیر", role = "کمندانداز و اسب‌گیر", perk = ["اسب‌های وحشی بیشتر نزدیک رنچت میان", "اسب‌های وحشی دوبرابر بیشتر نزدیک رنچت میان"],
-		look = {skin = Color(0.7, 0.5, 0.36), hair = Color(0.85, 0.85, 0.82), hat = 3, hat_col = Color(0.42, 0.3, 0.18), shirt = Color(0.4, 0.3, 0.2), beard = true},
 		chat = ["کمند رو با مچ بنداز، نه با بازو. بازو زود خسته می‌شه.", "یه اسب وحشی رو با زور رام نمی‌کنی، با صبر رام می‌کنی.", "تو تپه‌های شمالی یه نریون سفید دیدم. هنوز کسی نتونسته بگیرتش.", "چهل سال تو این دشت اسب گرفتم. هنوزم هر بار دلم می‌لرزه.", "اسب خوب صاحبش رو انتخاب می‌کنه، نه برعکس."]},
 	tom = {name = "تام آهنگر", role = "آهنگر شهر", perk = ["تعمیر آسیاب بادی نصف قیمت", "تعمیر آسیاب بادی مجانی"],
-		look = {skin = Color(0.78, 0.56, 0.42), hair = Color(0.12, 0.1, 0.09), hat = 0, hat_col = Color(0, 0, 0), shirt = Color(0.6, 0.55, 0.48), beard = true, apron = true},
 		chat = ["آهن رو باید وقتی داغه کوبید. کار رنچ هم همینه.", "نعل خوب، اسب رو سالم نگه می‌داره. نعل بد، صاحبش رو بیچاره می‌کنه.", "آسیاب‌هات رو هر از گاهی روغن‌کاری کن. خودشون ازت تشکر می‌کنن.", "دیروز یه پتک شکستم. اولین بار تو بیست سال!", "یه روز یه زنگ بزرگ برای مدرسه می‌سازم."]},
 }
 # the story: who comes, what they say, the job, and the prize
@@ -122,87 +116,22 @@ var _rng := RandomNumberGenerator.new()
 
 
 ## A drawn face for each of them: head and shoulders, hair, hat and a thing or two that's theirs.
+## A townsperson's portrait: an old photo in a brass oval, drawn to fit the box.
 class Face extends Control:
-	var look := {}
+	var who := "":
+		set(v):
+			who = v
+			_tex = load("res://ui/people/%s.png" % v) if v != "" else null
+			queue_redraw()
+	var _tex: Texture2D
 
 	func _draw() -> void:
-		if look.is_empty():
+		if _tex == null:
 			return
-		var c := size * 0.5
-		var s := minf(size.x, size.y) / 200.0
-		draw_circle(c, 96.0 * s, Color(0.95, 0.88, 0.72, 0.6))
-		var skin: Color = look.skin
-		var hair: Color = look.hair
-		var head := c + Vector2(0, -12) * s
-		var fem: bool = look.get("female", false)
-		if fem:  # long hair behind the head
-			draw_rect(Rect2(head + Vector2(-46, -20) * s, Vector2(92, 82) * s), hair)
-		# shoulders and shirt
-		var sh := PackedVector2Array([c + Vector2(-80, 96) * s, c + Vector2(-70, 50) * s, c + Vector2(-30, 34) * s, c + Vector2(30, 34) * s, c + Vector2(70, 50) * s, c + Vector2(80, 96) * s])
-		draw_colored_polygon(sh, look.shirt)
-		if look.get("apron", false):
-			draw_colored_polygon(PackedVector2Array([c + Vector2(-34, 96) * s, c + Vector2(-30, 40) * s, c + Vector2(30, 40) * s, c + Vector2(34, 96) * s]), Color(0.3, 0.22, 0.16))
-		draw_rect(Rect2(head + Vector2(-13, 30) * s, Vector2(26, 26) * s), skin.darkened(0.08))
-		if look.get("tie", false):
-			draw_colored_polygon(PackedVector2Array([c + Vector2(-12, 36) * s, c + Vector2(12, 36) * s, c + Vector2(0, 46) * s]), Color(0.6, 0.12, 0.1))
-			draw_colored_polygon(PackedVector2Array([c + Vector2(-12, 56) * s, c + Vector2(12, 56) * s, c + Vector2(0, 46) * s]), Color(0.6, 0.12, 0.1))
-		if look.get("star", false):  # the sheriff's badge
-			var pts := PackedVector2Array()
-			for i in 10:
-				var r := 14.0 if i % 2 == 0 else 6.0
-				var a := -PI * 0.5 + i * PI / 5.0
-				pts.append(c + (Vector2(-40, 66) + Vector2(cos(a), sin(a)) * r) * s)
-			draw_colored_polygon(pts, Color(0.92, 0.75, 0.25))
-		if look.get("brooch", false):
-			draw_circle(c + Vector2(0, 46) * s, 7.0 * s, Color(0.85, 0.7, 0.3))
-		if look.get("bag", false):  # a stethoscope round the neck
-			draw_arc(c + Vector2(0, 38) * s, 26.0 * s, 0.2, PI - 0.2, 16, Color(0.2, 0.2, 0.22), 4.0 * s)
-			draw_circle(c + Vector2(22, 70) * s, 7.0 * s, Color(0.6, 0.62, 0.65))
-		# head
-		draw_circle(head, 44.0 * s, skin)
-		draw_circle(head + Vector2(-44, 4) * s, 8.0 * s, skin)
-		draw_circle(head + Vector2(44, 4) * s, 8.0 * s, skin)
-		if not fem and look.hat == 0:  # short hair on top
-			draw_arc(head, 40.0 * s, PI + 0.25, TAU - 0.25, 20, hair, 14.0 * s)
-		if fem:  # fringe
-			draw_arc(head + Vector2(0, -4) * s, 40.0 * s, PI + 0.3, TAU - 0.3, 20, hair, 16.0 * s)
-		# eyes, brows, nose, mouth
-		for x in [-16.0, 16.0]:
-			draw_circle(head + Vector2(x, -2) * s, 4.5 * s, Color(0.12, 0.08, 0.06))
-			draw_line(head + Vector2(x - 9, -13) * s, head + Vector2(x + 8, -14) * s, hair.darkened(0.2), 3.5 * s)
-		draw_line(head + Vector2(0, 2) * s, head + Vector2(-3, 14) * s, skin.darkened(0.3), 3.0 * s)
-		draw_arc(head + Vector2(0, 14) * s, 12.0 * s, 0.4, PI - 0.4, 10, Color(0.5, 0.2, 0.15), 3.0 * s)
-		if look.get("glasses", false):
-			for x in [-16.0, 16.0]:
-				draw_arc(head + Vector2(x, -2) * s, 10.0 * s, 0, TAU, 16, Color(0.2, 0.18, 0.15), 2.5 * s)
-			draw_line(head + Vector2(-6, -2) * s, head + Vector2(6, -2) * s, Color(0.2, 0.18, 0.15), 2.5 * s)
-		if look.get("beard", false):
-			draw_colored_polygon(PackedVector2Array([head + Vector2(-40, 6) * s, head + Vector2(-30, 34) * s, head + Vector2(0, 48) * s, head + Vector2(30, 34) * s, head + Vector2(40, 6) * s, head + Vector2(26, 26) * s, head + Vector2(0, 30) * s, head + Vector2(-26, 26) * s]), hair)
-		if look.get("stache", false) or look.get("beard", false):
-			draw_colored_polygon(PackedVector2Array([head + Vector2(-22, 14) * s, head + Vector2(0, 8) * s, head + Vector2(22, 14) * s, head + Vector2(16, 18) * s, head + Vector2(0, 14) * s, head + Vector2(-16, 18) * s]), hair)
-		# hat
-		var hc: Color = look.hat_col
-		match int(look.hat):
-			1:  # cowboy hat
-				draw_colored_polygon(_oval(head + Vector2(0, -30) * s, 76.0 * s, 13.0 * s), hc)
-				draw_colored_polygon(PackedVector2Array([head + Vector2(-34, -32) * s, head + Vector2(-28, -72) * s, head + Vector2(0, -64) * s, head + Vector2(28, -72) * s, head + Vector2(34, -32) * s]), hc)
-				draw_rect(Rect2(head + Vector2(-34, -42) * s, Vector2(68, 7) * s), hc.darkened(0.4))
-			2:  # bonnet
-				draw_arc(head + Vector2(0, -6) * s, 48.0 * s, PI + 0.1, TAU - 0.1, 24, hc, 20.0 * s)
-				draw_line(head + Vector2(-40, 20) * s, head + Vector2(-20, 46) * s, hc, 4.0 * s)
-			3:  # fur cap
-				draw_colored_polygon(_oval(head + Vector2(0, -34) * s, 46.0 * s, 26.0 * s), hc)
-				draw_rect(Rect2(head + Vector2(-46, -34) * s, Vector2(92, 12) * s), hc.lightened(0.25))
-			4:  # bowler
-				draw_colored_polygon(_oval(head + Vector2(0, -32) * s, 56.0 * s, 8.0 * s), hc)
-				draw_colored_polygon(_oval(head + Vector2(0, -46) * s, 34.0 * s, 24.0 * s), hc)
-
-	func _oval(c: Vector2, rx: float, ry: float) -> PackedVector2Array:
-		var p := PackedVector2Array()
-		for i in 20:
-			var a := TAU * i / 20.0
-			p.append(c + Vector2(cos(a) * rx, sin(a) * ry))
-		return p
+		var ts := _tex.get_size()
+		var k := minf(size.x / ts.x, size.y / ts.y)
+		var d := ts * k
+		draw_texture_rect(_tex, Rect2((size - d) * 0.5, d), false)
 
 
 func _init() -> void:
@@ -442,8 +371,8 @@ func _rebuild() -> void:
 		v.add_theme_constant_override("separation", 4)
 		card.add_child(v)
 		var f := Face.new()
-		f.look = p.look
-		f.custom_minimum_size = Vector2(250, 128)
+		f.who = id
+		f.custom_minimum_size = Vector2(250, 140)
 		v.add_child(f)
 		v.add_child(UiTheme.label(p.name, 28))
 		v.add_child(UiTheme.label(p.role, 20, Color(0.32, 0.18, 0.08)))
@@ -504,15 +433,14 @@ func _build_visit() -> void:
 	c.add_child(_vnext)
 	col.add_child(c)
 	row.add_child(col)
-	_vface.custom_minimum_size = Vector2(260, 260)
+	_vface.custom_minimum_size = Vector2(220, 275)
 	row.add_child(_vface)  # the face on the right: Persian reads right to left
 
 
 func _show_visit() -> void:
 	var st: Dictionary = STORY[chapter]
 	var p: Dictionary = CAST[st.who]
-	_vface.look = p.look
-	_vface.queue_redraw()
+	_vface.who = st.who
 	_vname.text = "%s، %s" % [p.name, p.role]
 	_vlines = st.lines.duplicate()
 	_vlines.append("کار: %s.%s" % [st.job, "  جایزه: %s دلار" % UiTheme.fa(st.money) if st.money > 0 else ""])
