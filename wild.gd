@@ -369,6 +369,8 @@ func _invite() -> void:
 
 
 func _start() -> void:
+	if target.is_empty():  # (only a test can get here without the band's board)
+		_pick_target()
 	tried = true
 	t = -1.2
 	gap = START

@@ -739,6 +739,13 @@ func _ready() -> void:
 		await get_tree().process_frame
 		await get_tree().process_frame
 		print("BAR ", builder._menu.size, " ", builder._menu.get_children().map(func(c): return [c.get("text"), c.size.x]), " sites ", builder.sites.map(func(b): return b.work_total))
+	if _arg("perf", "") != "":  # test: --perf=1 prints how long a frame's scripts and physics take
+		var t := Timer.new()
+		t.wait_time = 3.0
+		t.autostart = true
+		t.timeout.connect(func(): print("PERF process %.2f ms  physics %.2f ms  objects %d  nodes %d" % [Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
+			Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0, Performance.get_monitor(Performance.OBJECT_COUNT), Performance.get_monitor(Performance.OBJECT_NODE_COUNT)]))
+		add_child(t)
 	if _arg("debug", "") != "":
 		_debug_herd()
 		market.notify = func(t): print("   NOTE ", t)
