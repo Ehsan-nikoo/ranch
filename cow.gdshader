@@ -80,7 +80,9 @@ void fragment() {
 			patch_col = mix(vec3(0.3, 0.2, 0.12), vec3(0.42, 0.3, 0.18), shade) * (0.6 + 2.5 * c.r);
 		}
 		c = mix(c, patch_col, dark);
-		if (type > 2.5) {                        // solid black, like an Angus
+		if (type > 3.5) {                        // creamy white all over (the rare breed)
+			c = mix(vec3(0.8, 0.75, 0.64), vec3(0.9, 0.86, 0.77), shade) * (0.9 + 0.12 * dot(c, vec3(0.333)));
+		} else if (type > 2.5) {                 // solid black, like an Angus
 			c = mix(vec3(0.018, 0.016, 0.015), vec3(0.04, 0.034, 0.03), shade) * (0.8 + 0.4 * dot(c, vec3(0.333)));
 		}
 		c *= vec3(0.93, 0.9, 0.86);  // take the edge off the pure white

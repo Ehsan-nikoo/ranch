@@ -21,6 +21,7 @@ var builder: Builder
 var workers: Workers
 var events: Events
 var auction: Auction
+var fair: Fair
 var notify: Callable
 
 var trail := {}            # {n, kg, start, next}: the herd on the trail; empty when there's none
@@ -91,7 +92,7 @@ func is_open() -> bool:
 
 
 func _busy() -> bool:
-	return _panel.visible or events._panel.visible or auction.is_open()
+	return _panel.visible or events._panel.visible or auction.is_open() or (fair != null and fair.is_open())
 
 
 ## Called at each day change.

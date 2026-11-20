@@ -47,6 +47,10 @@ func _ready() -> void:
 	col.add_child(_row)
 
 
+func is_open() -> bool:
+	return _panel.visible
+
+
 func now() -> float:
 	return day.day * 24.0 + day.hour
 

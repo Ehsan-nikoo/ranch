@@ -11,6 +11,7 @@ extends Node3D
 signal died(cause: String)
 signal born
 signal fell_sick
+signal twins(mother: String)
 
 const SPAN := 240.0       # grass grid covers world x/z in [-SPAN/2, SPAN/2], same as the ground mask
 const N := 60             # grid cells per side (4 m each)
@@ -42,7 +43,12 @@ const BREEDS := [
 	{name = "معمولی", about = "همه‌جوره، نه خیلی گرون نه خیلی ارزون", gain = 1.0, cold = 1.0, thirst = 1.0, sale = 1.0, calf = 1.0},
 	{name = "سیاه", about = "زود چاق می‌شه و گوشتش گرون‌تره، ولی گرون‌تره و سرما اذیتش می‌کنه", gain = 1.2, cold = 1.25, thirst = 1.0, sale = 1.1, calf = 1.5},
 	{name = "شاخ‌بلند", about = "ارزون و جون‌سخت: سرما و تشنگی کمتر اذیتش می‌کنه، ولی دیرتر چاق می‌شه", gain = 0.85, cold = 0.5, thirst = 0.7, sale = 0.95, calf = 0.75},
+	# not sold in town: only the travelling trader brings one now and then (see Surprises); her calves are white too
+	{name = "سفید", about = "کمیابه: زود چاق می‌شه و گوشتش از همه گرون‌تره", gain = 1.15, cold = 0.9, thirst = 0.9, sale = 1.2, calf = 2.0},
 ]
+const BUY_BREEDS := 3       # the first three can be bought in town
+const SHOW := [8.0, 16.0, 11.0, 20.0]  # what each breed scores with the judges at the cattle show
+const TWINS := 0.07         # chance a cow has twins
 const NAMES := ["گلی", "ابری", "خال‌خالی", "ماه‌پری", "شکلات", "پنبه", "قهوه", "زری", "نازی", "سیاهه", "بلوطی", "عسل",
 	"مخملی", "لیلی", "تپلی", "شیرین", "گندم", "کهربا", "ستاره", "دودی", "خانم‌گل", "قندی", "فندق", "نارنج", "مهتاب", "پاپی",
 	"کوکو", "بابونه", "زعفرون", "دارچین", "خرمالو", "گیلاس"]
@@ -145,6 +151,8 @@ func add_cow(pos: Vector3, weight: float, kind := FEEDER, female := -1, breed :=
 		c.coat = (3.0 + _rng.randf() * 0.99) / 4.0
 	elif breed == 2:  # red and white
 		c.coat = (1.0 + _rng.randf() * 0.99) / 4.0
+	elif breed == 3:  # creamy white all over
+		c.coat = (4.0 + _rng.randf() * 0.99) / 4.0
 	elif floorf(c.coat * 4.0) == 3.0:  # the plain kind isn't black
 		c.coat = (_rng.randi_range(0, 2) + _rng.randf() * 0.99) / 4.0
 	cows.append(c)
@@ -377,13 +385,17 @@ func _process(delta: float) -> void:
 			else:
 				died.emit("cold" if cold > 0.0 and c.hunger < 0.85 and c.thirst < 0.85 else ("thirst" if c.thirst > c.hunger else "hunger"))
 	for m in calving:  # added after the loop: the list can't grow while it's walked
-		var calf := add_cow(free_spot(m.pos + Vector3(sin(m.yaw), 0, cos(m.yaw)) * -1.5, 1.5), BIRTH_KG, FEEDER, -1, m.breed)
-		if not calf.is_empty():
-			if _rng.randf() < 0.6:  # takes after its mother's coat
-				calf.coat = floorf(m.coat * 4.0) / 4.0 + _rng.randf() * 0.99 / 4.0
-			calf.hunger = 0.1
-			calf.thirst = 0.1
-			born.emit()
+		var n := 2 if _rng.randf() < TWINS else 1
+		for i in n:
+			var calf := add_cow(free_spot(m.pos + Vector3(sin(m.yaw), 0, cos(m.yaw)) * -1.5, 1.5), BIRTH_KG, FEEDER, -1, m.breed)
+			if not calf.is_empty():
+				if _rng.randf() < 0.6:  # takes after its mother's coat
+					calf.coat = floorf(m.coat * 4.0) / 4.0 + _rng.randf() * 0.99 / 4.0
+				calf.hunger = 0.1
+				calf.thirst = 0.1
+				born.emit()
+				if i == 1:
+					twins.emit(m.name)
 	_separate()
 	for c in cows.filter(func(c): return c.has("dying") and c.dying > 5.0):
 		cows.erase(c)
@@ -692,7 +704,7 @@ func to_save() -> Dictionary:
 		hay = hay,
 		grass = Marshalls.raw_to_base64(grass.to_byte_array()),
 		cows = alive().map(func(c): return [c.pos.x, c.pos.z, c.yaw, c.hunger, c.thirst, c.weight, c.coat,
-			c.kind, int(c.female), c.preg, c.rest, c.sick, c.vacc, c.peak, c.name, int(c.fav), c.breed]),
+			c.kind, int(c.female), c.preg, c.rest, c.sick, c.vacc, c.peak, c.name, int(c.fav), c.breed, int(c.get("ribbon", 0))]),
 	}
 
 
@@ -722,3 +734,5 @@ func from_save(d: Dictionary) -> void:
 			c.name = v[14]
 			c.fav = v[15] == 1
 			c.breed = int(v[16])
+		if v.size() >= 18 and int(v[17]) > 0:  # her best ribbon from the cattle show
+			c.ribbon = int(v[17])

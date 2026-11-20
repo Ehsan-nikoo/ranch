@@ -23,7 +23,7 @@ static func mesh() -> ArrayMesh:
 ## A material for one surface, tinted for the coat (surface 0 is the body, 1 the mane, 2 the saddle);
 ## `pale` washes the coat out toward a dappled grey.
 static func material(surface: int, tint: Color, pale := 0.0) -> ShaderMaterial:
-	var key := "%d %s %.2f" % [surface, tint.to_html(), pale]
+	var key := "%d %s %.2f" % [surface, str(tint), pale]  # not to_html(): it clips bright tints, and two coats would share one material
 	if not _mat.has(key):
 		mesh()
 		var m := ShaderMaterial.new()

@@ -126,6 +126,8 @@ func _about(c: Dictionary) -> String:
 	if c.preg > 0.0:
 		lines.append("حامله‌ست؛ تا %s روز دیگه گوساله میاره" % UiTheme.fa(ceili(c.preg / 24.0)))
 	lines.append("واکسن زده" if c.vacc >= herd.day.day else "واکسن نزده")
+	if c.get("ribbon", 0) > 0:
+		lines.append("%s نمایشگاه گاو رو گردنشه" % Fair.RIBBONS[c.ribbon - 1])
 	if c.fav:
 		lines.append("محبوبته: با بقیه فروخته نمی‌شه")
 	return "\n".join(lines)

@@ -15,18 +15,22 @@ const STALLION := 2000      # price of a stallion (2 or 3 stars)
 const NAMES := ["باد", "طوفان", "یال‌طلا", "ستاره", "غزال", "آهو", "شبرنگ", "برق", "تندباد", "سپیده", "کهر", "نسیم",
 	"مه‌پاره", "زرین", "شاهین", "سیمین", "رعد", "خورشید", "مهتاب", "سرخه", "شیرین", "پیچک", "آتش", "گلبو"]
 const WALK := 1.1           # m/s grazing pace
+const COAT_NAMES := ["قهوه‌ای", "سرخ", "مشکی", "خاکستری", "طلایی", "دودی", "سفید"]  # Cowboy.COATS
+const RARE := [4, 5, 6]     # never sold in town: only a foal can be born with one
 
 var day: DayCycle
 var world: Node3D
 var herd: Herd
 var builder: Builder
 var notify: Callable
-var list: Array = []        # {id, name, female, age (days), stars, coat, foal (hours left, 0 = none), sire (foal's stars), rest}
+var list: Array = []        # {id, name, female, age (days), stars, coat, foal (hours left, 0 = none), sire (foal's stars), sire_coat, rest}
 var _next_id := 1
 var version := 0            # goes up whenever the list or a horse changes, for the board
 var _shown := {}            # id -> {node, target, wait, phase}
 var _rng := RandomNumberGenerator.new()
 static var _no_saddle: ShaderMaterial
+
+signal foaled(h: Dictionary)
 
 
 func _ready() -> void:
@@ -51,14 +55,16 @@ func grown(h: Dictionary) -> bool:
 ## What a buyer pays: good horses fetch a lot more; a foal goes cheap.
 func value(h: Dictionary) -> int:
 	var v: int = 500 + 200 * h.stars * h.stars
+	if h.coat in RARE:  # buyers pay half again for a coat you can't get in town
+		v = int(v * 1.5)
 	return v if grown(h) else int(v * 0.45 / 10.0) * 10
 
 
-func _add(female: bool, stars: int, age: float) -> Dictionary:
+func _add(female: bool, stars: int, age: float, coat := -1) -> Dictionary:
 	var used := list.map(func(x): return x.name)
 	var free := NAMES.filter(func(n): return not n in used)
 	var nm: String = free[_rng.randi() % free.size()] if not free.is_empty() else "اسب %s" % UiTheme.fa(_next_id)
-	var h := {id = _next_id, name = nm, female = female, age = age, stars = stars, coat = _rng.randi() % Cowboy.COATS.size(), foal = 0.0, sire = 0, rest = 0.0}
+	var h := {id = _next_id, name = nm, female = female, age = age, stars = stars, coat = coat if coat >= 0 else _rng.randi() % Cowboy.COMMON, foal = 0.0, sire = 0, sire_coat = 0, rest = 0.0}
 	_next_id += 1
 	list.append(h)
 	version += 1
@@ -74,7 +80,7 @@ func buy(female: bool) -> void:
 		return
 	builder.add_money(-(MARE if female else STALLION), "horses")
 	var h := _add(female, _rng.randi_range(1, 2) if female else _rng.randi_range(2, 3), ADULT + _rng.randf_range(0.0, 6.0))
-	notify.call("%s اومد به رنچ (%s)" % [h.name, stars_text(h.stars)])
+	notify.call("%s اومد به رنچ (%s، %s)" % [h.name, COAT_NAMES[h.coat], stars_text(h.stars)])
 
 
 func sell(h: Dictionary) -> void:
@@ -84,6 +90,18 @@ func sell(h: Dictionary) -> void:
 	list.erase(h)
 	version += 1
 	notify.call("%s رو فروختی:  %s+ دلار" % [h.name, UiTheme.fa(value(h))])
+
+
+## A foal's coat: mostly its mother's or its sire's, else one of the common ones. Now and then a rare
+## coat turns up, more often from good parents; white only from very good ones. Two parents of the
+## same rare coat pass it on half the time.
+static func foal_coat(mother: int, sire: int, stars: float, rng: RandomNumberGenerator) -> int:
+	if mother == sire and mother in RARE and rng.randf() < 0.5:
+		return mother
+	if rng.randf() < 0.04 + 0.035 * (stars - 1.0):  # 4% from one-star parents, 18% from five-star ones
+		return 6 if stars >= 4.0 and rng.randf() < 0.3 else (4 if rng.randf() < 0.6 else 5)
+	var r := rng.randf()
+	return mother if r < 0.45 else (sire if r < 0.8 else rng.randi() % Cowboy.COMMON)
 
 
 static func stars_text(n: int) -> String:
@@ -116,9 +134,11 @@ func new_day(_d: int) -> void:
 	var grow := c.foal_mul() if c else 1.0
 	var stallion := list.any(func(h): return not h.female and grown(h))
 	var best_sire := 0
+	var sire_coat := 0
 	for h in list:
-		if not h.female and grown(h):
-			best_sire = maxi(best_sire, h.stars)
+		if not h.female and grown(h) and h.stars >= best_sire:
+			best_sire = h.stars
+			sire_coat = h.coat
 	for h in list:
 		var was := grown(h)
 		h.age += grow if not grown(h) else 1.0
@@ -127,6 +147,7 @@ func new_day(_d: int) -> void:
 		if h.female and grown(h) and stallion and h.foal <= 0.0 and h.rest <= 0.0 and _rng.randf() < FOAL_CHANCE:
 			h.foal = GESTATION
 			h.sire = best_sire
+			h.sire_coat = sire_coat
 			notify.call("%s حامله شد" % h.name)
 
 
@@ -140,9 +161,11 @@ func _tick(hours: float) -> void:
 				h.rest = REST
 				# about the parents' average, more often a little better than worse
 				var s := clampi(roundi((h.stars + h.sire) * 0.5 + _rng.randf_range(-0.6, 1.0)), 1, 5)
-				var f := _add(_rng.randf() < 0.5, s, 0.0)
+				var f := _add(_rng.randf() < 0.5, s, 0.0, foal_coat(h.coat, h.sire_coat, (h.stars + h.sire) * 0.5, _rng))
 				var tight := "؛ ولی اصطبل جا نداره!" if list.size() > room() else ""
-				notify.call("%s یه کره‌اسب %s آورد: %s %s%s" % [h.name, "ماده" if f.female else "نر", f.name, stars_text(s), tight])
+				var rare := "  رنگش کمیابه!" if f.coat in RARE else ""
+				notify.call("%s یه کره‌اسب %s آورد: %s، %s %s%s%s" % [h.name, "ماده" if f.female else "نر", f.name, COAT_NAMES[f.coat], stars_text(s), rare, tight])
+				foaled.emit(f)
 
 
 # ---------- on the ranch ----------
@@ -181,7 +204,7 @@ func _show(h: Dictionary) -> void:
 	mi.mesh = HorseMesh.mesh()
 	var coat: Array = Cowboy.COATS[h.coat]
 	for s in 2:
-		mi.set_surface_override_material(s, HorseMesh.material(s, coat[0], coat[1] if s == 0 else 0.0))
+		mi.set_surface_override_material(s, HorseMesh.material(s, coat[0], coat[1] if s == 0 or coat[1] > 1.0 else 0.0))  # a white horse has a white mane too
 	mi.set_surface_override_material(2, _bare())  # loose horses carry no saddle
 	add_child(mi)
 	mi.position = _spot()
@@ -246,3 +269,4 @@ func from_save(d: Dictionary) -> void:
 		h.stars = int(h.stars)
 		h.coat = int(h.coat)
 		h.sire = int(h.sire)
+		h.sire_coat = int(h.get("sire_coat", 0))

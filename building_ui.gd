@@ -207,7 +207,9 @@ func _status(b: Building) -> String:
 	if b is Silo or b is HayShed or b is Feedlot:
 		return "این یکی جای %s بسته یونجه داره.\n%s" % [UiTheme.fa(b.hay_room()), _hay_line()]
 	if b is RanchHouse:
-		return "کارگرها: %s نفر، جای خواب: %s نفر.\nشب‌ها کارگرها می‌رن تو خونه می‌خوابن (جز نگهبان شب)." % [UiTheme.fa(workers.hired.size()), UiTheme.fa(workers.slots())]
+		var cups: int = boards.book.fair.trophies.size() if boards.has("book") else 0
+		return "کارگرها: %s نفر، جای خواب: %s نفر.\nشب‌ها کارگرها می‌رن تو خونه می‌خوابن (جز نگهبان شب).\n%s" % [UiTheme.fa(workers.hired.size()), UiTheme.fa(workers.slots()),
+			"جام‌ها و روبان‌های جشنواره‌ی شهر رو طاقچه‌ی خونه‌ان: %s تا." % UiTheme.fa(cups) if cups > 0 else "هنوز جامی رو طاقچه نیست؛ تو جشنواره‌ی شهر (روز سوم هر فصل) ببر."]
 	if b is Windmill:
 		return "خرابه و آب نمیاره!" if b.broken else "سالمه و آب‌خوریش پره."
 	if b is Pond:
@@ -241,7 +243,7 @@ func _actions(b: Building) -> Array:
 			hay_buy.call()
 			_state.text = _status(b), builder.money < price], ["گله", "cow", _open_board.bind("herd")]]
 	if b is RanchHouse:
-		return [["کارگرها", "worker", _open_board.bind("workers")]]
+		return [["کارگرها", "worker", _open_board.bind("workers")], ["جام‌ها و دفترچه", "trophy", _open_board.bind("book")]]
 	if b is Windmill and b.broken:
 		return [["تعمیرش کن  ۱۸۰ دلار", "windmill", func():
 			builder.add_money(-180, "build")

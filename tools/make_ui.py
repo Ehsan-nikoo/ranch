@@ -507,8 +507,43 @@ def gift(d, k):  # the daily prize: a box tied with ribbon and a bow
     shape(d, [(32, 18), (46, 6), (52, 12), (44, 18)], k)
 
 
+def trophy(d, k):  # the fair's cup: a bowl with two handles on a stem and a stepped base
+    d.arc([k(4), k(12), k(22), k(32)], 90, 270, fill=INK, width=k(4))
+    d.arc([k(42), k(12), k(60), k(32)], 270, 90, fill=INK, width=k(4))
+    shape(d, [(14, 8), (50, 8), (48, 22), (42, 32), (36, 36), (28, 36), (22, 32), (16, 22)], k)
+    shape(d, [(28, 36), (36, 36), (36, 46), (28, 46)], k)
+    shape(d, [(20, 46), (44, 46), (44, 52), (20, 52)], k)
+    shape(d, [(14, 52), (50, 52), (50, 60), (14, 60)], k)
+    d.ellipse([k(27), k(14), k(37), k(24)], fill=(150, 50, 35, 255), outline=INK, width=k(2))
+
+
+def book(d, k):  # the collection book: a thick book with a red spine, a bookmark and a star on the cover
+    shape(d, [(12, 6), (52, 6), (52, 58), (12, 58)], k)
+    d.rectangle([k(12), k(6), k(20), k(58)], fill=(150, 50, 35, 255), outline=INK, width=k(3))
+    d.polygon([(k(40), k(58)), (k(46), k(58)), (k(46), k(64)), (k(43), k(61)), (k(40), k(64))], fill=(150, 50, 35, 255), outline=INK)
+    pts = []
+    for i in range(10):
+        r = 12 if i % 2 == 0 else 5
+        a = math.radians(-90 + i * 36)
+        pts.append((k(36 + math.cos(a) * r), k(30 + math.sin(a) * r)))
+    d.polygon(pts, fill=INK)
+
+
+def party(d, k):  # a festival: a string of little flags
+    def y(x):
+        return 10 + 12 * math.sin(math.pi * (x - 2) / 60)
+    d.line([(k(x), k(y(x))) for x in range(2, 63, 3)], fill=INK, width=k(3))
+    for i, c in enumerate([(150, 50, 35, 255), None, (60, 120, 50, 255), (150, 50, 35, 255)]):
+        x0, x1 = 4 + i * 14.5, 16 + i * 14.5
+        pts = [(x0, y(x0)), (x1, y(x1)), ((x0 + x1) / 2, (y(x0) + y(x1)) / 2 + 30)]
+        if c is None:
+            shape(d, pts, k)
+        else:
+            d.polygon([(k(px), k(py)) for px, py in pts], fill=c, outline=INK, width=k(2))
+
+
 button()
 panel()
-for n, f in dict(land=land, market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place, vet=vet, vaccine=vaccine, worker=worker, star=star, stable=stable, smithy=smithy, rodeo=rodeo, pond=pond, kennel=kennel, tower=tower, feedlot=feedlot, saloon=saloon, train=train, corral=corral, horse=horse, gear=gear, arrow=arrow, gift=gift).items():
+for n, f in dict(land=land, market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place, vet=vet, vaccine=vaccine, worker=worker, star=star, stable=stable, smithy=smithy, rodeo=rodeo, pond=pond, kennel=kennel, tower=tower, feedlot=feedlot, saloon=saloon, train=train, corral=corral, horse=horse, gear=gear, arrow=arrow, gift=gift, trophy=trophy, book=book, party=party).items():
     icon(n, f)
 print("ok")

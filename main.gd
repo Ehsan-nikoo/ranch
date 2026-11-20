@@ -23,6 +23,10 @@ var events := Events.new()
 var auction := Auction.new()
 var drive := Drive.new()
 var rodeo := RodeoGame.new()
+var fair := Fair.new()
+var festivals := Festivals.new()
+var surprises := Surprises.new()
+var collection := Collection.new()
 var building_ui := BuildingUI.new()
 var horses := Horses.new()
 var horse_ui := HorseUI.new()
@@ -150,6 +154,8 @@ func _ready() -> void:
 			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), 480.0, Herd.BREEDER)
 		for i in int(_arg("bulls", "0")):
 			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), HerdUI.BULL_KG, Herd.BULL)
+		for i in int(_arg("white", "0")):  # test: cows of the rare white breed
+			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), 480.0, Herd.BREEDER, 1, 3)
 		for i in int(_arg("newborns", "0")):
 			herd.add_cow(herd.free_spot(Vector3(22, 0, 18), 9.0), Herd.BIRTH_KG)
 	else:
@@ -326,6 +332,18 @@ func _ready() -> void:
 	rodeo.others = [auction, drive]
 	rodeo.autopilot = _arg("bot", "") != ""
 	add_child(rodeo)
+	fair.day = day
+	fair.herd = herd
+	fair.builder = builder
+	fair.rival = rival
+	fair.notify = herd_ui.notify
+	fair.others = [events, auction, drive, rodeo]
+	fair.autopilot = _arg("bot", "") != "" or _arg("fair", "") == "bot"
+	if not saved.is_empty() and saved.has("fair"):
+		fair.from_save(saved.fair)
+	add_child(fair)
+	rodeo.others.append(fair)
+	drive.fair = fair
 	building_ui.builder = builder
 	building_ui.herd = herd
 	building_ui.workers = workers
@@ -353,6 +371,7 @@ func _ready() -> void:
 		horses.from_save(saved.horses)
 	add_child(horses)
 	horse_ui.horses = horses
+	fair.horses = horses
 	horse_ui.builder = builder
 	add_child(horse_ui)
 	building_ui.horses = horses
@@ -403,6 +422,31 @@ func _ready() -> void:
 		progress.rep = float(_arg("rep", ""))
 	add_child(progress)
 	progress.hook(herd)
+	fair.progress = progress
+	if _arg("fair", "") != "":  # test: the fair right away (--fair=race / show: straight to that contest, --fair=coach: a festival's stagecoach race)
+		fair._due = true
+		if _arg("fair", "") == "go":  # test: already racing with the best horse, the bot riding
+			fair._due = false
+			fair.autopilot = true
+			fair._coach = _arg("coach", "") != ""  # --coach=1: the festival's stagecoach race
+			(func():
+				fair._open()
+				fair._race_start(fair._racehorses()[0])).call_deferred()
+		if _arg("fair", "") == "judge":  # test: the cattle show judged, every place called
+			fair._due = false
+			(func():
+				fair._open()
+				fair._show_setup()
+				fair._judge()
+				for i in fair._entries.size():
+					fair._announce()).call_deferred()
+		if _arg("fair", "") in ["race", "show", "coach"]:
+			fair._due = false
+			if _arg("fair", "") == "coach":
+				fair.call_deferred("festival", "coach", "مسابقه‌ی دلیجان", "coach")
+			else:
+				fair.call_deferred("_open")
+				fair.call_deferred("_race_setup" if _arg("fair", "") == "race" else "_show_setup")
 	goals.herd = herd
 	goals.market = market
 	goals.workers = workers
@@ -489,6 +533,55 @@ func _ready() -> void:
 		daily.claim()
 		daily._count("cattle", 1)
 		daily.toggle()
+	festivals.builder = builder
+	festivals.market = market
+	festivals.herd = herd
+	festivals.horses = horses
+	festivals.fair = fair
+	festivals.progress = progress
+	festivals.notify = herd_ui.notify
+	festivals.force = _arg("fest", "")  # test: --fest=yalda puts that festival on, whatever the date
+	festivals.can_pop = func(): return (tutorial == null or not tutorial._box.visible) and not daily._panel.visible and (SaveGame.enabled() or _arg("fest", "") != "")
+	if not saved.is_empty() and saved.has("festivals"):
+		festivals.from_save(saved.festivals)
+	add_child(festivals)
+	surprises.day = day
+	surprises.herd = herd
+	surprises.builder = builder
+	surprises.market = market
+	surprises.events = events
+	surprises.progress = progress
+	surprises.world = self
+	surprises.notify = herd_ui.notify
+	if not saved.is_empty() and saved.has("surprises"):
+		surprises.from_save(saved.surprises)
+	add_child(surprises)
+	collection.herd = herd
+	collection.horses = horses
+	collection.fair = fair
+	collection.festivals = festivals
+	collection.builder = builder
+	collection.progress = progress
+	collection.notify = herd_ui.notify
+	if not saved.is_empty() and saved.has("collection"):
+		collection.from_save(saved.collection)
+	add_child(collection)
+	surprises.found.connect(func(k: String): collection.add("sur:" + k))
+	building_ui.boards.book = collection
+	if _arg("seen", "") != "":  # test: a well-filled book (one row full, prize waiting)
+		for k in ["cow0:0", "cow0:1", "cow1", "cow2", "coat0", "coat1", "coat2", "coat3", "coat4", "race1", "race3", "show1", "show2", "fest:nowruz", "fest:yalda", "sur:gold", "sur:twins", "sur:trader", "sur:rain"]:
+			collection.seen[k] = true
+		fair.trophies = [{k = "race", p = 1, y = 0, s = 0, who = "باد", fest = ""}, {k = "race", p = 1, y = 1, s = 2, who = "باد", fest = ""}, {k = "race", p = 3, y = 0, s = 1, who = "برق", fest = ""}, {k = "show", p = 1, y = 0, s = 2, who = "گلی", fest = ""}, {k = "show", p = 2, y = 1, s = 0, who = "ابری", fest = ""}]
+		festivals.done = {nowruz = 1405, yalda = 1405}
+	if _arg("book", "") != "":
+		collection.call_deferred("toggle")
+	if _arg("surprise", "") != "":  # test: --surprise=trader (or any of Surprises.ORDER but twins) right away
+		(func():
+			surprises.call("_" + _arg("surprise", ""))
+			surprises.found.emit(_arg("surprise", ""))).call_deferred()
+	if _arg("coats", "") != "":  # test: one horse of each coat, the rare ones too
+		for i in Cowboy.COATS.size():
+			horses._add(i % 2 == 0, 3, Horses.ADULT + 1.0, i)
 	away.builder = builder
 	away.delivery = delivery
 	away.notify = herd_ui.notify
@@ -551,6 +644,10 @@ func _debug_herd() -> void:
 	bank.notify = breed_ui.notify
 	warnings.notify = breed_ui.notify
 	daily.notify = breed_ui.notify
+	fair.notify = breed_ui.notify
+	festivals.notify = breed_ui.notify
+	surprises.notify = breed_ui.notify
+	collection.notify = breed_ui.notify
 	away.notify = breed_ui.notify
 	print("DAILY jobs ", daily.jobs, " day ", Daily.today(), " next prize day ", daily.next_day())
 	while true:
@@ -802,9 +899,11 @@ func _on_day(d: int) -> void:
 	workers.new_day(d)
 	progress.new_day(d)
 	events.new_day(d)
+	surprises.new_day(d)
 	auction.new_day(d)
 	drive.new_day(d)
 	rodeo.new_day(d)
+	fair.new_day(d)
 	horses.new_day(d)
 	legacy.new_day(d)
 	_save()
@@ -827,7 +926,7 @@ func _state() -> Dictionary:
 	for n in get_children():
 		if n is Building and not n.has_node("Marker"):
 			buildings.append([n.get_script().resource_path, n.position.x, n.position.z, n.rotation_degrees.y, n.level, n.work_left, n.work_total, n.upgrading])
-	return {saved_at = Time.get_unix_time_from_system(), yard = 2, money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), weather = weather.to_save(), rival = rival.to_save(), ledger = ledger.to_save(), drive = drive.to_save(), delivery = delivery.to_save(), land = land.to_save(), goals = goals.to_save(), legacy = legacy.to_save(), horses = horses.to_save(), bank = bank.to_save(), daily = daily.to_save(), away = away.to_save(), tutorial = tutorial.step if tutorial else 99}
+	return {saved_at = Time.get_unix_time_from_system(), yard = 2, money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), weather = weather.to_save(), rival = rival.to_save(), ledger = ledger.to_save(), drive = drive.to_save(), delivery = delivery.to_save(), land = land.to_save(), goals = goals.to_save(), legacy = legacy.to_save(), horses = horses.to_save(), fair = fair.to_save(), festivals = festivals.to_save(), surprises = surprises.to_save(), collection = collection.to_save(), bank = bank.to_save(), daily = daily.to_save(), away = away.to_save(), tutorial = tutorial.step if tutorial else 99}
 
 
 # ---------- ground & grass ----------

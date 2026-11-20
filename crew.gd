@@ -38,7 +38,7 @@ func _match_hired() -> void:
 			continue
 		var c := Cowboy.new()
 		c.skill = w.skill
-		c.coat = absi(hash(w.name)) % Cowboy.COATS.size()
+		c.coat = absi(hash(w.name)) % Cowboy.COMMON
 		c.position = herd.free_spot(HOME, 3.0)
 		add_child(c)
 		_riders[w.name] = {node = c, skill = w.skill, target = c.position, wait = _rng.randf_range(0.5, 3.0), leg = 0, best = INF, stuck = 0.0, home = false}

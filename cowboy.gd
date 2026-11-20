@@ -6,7 +6,11 @@ class_name Cowboy
 extends Node3D
 
 const SHIRTS := [Color(0.6, 0.16, 0.12), Color(0.16, 0.24, 0.48), Color(0.62, 0.5, 0.3), Color(0.28, 0.44, 0.2)]  # by Workers skill
-const COATS := [[Color(1, 1, 1), 0.0], [Color(1.45, 0.82, 0.5), 0.0], [Color(0.42, 0.4, 0.4), 0.0], [Color(1, 1, 1), 0.85]]  # bay, chestnut, black, grey: [tint, pale]
+# [tint, pale]: bay, chestnut, black, grey, then the rare ones that only come from breeding (Horses.RARE):
+# golden with a black mane, smoky blue, white
+const COATS := [[Color(1, 1, 1), 0.0], [Color(1.45, 0.82, 0.5), 0.0], [Color(0.42, 0.4, 0.4), 0.0], [Color(1, 1, 1), 0.85],
+	[Color(3.4, 2.8, 1.2), 0.0], [Color(0.5, 0.56, 0.72), 0.5], [Color(1, 1, 1), 1.75]]
+const COMMON := 4  # the first four: what town sells and what the hands ride
 const RIDER := "res://models/rider/scene.gltf"
 const BONE := "mixamorig_%s"
 const TALL := 1.78                 # meters

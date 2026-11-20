@@ -68,7 +68,7 @@ func _ready() -> void:
 		UiTheme.confirm("%s تا گاو آماده رو بفروشی؟ حدود %s دلار میاد" % [UiTheme.fa(herd.ready_count()), UiTheme.fa(_sell_cash)], "آره، بفروش", "market", sell), "place")
 	_buy = builder._button(Button.new(), "", buy, "cow")
 	_breed_btn = builder._button(Button.new(), "", func():
-		breed = (breed + 1) % Herd.BREEDS.size()
+		breed = (breed + 1) % Herd.BUY_BREEDS
 		_refresh(), "cow")
 	btns.add_child(_sell)
 	btns.add_child(_buy)

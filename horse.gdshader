@@ -5,7 +5,7 @@ render_mode cull_disabled;
 
 uniform sampler2D tex : source_color, filter_linear_mipmap;
 uniform vec4 tint : source_color = vec4(1.0);
-uniform float pale = 0.0;          // toward grey: a grey horse from the bay texture
+uniform float pale = 0.0;          // toward grey: a grey horse from the bay texture; past 1 toward white
 uniform bool cutout = false;
 uniform vec4 pivots;               // hip height, fore pivot z, hind pivot z, knee height
 instance uniform float phase = 0.0;
@@ -42,6 +42,7 @@ void fragment() {
 		discard;
 	}
 	float l = dot(c.rgb, vec3(0.3, 0.59, 0.11));
-	ALBEDO = mix(c.rgb * tint.rgb, vec3(0.16 + l * 2.2), pale);
+	vec3 a = mix(c.rgb * tint.rgb, vec3(0.16 + l * 2.2), min(pale, 1.0));
+	ALBEDO = mix(a, vec3(0.9, 0.88, 0.84) * (0.8 + l * 0.6), clamp(pale - 1.0, 0.0, 1.0));  // past 1: on toward white
 	ROUGHNESS = 0.9;
 }
