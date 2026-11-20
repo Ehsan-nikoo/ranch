@@ -184,8 +184,8 @@ func _ready() -> void:
 	if _arg("settings", "") != "":  # test: the settings board open (--settings=export: after "copy the ranch code")
 		if not hud._panel.visible:
 			hud.toggle()
-		if _arg("settings", "") == "look" and UiTheme.look != "poster":  # --settings=look: pick the second look a second in
-			get_tree().create_timer(1.0).timeout.connect(func(): hud._look_btns[1].pressed.emit())
+		if _arg("settings", "") == "look":  # --settings=look: a second in, pick the second look (from the poster: the rope)
+			get_tree().create_timer(1.0).timeout.connect(func(): hud._look_btns[1 if UiTheme.look != "poster" else 3].pressed.emit())
 		if _arg("settings", "") == "export":
 			hud.call_deferred("_export")
 		if _arg("settings", "") == "import":  # --settings=import: this ranch's own code pasted back, waiting for the yes

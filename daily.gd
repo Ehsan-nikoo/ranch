@@ -45,7 +45,7 @@ var _claim: Button
 var _list := VBoxContainer.new()
 var _bonus := UiTheme.label("", 23, Color(0.32, 0.18, 0.08))
 var _t := 0.0
-static var _popped := false  # once per run, not again when a new look reloads the ranch
+static var _popped := false  # once per run, not again when an imported ranch reloads the scene
 
 
 ## Today on the phone's calendar, as a day count.

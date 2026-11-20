@@ -125,15 +125,7 @@ static func label(text: String, size: int, color := Color.TRANSPARENT) -> Label:
 ## `anchor` is a Control.LayoutPreset; the plank grows away from that screen edge so it stays on screen.
 static func plank(size: int, anchor: int) -> PanelContainer:
 	var p := PanelContainer.new()
-	var sb := StyleBoxTexture.new()
-	sb.texture = load(skin.button)
-	_slice(sb, skin.bslice)
-	# text stays well inside the plank's inner frame line, clear of the straw and the screws
-	sb.content_margin_left = skin.bpad[0] + 16.0
-	sb.content_margin_right = skin.bpad[0] + 16.0
-	sb.content_margin_top = skin.bpad[1] + 4.0
-	sb.content_margin_bottom = skin.bpad[1] + 4.0
-	p.add_theme_stylebox_override("panel", sb)
+	p.add_theme_stylebox_override("panel", _plank_box())
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var l := label("", size, ON_PLANK)
 	l.add_theme_color_override("font_outline_color", skin.outline)
@@ -143,6 +135,69 @@ static func plank(size: int, anchor: int) -> PanelContainer:
 	p.set_anchors_preset(anchor)
 	p.grow_horizontal = Control.GROW_DIRECTION_BEGIN if anchor == Control.PRESET_TOP_RIGHT else Control.GROW_DIRECTION_BOTH
 	return p
+
+
+static func _plank_box() -> StyleBoxTexture:
+	var sb := StyleBoxTexture.new()
+	sb.texture = load(skin.button)
+	_slice(sb, skin.bslice)
+	# text stays well inside the plank's inner frame line, clear of the straw and the screws
+	sb.content_margin_left = skin.bpad[0] + 16.0
+	sb.content_margin_right = skin.bpad[0] + 16.0
+	sb.content_margin_top = skin.bpad[1] + 4.0
+	sb.content_margin_bottom = skin.bpad[1] + 4.0
+	return sb
+
+
+static func _board_box() -> StyleBoxTexture:
+	var sb := StyleBoxTexture.new()
+	sb.texture = load(skin.panel)
+	sb.set_texture_margin_all(skin.pslice)
+	sb.content_margin_left = skin.ppad[0]
+	sb.content_margin_right = skin.ppad[0]
+	sb.content_margin_top = skin.ppad[1]
+	sb.content_margin_bottom = skin.ppad[2]
+	return sb
+
+
+## Dresses everything already on screen in another look, in place. (Reloading the whole ranch for
+## it left some phones on a white screen.) Boards and planks get the new art; text that wore the
+## old look's inks gets the new ones; drawn boards are redrawn.
+static func restyle(name: String) -> void:
+	if not SKINS.has(name) or name == look:
+		return
+	var was := skin
+	look = name
+	apply()
+	var tree := Engine.get_main_loop() as SceneTree
+	var plank_tex: Texture2D = load(was.button)
+	var board_tex: Texture2D = load(was.panel)
+	var on_keys := ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]
+	var on_plank := {}  # labels on a plank: their ink is the buttons' ink, not the boards'
+	for n in tree.root.find_children("*", "Control", true, false):
+		var c := n as Control
+		if c.has_theme_stylebox_override("panel"):
+			var sb := c.get_theme_stylebox("panel") as StyleBoxTexture
+			if sb and sb.texture == plank_tex:
+				c.add_theme_stylebox_override("panel", _plank_box())
+				for l in c.find_children("*", "Label", true, false):
+					on_plank[l] = true
+					_swap_color(l, "font_color", was.text, skin.text)
+					_swap_color(l, "font_outline_color", was.outline, skin.outline)
+			elif sb and sb.texture == board_tex:
+				c.add_theme_stylebox_override("panel", _board_box())
+		if c is Label and not on_plank.has(c):
+			_swap_color(c, "font_color", was.ink, skin.ink)
+		if c is Button:
+			for k in on_keys:
+				_swap_color(c, k, was.on, skin.on)
+		c.queue_redraw()
+	tree.root.propagate_notification(Control.NOTIFICATION_THEME_CHANGED)
+
+
+static func _swap_color(c: Control, key: String, from: Color, to: Color) -> void:
+	if c.has_theme_color_override(key) and c.get_theme_color(key).is_equal_approx(from):
+		c.add_theme_color_override(key, to)
 
 
 ## Shrinks a plank back to its text after the text changed, keeping its screen edge: reset_size()
@@ -160,14 +215,7 @@ static func fit(p: Control) -> void:
 ## Big wooden board centered on screen, hidden until shown.
 static func board() -> PanelContainer:
 	var p := PanelContainer.new()
-	var sb := StyleBoxTexture.new()
-	sb.texture = load(skin.panel)
-	sb.set_texture_margin_all(skin.pslice)
-	sb.content_margin_left = skin.ppad[0]
-	sb.content_margin_right = skin.ppad[0]
-	sb.content_margin_top = skin.ppad[1]
-	sb.content_margin_bottom = skin.ppad[2]
-	p.add_theme_stylebox_override("panel", sb)
+	p.add_theme_stylebox_override("panel", _board_box())
 	p.set_anchors_preset(Control.PRESET_CENTER)
 	p.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	p.grow_vertical = Control.GROW_DIRECTION_BOTH

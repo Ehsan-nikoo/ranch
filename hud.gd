@@ -34,7 +34,6 @@ var _music_btns: Array[Button] = []
 var _sound_btns: Array[Button] = []
 var _notify_btns: Array[Button] = []
 var _look_btns: Array[Button] = []
-static var _reopen := false        # the board was open when a new look reloaded the ranch
 var _note: Label                   # what the backup buttons did
 var _confirm := HBoxContainer.new()
 var _rows := VBoxContainer.new()   # the settings themselves, out of the way while a backup note shows
@@ -91,9 +90,6 @@ func _ready() -> void:
 	_set_notify(notify_on)
 	_set_dev(_dev.visible or OS.get_cmdline_user_args().has("--dev=1"))
 	_mark(_look_btns, UiTheme.SKINS.keys().find(UiTheme.look))
-	if _reopen:
-		_reopen = false
-		toggle()
 	# sounds that start later (a cow's moo, the rain) go on the Sounds bus too
 	get_tree().node_added.connect(_route)
 	for n in get_tree().root.find_children("*", "AudioStreamPlayer", true, false) + get_tree().root.find_children("*", "AudioStreamPlayer3D", true, false):
@@ -275,17 +271,14 @@ func _title_tap(e: InputEvent) -> void:
 		_store()
 
 
-## A new look for boards and buttons: the ranch is saved and comes back dressed in it, settings open.
+## A new look for boards and buttons, put on right away.
 func _set_look(i: int) -> void:
 	var name: String = UiTheme.SKINS.keys()[i]
 	if name == UiTheme.look:
 		return
-	UiTheme.look = name
+	UiTheme.restyle(name)
 	_store()
-	if snapshot.is_valid():
-		SaveGame.write(snapshot.call())
-	_reopen = true
-	get_tree().call_deferred("reload_current_scene")
+	_mark(_look_btns, i)
 
 
 func _set_dev(on: bool) -> void:
