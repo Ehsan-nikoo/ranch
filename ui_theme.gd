@@ -63,6 +63,7 @@ static func _added(n: Node) -> void:
 	for c in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_hover_pressed_color", "icon_focus_color", "icon_disabled_color"]:
 		b.add_theme_color_override(c, Color.TRANSPARENT)
 	b.draw.connect(_draw_icon.bind(b))
+	b.pressed.connect(func(): Sfx.play("click"))
 
 
 const _STATE := ["normal", "pressed", "hover", "disabled", "hover_pressed"]  # by Button.get_draw_mode()

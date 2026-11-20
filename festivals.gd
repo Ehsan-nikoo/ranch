@@ -277,6 +277,7 @@ func _process(delta: float) -> void:
 	if f.is_empty() or announced.get(f.id, -1) == today()[0] or not can_pop.call():
 		return
 	announced[f.id] = today()[0]  # a new festival: its board pops up once
+	Sfx.play("handbell")
 	if not _panel.visible:
 		toggle()
 

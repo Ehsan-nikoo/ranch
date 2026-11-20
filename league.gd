@@ -136,6 +136,7 @@ func _finish() -> void:
 		var p: Array = PRIZE[rank - 1]
 		builder.add_money(p[0], "prize")
 		progress.add(p[1])
+		Sfx.play("cheer")
 		notify.call("فصل تموم شد و تو جدول رتبه‌ی ایالت نفر %s شدی! %s دلار جایزه" % [UiTheme.fa(rank), UiTheme.fa(p[0])])
 	else:
 		notify.call("فصل تموم شد: تو جدول رتبه‌ی ایالت نفر %s از %s شدی. فصل بعد!" % [UiTheme.fa(rank), UiTheme.fa(rows.size())])

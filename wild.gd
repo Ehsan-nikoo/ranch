@@ -293,11 +293,13 @@ func throw() -> void:
 	if _over or t < 0.0 or gap > RANGE:
 		return
 	if open >= GOOD:
+		Sfx.play("lasso")
 		caught = true
 		_win()
 		return
 	throws -= 1
 	_flash = 0.6
+	Sfx.play("lasso")
 	gap += MISS_GAP
 	if throws <= 0:
 		_end(false, "کمند سه بار خطا رفت و اسب‌ها رم کردن و رفتن.")
@@ -391,6 +393,7 @@ func _start() -> void:
 
 
 func _win() -> void:
+	Sfx.play("cheer", -4.0)
 	_over = true
 	hold = false
 	_pads.visible = false

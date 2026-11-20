@@ -441,6 +441,7 @@ func _show_visit() -> void:
 	var st: Dictionary = STORY[chapter]
 	var p: Dictionary = CAST[st.who]
 	_vface.who = st.who
+	Sfx.play("handbell", -8.0)
 	_vname.text = "%s، %s" % [p.name, p.role]
 	_vlines = st.lines.duplicate()
 	_vlines.append("کار: %s.%s" % [st.job, "  جایزه: %s دلار" % UiTheme.fa(st.money) if st.money > 0 else ""])

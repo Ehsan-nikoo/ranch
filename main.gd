@@ -251,6 +251,10 @@ func _ready() -> void:
 	sfx.herd = herd
 	sfx.crew = crew
 	sfx.day = day
+	sfx.builder = builder
+	sfx.camera = rig.cam
+	sfx.gallop_if = func(): return (wild.is_open() and not wild._over and wild.t >= 0.0) or fair.racing()
+	sfx.crowd_if = func(): return fair.is_open()
 	add_child(sfx)
 	if _arg("crew", "") != "":  # test: one hand of each skill
 		for k in 4:

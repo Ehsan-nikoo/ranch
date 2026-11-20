@@ -109,6 +109,7 @@ func _process(delta: float) -> void:
 		return
 	_hammer += 1
 	if _hammer < HAMMER.size():
+		Sfx.play("gavel", -6.0 if _hammer < HAMMER.size() - 1 else 0.0)
 		_show_bid(HAMMER[_hammer])
 	else:
 		_done()

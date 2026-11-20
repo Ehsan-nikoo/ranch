@@ -222,6 +222,7 @@ func _dry() -> void:
 
 
 func _arrive() -> void:
+	Sfx.play("whistle")
 	var t := trail
 	trail = {}
 	if t.n == 0:

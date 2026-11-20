@@ -297,6 +297,11 @@ func _mode_view(mode: String) -> void:
 # ---------- the race ----------
 
 ## Grown horses, best first.
+## A race is being run (for the gallop sound).
+func racing() -> bool:
+	return _panel.visible and not _over and t >= 0.0 and not racers.is_empty()
+
+
 func _racehorses() -> Array:
 	var hs := horses.list.filter(func(h): return horses.grown(h) and not Horses.wild(h))
 	hs.sort_custom(func(a, b): return a.stars > b.stars)
@@ -427,6 +432,7 @@ func _race_end() -> void:
 	var p := _place(me)
 	_held.append("race")
 	won.emit("coach" if _coach else "race", p + 1)
+	Sfx.play("cheer", 0.0 if p < 3 else -10.0)
 	if p < 3:
 		builder.add_money(RACE_PRIZE[p], "prize")
 		progress.add(RACE_REP[p])

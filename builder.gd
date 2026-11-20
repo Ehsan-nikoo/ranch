@@ -249,6 +249,8 @@ signal money_moved(delta: int, why: String)   # for the Ledger
 func add_money(delta: int, why := "") -> void:
 	money += delta
 	money_moved.emit(delta, why)
+	if delta > 0 and why in ["sale", "prize"]:
+		Sfx.play("coin")
 	_refresh()
 
 

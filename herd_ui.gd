@@ -163,6 +163,7 @@ func _hay_space() -> float:
 
 
 func notify(text: String) -> void:
+	Sfx.play("ding")
 	# several things can happen at a day change: stack them instead of the last one hiding the rest
 	var lines := (text if _toast_t < 1.0 else _toast.text + "\n" + text).split("\n")
 	if lines.size() > 4:  # only the latest few: a tall stack ran off the bottom of a phone

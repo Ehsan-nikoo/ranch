@@ -247,6 +247,7 @@ func _end(stayed: bool) -> void:
 	_pads.visible = false
 	_ring.queue_redraw()
 	if stayed:
+		Sfx.play("cheer")
 		won = true
 		var prize := _home_prize() if _home else PRIZE
 		var tie := _rival_t >= RIDE  # the neighbour stayed on too: the prize is shared

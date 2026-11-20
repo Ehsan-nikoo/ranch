@@ -179,6 +179,7 @@ func _offer(story: String) -> void:
 		_row.add_child(b)
 	_panel.visible = true
 	_dim.visible = true
+	Sfx.play("handbell")
 
 
 func _pick(id: String) -> void:
