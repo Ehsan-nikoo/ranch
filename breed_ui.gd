@@ -92,7 +92,7 @@ func keep_heifer() -> void:
 ## The vet's place on the ranch halves the bill.
 static func cut(world: Node) -> float:
 	var vet := Building.best_level(world, VetClinic)  # half price with a clinic, less again for a bigger one
-	return 0.6 - 0.1 * vet if vet > 0 else 1.0
+	return (0.6 - 0.1 * vet if vet > 0 else 1.0) * (1.0 - 0.1 * People.perk("rose"))  # and the vet's a friend
 
 
 static func vaccine(world: Node) -> int:

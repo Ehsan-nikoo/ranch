@@ -81,7 +81,7 @@ func capacity() -> int:
 
 
 func wages() -> int:
-	return hired.reduce(func(a, w): return a + w.wage, 0)
+	return int(hired.reduce(func(a, w): return a + w.wage, 0) * maxf(0.5, 1.0 - 0.1 * Legacy.level("thrifty")))
 
 
 func hire(w: Dictionary) -> bool:

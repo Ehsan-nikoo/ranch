@@ -542,8 +542,63 @@ def party(d, k):  # a festival: a string of little flags
             d.polygon([(k(px), k(py)) for px, py in pts], fill=c, outline=INK, width=k(2))
 
 
+def flower(d, k):  # decoration: a daisy in a flower pot
+    d.line([k(32), k(30), k(32), k(46)], fill=INK, width=k(4))
+    d.polygon([(k(32), k(42)), (k(20), k(34)), (k(18), k(40))], fill=(60, 120, 50, 255), outline=INK)
+    d.polygon([(k(32), k(40)), (k(44), k(32)), (k(46), k(38))], fill=(60, 120, 50, 255), outline=INK)
+    for i in range(8):
+        a = math.radians(i * 45)
+        cx, cy = 32 + math.cos(a) * 11, 20 + math.sin(a) * 11
+        d.ellipse([k(cx - 6), k(cy - 6), k(cx + 6), k(cy + 6)], fill=CREAM, outline=INK, width=k(2))
+    d.ellipse([k(26), k(14), k(38), k(26)], fill=(200, 150, 40, 255), outline=INK, width=k(2))
+    d.polygon([(k(18), k(46)), (k(46), k(46)), (k(42), k(62)), (k(22), k(62))], fill=(150, 50, 35, 255), outline=INK, width=k(3))
+    d.rectangle([k(16), k(44), k(48), k(50)], fill=(150, 50, 35, 255), outline=INK, width=k(3))
+
+
+def brush(d, k):  # paint: a wide brush with a dripping red tip
+    shape(d, [(26, 4), (38, 4), (38, 28), (26, 28)], k)
+    d.rectangle([k(22), k(28), k(42), k(36)], fill=(120, 120, 115, 255), outline=INK, width=k(3))
+    d.polygon([(k(20), k(36)), (k(44), k(36)), (k(46), k(54)), (k(18), k(54))], fill=(150, 50, 35, 255), outline=INK, width=k(3))
+    for x in (24, 30, 36, 42):
+        d.line([k(x), k(40), k(x - 1), k(52)], fill=INK, width=k(2))
+    d.ellipse([k(28), k(54), k(34), k(62)], fill=(150, 50, 35, 255), outline=INK, width=k(2))
+
+
+def sign(d, k):  # the ranch's name: a board hanging under a crossbar between two posts
+    d.rectangle([k(6), k(6), k(12), k(62)], fill=CREAM, outline=INK, width=k(3))
+    d.rectangle([k(52), k(6), k(58), k(62)], fill=CREAM, outline=INK, width=k(3))
+    d.rectangle([k(4), k(6), k(60), k(12)], fill=CREAM, outline=INK, width=k(3))
+    d.line([k(20), k(12), k(20), k(22)], fill=INK, width=k(3))
+    d.line([k(44), k(12), k(44), k(22)], fill=INK, width=k(3))
+    shape(d, [(14, 22), (50, 22), (50, 42), (14, 42)], k)
+    d.line([k(20), k(30), k(44), k(30)], fill=(150, 50, 35, 255), width=k(4))
+    d.line([k(24), k(36), k(40), k(36)], fill=INK, width=k(3))
+
+
+def people(d, k):  # townspeople: two heads and shoulders, one in a cowboy hat
+    for cx, hat in ((22, False), (42, True)):
+        d.pieslice([k(cx - 16), k(40), k(cx + 16), k(72)], 180, 360, fill=CREAM, outline=INK, width=k(3))
+        d.ellipse([k(cx - 10), k(20), k(cx + 10), k(40)], fill=CREAM, outline=INK, width=k(3))
+        if hat:
+            d.rectangle([k(cx - 16), k(20), k(cx + 16), k(24)], fill=(150, 50, 35, 255), outline=INK, width=k(2))
+            d.polygon([(k(cx - 9), k(21)), (k(cx - 7), k(8)), (k(cx + 7), k(8)), (k(cx + 9), k(21))], fill=(150, 50, 35, 255), outline=INK)
+
+
+def rank(d, k):  # the league table: a three-step podium with a star over the top step
+    shape(d, [(22, 30), (42, 30), (42, 60), (22, 60)], k)
+    shape(d, [(4, 40), (22, 40), (22, 60), (4, 60)], k)
+    shape(d, [(42, 46), (60, 46), (60, 60), (42, 60)], k)
+    d.rectangle([k(29), k(36), k(35), k(54)], fill=(150, 50, 35, 255), outline=INK, width=k(2))
+    pts = []
+    for i in range(10):
+        r = 12 if i % 2 == 0 else 5
+        a = math.radians(-90 + i * 36)
+        pts.append((k(32 + math.cos(a) * r), k(15 + math.sin(a) * r)))
+    d.polygon(pts, fill=(200, 150, 40, 255), outline=INK)
+
+
 button()
 panel()
-for n, f in dict(land=land, market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place, vet=vet, vaccine=vaccine, worker=worker, star=star, stable=stable, smithy=smithy, rodeo=rodeo, pond=pond, kennel=kennel, tower=tower, feedlot=feedlot, saloon=saloon, train=train, corral=corral, horse=horse, gear=gear, arrow=arrow, gift=gift, trophy=trophy, book=book, party=party).items():
+for n, f in dict(land=land, market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place, vet=vet, vaccine=vaccine, worker=worker, star=star, stable=stable, smithy=smithy, rodeo=rodeo, pond=pond, kennel=kennel, tower=tower, feedlot=feedlot, saloon=saloon, train=train, corral=corral, horse=horse, gear=gear, arrow=arrow, gift=gift, trophy=trophy, book=book, party=party, flower=flower, brush=brush, sign=sign, people=people, rank=rank).items():
     icon(n, f)
 print("ok")

@@ -404,7 +404,7 @@ func _process(delta: float) -> void:
 	_tex_t -= delta
 	if _tex_t <= 0.0:
 		_tex_t = 0.5
-		var g: float = _grow_hours / 96.0 * GROWTH[season] * growth_mul * rain_mul  # full regrowth in about four summer days
+		var g: float = _grow_hours / 96.0 * GROWTH[season] * growth_mul * rain_mul * (1.0 + 0.15 * Legacy.level("green"))  # full regrowth in about four summer days
 		_grow_hours = 0.0
 		if g > 0.0:
 			for i in N * N:
@@ -440,7 +440,7 @@ func _health(c: Dictionary, hours: float, cold: float, spread: float) -> void:
 			c.sick = -1.0
 		return
 	var stress := 1.0 + (2.0 if c.hunger > 0.85 or c.thirst > 0.85 else 0.0) + cold + (0.5 if c.weight < 150.0 else 0.0)
-	var rate := (SICK_RATE * stress + 0.012 * spread) * sick_mul
+	var rate := (SICK_RATE * stress + 0.012 * spread) * sick_mul * maxf(0.3, 1.0 - 0.15 * Legacy.level("healthy"))
 	if c.vacc >= day.day:
 		rate *= 0.1
 	if _rng.randf() < rate * hours:

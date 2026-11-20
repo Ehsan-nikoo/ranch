@@ -10,6 +10,12 @@ var LIST := [["barn", Barn, 40.0, 3.5], ["house", RanchHouse, 26.0, 2.0], ["silo
 	["feedlot", Feedlot, 32.0, 1.0], ["vet", VetClinic, 26.0, 2.0], ["saloon", Saloon, 30.0, 3.0], ["train", Station, 46.0, 2.0], ["corral", Corral, 34.0, 0.8]]
 # --only=a,b renders just those
 var ONLY := []
+# decoration pieces: d_<kind>.png (Decor), camera distance and aim height
+const DECOR := {cactus = [7.0, 1.0], barrels = [6.0, 0.5], bales = [6.5, 0.5], mailbox = [5.0, 0.8], wheel = [7.0, 0.6],
+	flowers = [6.5, 0.4], bench = [6.0, 0.5], scarecrow = [7.5, 1.2], lantern = [7.0, 1.3], tree = [19.0, 3.4],
+	campfire = [8.5, 0.4], wagon = [11.0, 1.0], well = [9.0, 1.5], fountain = [11.0, 0.8], sign = [11.0, 1.8],
+	k_nowruz = [5.0, 0.6], k_coach = [6.5, 1.0], k_tirgan = [6.0, 0.5], k_statefair = [5.5, 0.9], k_mehregan = [5.0, 0.4],
+	k_campfire = [8.5, 1.6], k_yalda = [5.5, 0.5], k_sadeh = [7.0, 1.2]}
 
 
 func _ready() -> void:
@@ -48,6 +54,8 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--only="):
 			ONLY = Array(arg.get_slice("=", 1).split(","))
+	for k in DECOR:
+		LIST.append(["d_" + k, k, DECOR[k][0], DECOR[k][1]])
 	for item in LIST:
 		if not ONLY.is_empty() and not item[0] in ONLY:
 			continue
@@ -59,6 +67,11 @@ func _ready() -> void:
 			b.material_override = CowMesh.material()
 			b.rotation.y = -0.5
 			vp.add_child(b)
+		elif item[1] is String or item[1] is StringName:
+			b = Decor.new()
+			b.kind = str(item[1])
+			vp.add_child(b)
+			f = b._foot()
 		else:
 			b = item[1].new()
 			vp.add_child(b)

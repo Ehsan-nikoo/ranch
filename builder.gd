@@ -34,6 +34,7 @@ var world: Node3D
 var land: Land
 var occupied: Array[Rect2] = []
 var on_placed: Callable  # (world footprint) -> void
+var on_decor: Callable   # opens the decoration board
 var level := 1           # reputation level, set by Progress
 var era := 0             # historical era, set by Progress
 
@@ -122,6 +123,13 @@ func _build_panel() -> void:
 	col.add_theme_constant_override("separation", 14)
 	_panel.add_child(col)
 	col.add_child(UiTheme.header("چی بسازیم؟", _button(Button.new(), "بستن", _toggle_menu, "cancel")))
+	var decor := _button(Button.new(), "تزئین رنچ", func():
+		_toggle_menu()
+		on_decor.call(), "flower")
+	decor.custom_minimum_size = Vector2(260, 84)
+	var head: Control = col.get_child(0)
+	head.add_child(decor)
+	head.move_child(decor, 1)
 
 	# more buildings than fit across the screen: the row scrolls sideways (drag on a phone)
 	var scroll := ScrollContainer.new()
@@ -281,6 +289,17 @@ func choose(i: int) -> void:
 	_ghost_mode()
 
 
+## A piece of decoration of kind `k` to put down (see Decor): no building work, it's there at once.
+func choose_decor(k: String) -> void:
+	_cost = int(Decor.info(k).price)
+	var d := Decor.new()
+	d.kind = k
+	ghost = d
+	ghost.position = _snapped(rig.target)
+	world.add_child(ghost)
+	_ghost_mode()
+
+
 ## Picks up a building that's already there and lets you put it down somewhere else, for free.
 func move(b: Building) -> void:
 	_cost = 0
@@ -335,10 +354,10 @@ func place() -> void:
 		return
 	var r := ghost.world_footprint()
 	money -= _cost
-	money_moved.emit(-_cost, "build")
+	money_moved.emit(-_cost, "decor" if ghost is Decor else "build")
 	occupied.append(r)
 	_drop_marker()
-	if not _moving:  # a new building: from here it goes up bit by bit
+	if not _moving and not ghost is Decor:  # a new building: from here it goes up bit by bit
 		start_work(ghost, false)
 	on_placed.call(r)
 	_end()
@@ -358,7 +377,7 @@ func start_work(b: Building, up: bool) -> void:
 	var lv := b.level + (1 if up else 0)
 	b.upgrading = up
 	b.work_total = Building.work_hours(price_of(b), lv)
-	if not up and world.get_children().filter(func(n): return n is Building and n != b).size() < QUICK:
+	if not up and world.get_children().filter(func(n): return n is Building and not n is Decor and n != b).size() < QUICK:
 		b.work_total = Building.work_hours(0, 1)  # a new ranch's first few go up in the shortest time
 	b.work_left = b.work_total
 	if up:

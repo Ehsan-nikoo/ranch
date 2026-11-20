@@ -102,6 +102,9 @@ func _unhandled_input(e: InputEvent) -> void:
 
 
 func _entry(b: Building) -> Array:
+	if b is Decor:
+		var inf := Decor.info(b.kind)
+		return [inf.name, Decor, inf.price, "party" if inf.keep else "flower", inf.about]
 	for c in builder.CATALOG:
 		if c[1] == b.get_script():
 			return c
@@ -172,8 +175,14 @@ func _refresh() -> void:
 	if not _busy:
 		_add("جابه‌جا کن", "rotate", _move)
 	var back := _refund(_b)
-	_add("خراب کن  %s+ دلار" % UiTheme.fa(back), "cancel", func():
-		UiTheme.confirm("«%s» رو خراب کنی؟ %s دلار بهت برمی‌گرده، ولی خودش دیگه برنمی‌گرده" % [_entry(_b)[0], UiTheme.fa(back)], "آره، خرابش کن", "cancel", _knock_down))
+	if _b is Decor and Decor.info(_b.kind).keep:  # a keepsake goes back in the cupboard, to put out again
+		_add("برش دار", "cancel", _knock_down)
+	elif _b is Decor:
+		_add("برش دار  %s+ دلار" % UiTheme.fa(back), "cancel", func():
+			UiTheme.confirm("«%s» رو برداری؟ %s دلار بهت برمی‌گرده" % [_entry(_b)[0], UiTheme.fa(back)], "آره، برش دار", "cancel", _knock_down))
+	else:
+		_add("خراب کن  %s+ دلار" % UiTheme.fa(back), "cancel", func():
+			UiTheme.confirm("«%s» رو خراب کنی؟ %s دلار بهت برمی‌گرده، ولی خودش دیگه برنمی‌گرده" % [_entry(_b)[0], UiTheme.fa(back)], "آره، خرابش کن", "cancel", _knock_down))
 
 
 ## Is there room on your land for the bigger building the next level makes?
@@ -201,6 +210,10 @@ func _hay_line() -> String:
 
 ## How it's doing right now, in a line or two.
 func _status(b: Building) -> String:
+	if b is Decor:
+		var s := "زیبایی کل رنچ: %s از %s. هر روز صبح %s امتیاز شهرت میاره." % [DecorUI.num(minf(Decor.beauty(world), Decor.MAX_BEAUTY)),
+			UiTheme.fa(int(Decor.MAX_BEAUTY)), DecorUI.num(Decor.daily_rep(Decor.beauty(world)))]
+		return ("اسم رنچ: «%s»\n" % Decor.shown_name() if b.kind == "sign" else "") + s
 	if b is Barn:
 		var sleeping := herd.alive().filter(func(c): return c.get("inside", false) and herd._pens.size() > 0 and c.get("pen", -1) >= 0 and herd._pens[c.pen].distance_to(b.door()) < 0.5).size()
 		return "جای %s گاو برای شب و زمستون؛ الان %s تا توش خوابیدن.\n%s" % [UiTheme.fa(b.shelter_room()), UiTheme.fa(sleeping), _hay_line()]
@@ -221,7 +234,7 @@ func _status(b: Building) -> String:
 	if b is VetClinic:
 		return "گاوهای مریض الان: %s" % UiTheme.fa(herd.sick_count())
 	if b is Saloon:
-		return "هر فصل حدود %s دلار میاره." % UiTheme.fa(int((Progress.CAFE_TAKE + 100 * progress.level()) * (1.0 + 0.5 * (b.level - 1))))
+		return "هر فصل حدود %s دلار میاره. هرچی رنچ قشنگ‌تر باشه، مسافر بیشتری میاد." % UiTheme.fa(int((Progress.CAFE_TAKE + 100 * progress.level()) * (1.0 + 0.5 * (b.level - 1)) * Decor.cafe_mul(Decor.beauty(world))))
 	if b is Station:
 		return "قیمت فروش امروز: %s دلار هر کیلو" % UiTheme.fa_price(market.sale_price())
 	if b is RodeoArena:
@@ -237,18 +250,29 @@ func _status(b: Building) -> String:
 
 ## [label, icon, Callable, disabled]: what you can do at this building.
 func _actions(b: Building) -> Array:
+	if b is Decor:
+		if b.kind == "sign" and boards.has("decor"):
+			return [["اسم رنچ رو عوض کن", "sign", func():
+				close()
+				boards.decor.ask_name()]]
+		return [["تزئین رنچ", "flower", _open_board.bind("decor")]]
 	var price: int = HerdUI.HAY_PRICE[day.season()]
 	if b is Silo or b is HayShed or b is Barn or b is Feedlot:
 		return [["یونجه بخر  %s دلار" % UiTheme.fa(price), "hay", func():
 			hay_buy.call()
 			_state.text = _status(b), builder.money < price], ["گله", "cow", _open_board.bind("herd")]]
 	if b is RanchHouse:
-		return [["کارگرها", "worker", _open_board.bind("workers")], ["جام‌ها و دفترچه", "trophy", _open_board.bind("book")]]
+		return [["کارگرها", "worker", _open_board.bind("workers")], ["جام‌ها و دفترچه", "trophy", _open_board.bind("book")], ["دیوار خونواده", "people", func():
+			close()
+			if boards.has("family"):
+				boards.family.toggle_wall()]]
 	if b is Windmill and b.broken:
-		return [["تعمیرش کن  ۱۸۰ دلار", "windmill", func():
-			builder.add_money(-180, "build")
+		var fix := 180 - 90 * People.perk("tom")  # the blacksmith's a friend: half price, then free
+		return [["تعمیرش کن  %s دلار" % UiTheme.fa(fix) if fix > 0 else "تام مجانی تعمیرش می‌کنه", "windmill", func():
+			if fix > 0:
+				builder.add_money(-fix, "build")
 			events.effects.windmill = 0.0  # ends now: Events mends it next frame
-			close(), builder.money < 180]]
+			close(), builder.money < fix]]
 	if b is VetClinic:
 		return [["دامداری", "vet", _open_board.bind("breed")]]
 	if b is Station or b is Saloon:
@@ -287,7 +311,7 @@ func _knock_down() -> void:
 	var b := _b
 	close()
 	builder.occupied.erase(b.work_rect if b.work_left > 0.0 and b.upgrading else b.world_footprint())
-	builder.add_money(_refund(b), "build")
+	builder.add_money(_refund(b), "decor" if b is Decor else "build")
 	world.remove_child(b)  # off the ranch right away, so the save and the herd don't see it
 	b.queue_free()
 	progress._apply()

@@ -186,6 +186,9 @@ func _resolve_wolves() -> void:
 
 
 func _rustlers() -> void:
+	if People.perk("bill") >= 2:
+		notify.call("کلانتر بیل شب‌ها دور رنچت گشت می‌زنه؛ دزدها جرئت نکردن نزدیک بشن")
+		return
 	if workers.best(Workers.RIDER) >= 2:
 		notify.call("دیشب دزدها اومدن، ولی نگهبان شبت بیرونشون کرد")
 		return
@@ -207,7 +210,7 @@ func _resolve_rustlers() -> void:
 
 
 func _resolve_sheriff() -> void:
-	if _rng.randf() < (0.7 + 0.08 * Building.best_level(world, Watchtower) if Building.built(world, Watchtower) else 0.5):  # the tower tells the sheriff where they are
+	if _rng.randf() < (0.7 + 0.08 * Building.best_level(world, Watchtower) if Building.built(world, Watchtower) else 0.5) + 0.15 * People.perk("bill"):  # the tower tells the sheriff where they are
 		builder.add_money(150, "prize")
 		notify.call("کلانتر دزدها رو گرفت و ۱۵۰ دلار جایزه گرفتی")
 	else:

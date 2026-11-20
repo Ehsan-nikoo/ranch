@@ -83,7 +83,8 @@ func _row(h: Dictionary) -> HBoxContainer:
 	var what := ("مادیان" if h.female else "نریون") if horses.grown(h) else ("کره‌اسب ماده" if h.female else "کره‌اسب نر")
 	var age := "" if horses.grown(h) else "، %s روز دیگه بزرگ می‌شه" % UiTheme.fa(ceili(Horses.ADULT - h.age))
 	var foal := "، حامله‌ست (%s روز دیگه می‌زاد)" % UiTheme.fa(ceili(h.foal / 24.0)) if h.foal > 0.0 else ""
-	var l := UiTheme.label("%s، %s %s  %s%s%s" % [h.name, what, Horses.COAT_NAMES[h.coat], Horses.stars_text(h.stars), age, foal], 22)
+	var wild := "، وحشیه (%s صبح دیگه رام می‌شه)" % UiTheme.fa(int(h.wild)) if Horses.wild(h) else ""
+	var l := UiTheme.label("%s، %s %s  %s%s%s%s" % [h.name, what, Horses.COAT_NAMES[h.coat], Horses.stars_text(h.stars), age, foal, wild], 22)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.custom_minimum_size = Vector2(740, 0)
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -97,7 +98,7 @@ func _refresh() -> void:
 	if horses.room() == 0:
 		lines.append("اول یه اصطبل اسب بساز، بعد اسب بخر")
 	else:
-		lines.append("مادیان و نریون با هم کره‌اسب میارن. ستاره‌ی کره‌اسب نزدیک پدر و مادرشه، گاهی بهتر؛ اسب بهتر خیلی گرون‌تر فروش می‌ره و تو مسابقه‌ی شهر تندتر می‌دوه. رنگ‌های طلایی، دودی و سفید رو نمی‌شه خرید و فقط از کره‌اسب‌ها درمیان")
+		lines.append("مادیان و نریون با هم کره‌اسب میارن. ستاره‌ی کره‌اسب نزدیک پدر و مادرشه، گاهی بهتر؛ اسب بهتر خیلی گرون‌تر فروش می‌ره و تو مسابقه‌ی شهر تندتر می‌دوه. رنگ‌های طلایی، دودی و سفید رو نمی‌شه خرید؛ فقط از کره‌اسب‌ها یا اسب‌های وحشی درمیان. گاهی یه گله اسب وحشی میاد نزدیک رنچ و می‌شه با کمند یکیشون رو گرفت")
 	_stats.text = "\n".join(lines)
 
 

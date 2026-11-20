@@ -27,6 +27,10 @@ var fair := Fair.new()
 var festivals := Festivals.new()
 var surprises := Surprises.new()
 var collection := Collection.new()
+var decor_ui := DecorUI.new()
+var wild := Wild.new()
+var people := People.new()
+var league := League.new()
 var building_ui := BuildingUI.new()
 var horses := Horses.new()
 var horse_ui := HorseUI.new()
@@ -95,6 +99,11 @@ func _ready() -> void:
 	day.day = int(_arg("day", "0"))
 	if _arg("starter", "") != "" or _arg("bot", "") != "" or _arg("extras", "") != "":
 		layout = starter.duplicate()
+	var looks: Dictionary = saved.get("decor", {})
+	Decor.ranch_name = str(looks.get("name", ""))
+	Building.repaint(int(looks.get("paint", 0)))
+	if _arg("paint", "") != "":  # test: --paint=2 the buildings blue
+		Building.repaint(int(_arg("paint", "0")))
 	if not saved.is_empty():
 		day.day = saved.day
 		day.hour = saved.hour
@@ -120,9 +129,11 @@ func _ready() -> void:
 		node.position = b[1]
 		node.rotation_degrees.y = b[2]
 		node.level = b[3] if b.size() > 3 else 1
+		var work: Array = b[4] if b.size() > 4 else []
+		if node is Decor and work.size() > 3:
+			node.kind = str(work[3])
 		add_child(node)
 		builder.occupied.append(node.world_footprint())
-		var work: Array = b[4] if b.size() > 4 else []
 		if work.size() >= 3 and float(work[0]) > 0.0:  # a site that was still going up
 			node.work_left = float(work[0])
 			node.work_total = float(work[1])
@@ -344,6 +355,17 @@ func _ready() -> void:
 	add_child(fair)
 	rodeo.others.append(fair)
 	drive.fair = fair
+	wild.day = day
+	wild.builder = builder
+	wild.world = self
+	wild.notify = herd_ui.notify
+	wild.others = [events, auction, drive, rodeo, fair]
+	wild.autopilot = _arg("bot", "") != "" or _arg("wild", "") == "bot"
+	if not saved.is_empty() and saved.has("wild"):
+		wild.from_save(saved.wild)
+	fair.others.append(wild)
+	rodeo.others.append(wild)
+	drive.wild = wild
 	building_ui.builder = builder
 	building_ui.herd = herd
 	building_ui.workers = workers
@@ -372,6 +394,17 @@ func _ready() -> void:
 	add_child(horses)
 	horse_ui.horses = horses
 	fair.horses = horses
+	wild.horses = horses
+	add_child(wild)
+	if _arg("wild", "") != "":  # test: --wild=1 a band today, go / bot straight into the chase, caught = one wild horse in the stable
+		(func():
+			if _arg("wild", "") == "caught":
+				var h := horses._add(true, 3, Horses.ADULT + 1.0, 4)
+				h.wild = Wild.TAME
+				return
+			wild.come(day.day)
+			if _arg("wild", "") in ["go", "bot"]:
+				get_tree().create_timer(0.5).timeout.connect(func(): wild._start())).call_deferred()
 	horse_ui.builder = builder
 	add_child(horse_ui)
 	building_ui.horses = horses
@@ -468,6 +501,12 @@ func _ready() -> void:
 	if not saved.is_empty() and saved.has("legacy"):
 		legacy.from_save(saved.legacy)
 	add_child(legacy)
+	building_ui.boards.family = legacy
+	if _arg("family", "") != "":  # test: --family=1 the wall with two generations behind
+		Legacy.traits = {green = 1, trader = 1}
+		legacy.family = [{g = 1, name = "", from = 1, to = 70, money = 84000, herd = 120, rep = 900, picked = "green"}, {g = 2, name = "مریم", from = 71, to = 140, money = 152000, herd = 180, rep = 700, picked = "trader"}]
+		legacy.head = "کاوه"
+		legacy.call_deferred("toggle_wall")
 	progress_ui.progress = progress
 	progress_ui.goals = goals
 	progress_ui.builder = builder
@@ -568,6 +607,78 @@ func _ready() -> void:
 	add_child(collection)
 	surprises.found.connect(func(k: String): collection.add("sur:" + k))
 	building_ui.boards.book = collection
+	decor_ui.builder = builder
+	decor_ui.festivals = festivals
+	decor_ui.world = self
+	decor_ui.save = _save
+	decor_ui.notify = herd_ui.notify
+	add_child(decor_ui)
+	builder.on_decor = decor_ui.toggle
+	building_ui.boards.decor = decor_ui
+	people.day = day
+	people.builder = builder
+	people.herd = herd
+	people.market = market
+	people.horses = horses
+	people.workers = workers
+	people.progress = progress
+	people.land = land
+	people.fair = fair
+	people.wild = wild
+	people.world = self
+	people.notify = herd_ui.notify
+	people.can_pop = func(): return (tutorial == null or not tutorial._box.visible) and not daily._panel.visible and not festivals._panel.visible \
+		and not builder._panel.visible and not building_ui.is_open() and not wild.is_open() and not fair.is_open() and not events.is_open() \
+		and (SaveGame.enabled() or _arg("people", "") != "")
+	if not saved.is_empty() and saved.has("people"):
+		people.from_save(saved.people)
+	add_child(people)
+	building_ui.boards.people = people
+	league.day = day
+	league.builder = builder
+	league.progress = progress
+	league.notify = herd_ui.notify
+	if not saved.is_empty() and saved.has("league"):
+		league.from_save(saved.league)
+	add_child(league)
+	if _arg("league", "") != "":  # test: --league=1 the table mid-season; --league=end the season ends with a record behind it
+		day.day = day.day - day.day % DayCycle.DAYS_PER_SEASON + 1
+		league._start(day.day / DayCycle.DAYS_PER_SEASON)
+		league.sales = 2600
+		if _arg("league", "") == "end":
+			league.past = [1800, 2400]
+			league.best = {score = 2400, rank = 3, wins = 0, podiums = 1, seasons = 2}
+			league.new_day(day.day - day.day % DayCycle.DAYS_PER_SEASON + DayCycle.DAYS_PER_SEASON)
+		league.call_deferred("toggle")
+	match _arg("people", ""):  # test: --people=1 the board; friends = some hearts and jobs; visit = the first chapter's visit
+		"1":
+			people.call_deferred("toggle")
+		"friends":
+			People.hearts = {bill = 3.0, henry = 1.0, rose = 5.0, elsie = 2.5, sam = 0.5, tom = 4.0}
+			people.chapter = 3
+			people.told = 3
+			people.call_deferred("toggle")
+		"end":
+			people.chapter = People.STORY.size()
+			people.call_deferred("toggle")
+	match _arg("decor", ""):  # test: --decor=1 the board, name / paint its other boards, all = one of every piece
+		"1":
+			decor_ui.call_deferred("toggle")
+		"name":
+			decor_ui.call_deferred("ask_name")
+		"paint":
+			decor_ui.call_deferred("open_paint")
+		"all":
+			festivals.done = {}
+			for f in Festivals.LIST:
+				festivals.done[f.id] = 1405
+			var kinds: Array = Decor.ORDER + Festivals.LIST.map(func(f): return "k_" + f.id)
+			for i in kinds.size():
+				var d := Decor.new()
+				d.kind = kinds[i]
+				d.position = Vector3(-14 + (i % 6) * 6.0, 0, 30 + (i / 6) * 6.0)
+				add_child(d)
+				builder.occupied.append(d.world_footprint())
 	if _arg("seen", "") != "":  # test: a well-filled book (one row full, prize waiting)
 		for k in ["cow0:0", "cow0:1", "cow1", "cow2", "coat0", "coat1", "coat2", "coat3", "coat4", "race1", "race3", "show1", "show2", "fest:nowruz", "fest:yalda", "sur:gold", "sur:twins", "sur:trader", "sur:rain"]:
 			collection.seen[k] = true
@@ -649,6 +760,10 @@ func _debug_herd() -> void:
 	surprises.notify = breed_ui.notify
 	collection.notify = breed_ui.notify
 	away.notify = breed_ui.notify
+	wild.notify = breed_ui.notify
+	people.notify = breed_ui.notify
+	legacy.notify = breed_ui.notify
+	league.notify = breed_ui.notify
 	print("DAILY jobs ", daily.jobs, " day ", Daily.today(), " next prize day ", daily.next_day())
 	while true:
 		await get_tree().create_timer(4.0).timeout
@@ -689,6 +804,19 @@ func _debug_herd() -> void:
 				var rb := rodeo._row.get_children().filter(func(b): return not b.disabled and not b.is_queued_for_deletion())
 				if not rb.is_empty():
 					rb[0 if rodeo._title.text != "افتادی!" or randf() < 0.5 else -1].pressed.emit()
+			while people._visit.visible:  # the bot reads the visitor's lines
+				people._visit_next()
+			for id in People.ORDER:  # and chats with everyone, and gives what's asked when it can
+				people.chat(id)
+				people.give(id)
+			if wild.is_open() and wild._over:  # the bot always rides after the wild horse
+				print("   WILD ", wild._title.text, " | ", wild._text.text.left(120))
+				var wb := wild._row.get_children().filter(func(b): return not b.disabled and not b.is_queued_for_deletion())
+				if not wb.is_empty():
+					wb[0].pressed.emit()
+			if legacy._panel.visible:  # the bot takes the first heirloom on offer
+				print("   LEGACY ", legacy._picks)
+				legacy._pick(legacy._picks[0])
 			if not drive.trail.is_empty():
 				print("   TRAIL %d cows %.0f kg  %.0f%%" % [drive.trail.n, drive.trail.kg, drive.progress() * 100.0])
 			while workers.capacity() < herd.alive().size() + 5 and workers.hired.size() < workers.slots() and not workers.candidates.is_empty():
@@ -723,7 +851,7 @@ func _debug_herd() -> void:
 		print("   rep %d level %d era %d  price x%.2f" % [progress.rep, progress.level(), progress.era(), market.era_mul])
 		var crew_n: Crew = sfx.crew
 		print("   riders %s" % [crew_n._riders.values().map(func(r): return "%s%s(%.0f,%.0f)st%.1f" % ["H" if r.home else ("B" if r.get("bed", false) else ""), r.skill, r.node.position.x, r.node.position.z, r.stuck])])
-		print("   hands %d (wages %d, capacity %d)  effects %s  goals %s  legacy %s" % [workers.hired.size(), workers.wages(), workers.capacity(), events.effects.keys().filter(func(k): return events.active(k)), goals.done, legacy.seen])
+		print("   hands %d (wages %d, capacity %d)  effects %s  goals %s  legacy %s  league %s now %s best %s" % [workers.hired.size(), workers.wages(), workers.capacity(), events.effects.keys().filter(func(k): return events.active(k)), goals.done, legacy.seen, league.last, league.my_score(), league.best])
 		print("   breeders %d (in calf %d)  bulls %d  sick %d  unvaccinated %d" % [herd.of_kind(Herd.BREEDER).size(), preg, herd.of_kind(Herd.BULL).size(), herd.sick_count(), herd.unvaccinated().size()])
 		print("d%d %02dh %s  price %.2f  active %d  cows %d  hunger %.2f kg %d  hay %d/%d  shelter %d  money %d  debt %d  wander/graze/water/drink/idle/tofeed/feed/topen/sleep %s" % [
 			day.day, int(day.hour), DayCycle.SEASON_NAMES[day.season()], market.price, market.active.size(), cows.size(), h / n, w / n, herd.hay, herd.hay_cap, herd.shelter, builder.money, bank.debt, st])
@@ -904,8 +1032,10 @@ func _on_day(d: int) -> void:
 	drive.new_day(d)
 	rodeo.new_day(d)
 	fair.new_day(d)
+	wild.new_day(d)
 	horses.new_day(d)
 	legacy.new_day(d)
+	league.new_day(d)
 	_save()
 
 
@@ -926,7 +1056,9 @@ func _state() -> Dictionary:
 	for n in get_children():
 		if n is Building and not n.has_node("Marker"):
 			buildings.append([n.get_script().resource_path, n.position.x, n.position.z, n.rotation_degrees.y, n.level, n.work_left, n.work_total, n.upgrading])
-	return {saved_at = Time.get_unix_time_from_system(), yard = 2, money = builder.money, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), weather = weather.to_save(), rival = rival.to_save(), ledger = ledger.to_save(), drive = drive.to_save(), delivery = delivery.to_save(), land = land.to_save(), goals = goals.to_save(), legacy = legacy.to_save(), horses = horses.to_save(), fair = fair.to_save(), festivals = festivals.to_save(), surprises = surprises.to_save(), collection = collection.to_save(), bank = bank.to_save(), daily = daily.to_save(), away = away.to_save(), tutorial = tutorial.step if tutorial else 99}
+			if n is Decor:
+				buildings[-1].append(n.kind)
+	return {saved_at = Time.get_unix_time_from_system(), yard = 2, money = builder.money, decor = {name = Decor.ranch_name, paint = Building.wall_paint}, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), weather = weather.to_save(), rival = rival.to_save(), ledger = ledger.to_save(), drive = drive.to_save(), delivery = delivery.to_save(), land = land.to_save(), goals = goals.to_save(), legacy = legacy.to_save(), horses = horses.to_save(), fair = fair.to_save(), festivals = festivals.to_save(), surprises = surprises.to_save(), wild = wild.to_save(), people = people.to_save(), league = league.to_save(), collection = collection.to_save(), bank = bank.to_save(), daily = daily.to_save(), away = away.to_save(), tutorial = tutorial.step if tutorial else 99}
 
 
 # ---------- ground & grass ----------

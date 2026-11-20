@@ -17,6 +17,7 @@ const LIST := [
 	["herd25", "گله‌ت رو برسون به %s تا گاو", "herd", 25, 1000, 10],
 	["land1", "یه تیکه زمین تازه بخر", "land", 1, 1000, 10],
 	["kennel", "سگدونی بساز", "kennel", 1, 500, 5],
+	["pretty", "رنچ رو قشنگ کن: زیبایی رنچ برسه به %s", "beauty", 25, 600, 10],
 	["stable", "اصطبل اسب بساز", "stable", 1, 800, 10],
 	["tower", "برج دیده‌بانی بساز", "tower", 1, 800, 10],
 	["feedlot", "آغل چاق‌کنی بساز", "feedlot", 1, 1200, 10],
@@ -70,6 +71,8 @@ func value(kind: String) -> int:
 			return land.owned.count(1) - 4   # the middle four come with the ranch
 		"money":
 			return builder.money
+		"beauty":
+			return int(Decor.beauty(builder.world))
 	if BUILT.has(kind):
 		return 1 if progress.has(BUILT[kind]) else 0
 	return count.get(kind, 0)

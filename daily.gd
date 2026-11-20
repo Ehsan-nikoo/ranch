@@ -19,6 +19,7 @@ const JOBS := [
 	["build", "یه چیزی بساز، ارتقا بده یا زمین بخر", "build", 1],
 	["vet", "یه بار دامپزشک بیار یا واکسن بزن", "vet", 1],
 	["horse", "یه اسب بخر یا بفروش", "horses", 1],
+	["decor", "یه چیز قشنگ برای تزئین رنچ بذار", "decor", 1],
 ]
 
 var builder: Builder
@@ -161,6 +162,9 @@ func _on_money(delta: int, why: String) -> void:
 				_count("hay", HerdUI.HAY_LOT)
 		"build", "vet", "horses":
 			if delta != 0:
+				_count(why, 1)
+		"decor":
+			if delta < 0:
 				_count(why, 1)
 
 

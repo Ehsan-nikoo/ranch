@@ -70,7 +70,7 @@ func _apply() -> void:
 	market.max_offers = 2 + (1 if level() >= 3 else 0) + (1 if level() >= 5 else 0) + (1 if train else 0)
 	market.premium = 1.1 if level() >= 5 else 1.0
 	market.upkeep_cut = _best(Blacksmith).saving() if has(Blacksmith) else 0
-	market.sale_bonus = 1.0 + _best(Station).bonus() if train else 1.0
+	market.sale_bonus = (1.0 + _best(Station).bonus() if train else 1.0) * (1.0 + 0.04 * People.perk("henry")) * (1.0 + 0.05 * Legacy.level("trader"))
 	if herd:
 		var pen := has(Feedlot)
 		herd.gain_mul = FEEDLOT[0] + 0.1 * (Building.best_level(world, Feedlot) - 1) if pen else 1.0
@@ -109,10 +109,11 @@ func new_day(d: int) -> void:
 		notify.call("مسابقه‌ی گاوسواری این فصل برگزار شد: %s+ دلار، و رنچت معروف‌تر شد" % UiTheme.fa(purse))
 		add(20.0)
 	if d % DayCycle.DAYS_PER_SEASON == 0 and has(Saloon):
-		var take := int((CAFE_TAKE + 100 * level()) * (1.0 + 0.5 * (Building.best_level(world, Saloon) - 1)))
+		var take := int((CAFE_TAKE + 100 * level()) * (1.0 + 0.5 * (Building.best_level(world, Saloon) - 1)) * Decor.cafe_mul(Decor.beauty(world)))
 		builder.add_money(take, "prize")
 		notify.call("کافه‌ی رنچ این فصل %s+ دلار درآمد داشت و همه جا از رنچت تعریف می‌کنن" % UiTheme.fa(take))
 		add(8.0)
+	add(Decor.daily_rep(Decor.beauty(world)) + People.perk("elsie") + Legacy.level("name"))  # a pretty ranch gets talked about, and the teacher talks it up
 	_apply()
 
 

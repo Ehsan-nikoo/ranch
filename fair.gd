@@ -298,7 +298,7 @@ func _mode_view(mode: String) -> void:
 
 ## Grown horses, best first.
 func _racehorses() -> Array:
-	var hs := horses.list.filter(func(h): return horses.grown(h))
+	var hs := horses.list.filter(func(h): return horses.grown(h) and not Horses.wild(h))
 	hs.sort_custom(func(a, b): return a.stars > b.stars)
 	return hs
 
@@ -376,7 +376,7 @@ func _race_step(delta: float) -> void:
 				flat = r.breath > 0.6 or (r.x > TRACK * 0.72 and r.breath > 0.0)
 		else:  # the others canter, then go flat out from their own point on, some keeping a little breath back
 			flat = r.x > TRACK * r.kick and r.breath > r.save
-		var v: float = pace(r.stars) * r.form
+		var v: float = (pace(r.stars) + (0.3 * Legacy.level("rider") if r.me else 0.0)) * r.form
 		if r.tired > 0.0:
 			r.tired -= delta
 			v *= 0.62

@@ -5,7 +5,7 @@ extends CanvasLayer
 
 const DAYS := 7
 const KINDS := {"sale": "فروش گاو", "prize": "جایزه، کافه و هدف‌ها", "cattle": "خرید گاو", "hay": "یونجه", "vet": "دامپزشک و واکسن",
-	"upkeep": "خرج گله", "wages": "حقوق کارگرها", "build": "ساخت، ارتقا و زمین", "trips": "کرایه‌ی راه و سفر", "horses": "اسب‌ها", "trouble": "دردسرها و جریمه", "loan": "وام بانک", "": "بقیه"}
+	"upkeep": "خرج گله", "wages": "حقوق کارگرها", "build": "ساخت، ارتقا و زمین", "decor": "تزئین رنچ", "trips": "کرایه‌ی راه و سفر", "horses": "اسب‌ها", "trouble": "دردسرها و جریمه", "loan": "وام بانک", "": "بقیه"}
 
 var builder: Builder
 var day: DayCycle

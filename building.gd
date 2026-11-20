@@ -8,6 +8,12 @@ const THICK := 0.08  # roof sheet thickness
 ## Shared by all window panes so DayCycle can light them at night in one place.
 static var window_mat := _window_mat()
 static var _mats := {}
+## The colour the player painted the ranch's buildings (the walls that are barn red at first): name, texture.
+const PAINTS := [["قرمز", "barn_red_diff.jpg", Color(0.4, 0.085, 0.065)], ["سبز", "paint_green.jpg", Color(0.11, 0.25, 0.13)],
+	["آبی", "paint_blue.jpg", Color(0.11, 0.2, 0.34)], ["زرد", "paint_yellow.jpg", Color(0.62, 0.44, 0.11)],
+	["قهوه‌ای", "paint_brown.jpg", Color(0.31, 0.17, 0.08)], ["خاکستری", "paint_gray.jpg", Color(0.4, 0.4, 0.38)],
+	["سفید", "trim_white_diff.jpg", Color(0.86, 0.83, 0.76)]]
+static var wall_paint := 0
 
 ## Wall height; drives the eave shadow baked into wall vertex colors.
 var eave := 5.0
@@ -28,7 +34,7 @@ var water: StandardMaterial3D
 func _init() -> void:
 	if _mats.is_empty():  # one set of materials for every building
 		_mats = {
-			red = _tex("barn_red_diff.jpg", "distressed_painted_planks", 2.6),
+			red = _tex(PAINTS[wall_paint][1], "distressed_painted_planks", 2.6),
 			white = _tex("trim_white_diff.jpg", "distressed_painted_planks", 2.6, true),
 			wood = _tex("trim_white_diff.jpg", "distressed_painted_planks", 2.6, true),
 			roof = _tex("roof_rusty_diff.jpg", "corrugated_iron", 2.0),
@@ -80,6 +86,13 @@ func upgrade_text() -> String:
 	return ""
 
 
+## Paints every building on the ranch (and the ones still to come) colour `i` of PAINTS.
+static func repaint(i: int) -> void:
+	wall_paint = clampi(i, 0, PAINTS.size() - 1)
+	if not _mats.is_empty():
+		_mats.red.albedo_texture = load(TEX + PAINTS[wall_paint][1])
+
+
 ## Does its job: not a ghost being placed, and not a new building still going up.
 func works() -> bool:
 	return not has_node("Marker") and (work_left <= 0.0 or upgrading)
@@ -98,7 +111,7 @@ func _enter_tree() -> void:
 ## Hours of game time to put up level `lv` of a building whose price is `cost`: two minutes at normal
 ## speed for the cheapest, longer for the big ones, and longer again for each upgrade.
 static func work_hours(cost: int, lv: int) -> float:
-	var minutes := (2.0 + cost / 3000.0) * (1.0 + 0.6 * (lv - 1))
+	var minutes := (2.0 + cost / 3000.0) * (1.0 + 0.6 * (lv - 1)) / (1.0 + 0.2 * Legacy.level("builder"))
 	return minutes * 60.0 / DayCycle.SECONDS_PER_HOUR
 
 

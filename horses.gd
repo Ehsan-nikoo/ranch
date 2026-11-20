@@ -16,14 +16,14 @@ const NAMES := ["باد", "طوفان", "یال‌طلا", "ستاره", "غزا
 	"مه‌پاره", "زرین", "شاهین", "سیمین", "رعد", "خورشید", "مهتاب", "سرخه", "شیرین", "پیچک", "آتش", "گلبو"]
 const WALK := 1.1           # m/s grazing pace
 const COAT_NAMES := ["قهوه‌ای", "سرخ", "مشکی", "خاکستری", "طلایی", "دودی", "سفید"]  # Cowboy.COATS
-const RARE := [4, 5, 6]     # never sold in town: only a foal can be born with one
+const RARE := [4, 5, 6]     # never sold in town: only a foal or a wild horse can have one
 
 var day: DayCycle
 var world: Node3D
 var herd: Herd
 var builder: Builder
 var notify: Callable
-var list: Array = []        # {id, name, female, age (days), stars, coat, foal (hours left, 0 = none), sire (foal's stars), sire_coat, rest}
+var list: Array = []        # {id, name, female, age (days), stars, coat, foal (hours left, 0 = none), sire (foal's stars), sire_coat, rest, wild (mornings to tame, see Wild)}
 var _next_id := 1
 var version := 0            # goes up whenever the list or a horse changes, for the board
 var _shown := {}            # id -> {node, target, wait, phase}
@@ -52,11 +52,18 @@ func grown(h: Dictionary) -> bool:
 	return h.age >= ADULT
 
 
+## Still wild (caught on the prairie, not tamed yet): no riding, no foals, and buyers pay half.
+static func wild(h: Dictionary) -> bool:
+	return h.get("wild", 0) > 0
+
+
 ## What a buyer pays: good horses fetch a lot more; a foal goes cheap.
 func value(h: Dictionary) -> int:
 	var v: int = 500 + 200 * h.stars * h.stars
 	if h.coat in RARE:  # buyers pay half again for a coat you can't get in town
 		v = int(v * 1.5)
+	if wild(h):
+		v = int(v * 0.5 / 10.0) * 10
 	return v if grown(h) else int(v * 0.45 / 10.0) * 10
 
 
@@ -132,11 +139,16 @@ func new_day(_d: int) -> void:
 	builder.add_money(-UPKEEP * list.size(), "horses")
 	var c := _corral()
 	var grow := c.foal_mul() if c else 1.0
-	var stallion := list.any(func(h): return not h.female and grown(h))
+	for h in list:  # the wild ones calm down a bit more each morning; quicker with a corral to run in
+		if wild(h):
+			h.wild = maxi(0, int(h.wild) - (2 if c else 1))
+			if h.wild == 0:
+				notify.call("«%s» رام شد! حالا می‌شه سوارش شد" % h.name)
+	var stallion := list.any(func(h): return not h.female and grown(h) and not wild(h))
 	var best_sire := 0
 	var sire_coat := 0
 	for h in list:
-		if not h.female and grown(h) and h.stars >= best_sire:
+		if not h.female and grown(h) and not wild(h) and h.stars >= best_sire:
 			best_sire = h.stars
 			sire_coat = h.coat
 	for h in list:
@@ -144,7 +156,7 @@ func new_day(_d: int) -> void:
 		h.age += grow if not grown(h) else 1.0
 		if not was and grown(h):
 			notify.call("%s بزرگ شد: یه اسب %s" % [h.name, stars_text(h.stars)])
-		if h.female and grown(h) and stallion and h.foal <= 0.0 and h.rest <= 0.0 and _rng.randf() < FOAL_CHANCE:
+		if h.female and grown(h) and not wild(h) and stallion and h.foal <= 0.0 and h.rest <= 0.0 and _rng.randf() < FOAL_CHANCE:
 			h.foal = GESTATION
 			h.sire = best_sire
 			h.sire_coat = sire_coat
@@ -270,3 +282,4 @@ func from_save(d: Dictionary) -> void:
 		h.coat = int(h.coat)
 		h.sire = int(h.sire)
 		h.sire_coat = int(h.get("sire_coat", 0))
+		h.wild = int(h.get("wild", 0))
