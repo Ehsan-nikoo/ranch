@@ -38,6 +38,7 @@ var weather := Weather.new()
 var cow_ui := CowUI.new()
 var rival := Rival.new()
 var ledger := Ledger.new()
+var shop := Shop.new()
 var bank := Bank.new()
 var warnings := Warnings.new()
 var daily := Daily.new()
@@ -139,6 +140,20 @@ func _ready() -> void:
 			node.work_total = float(work[1])
 			node.upgrading = bool(work[2])
 			builder.resume_work(node)
+	if not get_children().any(func(n): return n is Manor):  # every ranch has the owner's house, old saves too
+		_add_manor()
+	Manor.box = int(saved.get("manor_box", 0))
+	if _arg("manor", "") != "":  # test: --manor=3 the owner's house at level 3, its strongbox half full
+		var old: Manor = get_children().filter(func(n): return n is Manor)[0]
+		var m := Manor.new()
+		m.level = int(_arg("manor", "1"))
+		m.position = old.position
+		builder.occupied.erase(old.world_footprint())
+		remove_child(old)
+		old.free()
+		add_child(m)
+		builder.occupied.append(m.world_footprint())
+		Manor.box = Manor.BOX[m.level - 1] * 3
 	_grass()
 	_props()
 	MeshMerge.boxes(self)
@@ -654,6 +669,23 @@ func _ready() -> void:
 			league.best = {score = 2400, rank = 3, wins = 0, podiums = 1, seasons = 2}
 			league.new_day(day.day - day.day % DayCycle.DAYS_PER_SEASON + DayCycle.DAYS_PER_SEASON)
 		league.call_deferred("toggle")
+	shop.builder = builder
+	shop.save = _save
+	shop.test_pay = func(): return hud._dev.visible  # the hidden test buttons are on
+	add_child(shop)
+	builder.bar_button("خرید دلار", shop.toggle, "coins")
+	var buy := builder._button(Button.new(), "خرید دلار", shop.toggle, "coins")  # under the money, top right
+	buy.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	buy.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	buy.offset_right = -12
+	buy.offset_top = 104
+	buy.custom_minimum_size = Vector2(200, 84)
+	buy.add_theme_font_size_override("font_size", 24)
+	builder.add_child(buy)
+	building_ui.boards.shop = shop
+	building_ui.boards.ledger = ledger
+	if _arg("shop", "") != "":  # test: --shop=1 the board open
+		shop.call_deferred("toggle")
 	match _arg("people", ""):  # test: --people=1 the board; friends = some hearts and jobs; visit = the first chapter's visit
 		"1":
 			people.call_deferred("toggle")
@@ -967,13 +999,16 @@ func _shot(shot: String) -> void:
 			rig.yaw = 0.3
 	var gal := _arg("gallery", "")  # test: --gallery=Barn puts levels 1, 2 and 3 of it side by side
 	if gal != "":
-		var kind: Script = null
+		var kind: Script = Manor if gal == "Manor" else null
 		for c in builder.CATALOG:
 			if c[1].get_global_name() == gal:
 				kind = c[1]
 		var x := 0.0
 		var nodes: Array[Building] = []
-		for lv in [1, 2, 3]:
+		var probe: Building = kind.new()
+		var top := probe.upgrades().size() + 1
+		probe.free()
+		for lv in range(1, top + 1):
 			var node: Building = kind.new()
 			node.level = lv
 			var f := node.local_foot_at(lv)
@@ -986,6 +1021,7 @@ func _shot(shot: String) -> void:
 		var mid := x * 0.5 - 2.0
 		for n in nodes:
 			n.position.x -= mid
+			print("gallery level %d at x=%.1f" % [n.level, n.position.x])
 		rig.target = Vector3(0, 2, 0)
 		rig.dist = x * 1.02
 		rig.yaw = 0.0
@@ -1031,6 +1067,8 @@ func _water_check() -> void:
 
 
 func _on_day(d: int) -> void:
+	var lv := Manor.level_in(self)
+	Manor.box = mini(Manor.box + Manor.BOX[lv - 1], Manor.BOX[lv - 1] * Manor.BOX_DAYS)
 	if d % DayCycle.DAYS_PER_SEASON == 0:
 		herd_ui.notify(SEASON_NEWS[day.season()])
 	rival.new_day(d)
@@ -1048,6 +1086,29 @@ func _on_day(d: int) -> void:
 	legacy.new_day(d)
 	league.new_day(d)
 	_save()
+
+
+## Puts the owner's house up, finished, at Manor.SPOT or the nearest open place to it on owned land,
+## clear of the other buildings and the road.
+func _add_manor() -> void:
+	var m := Manor.new()
+	var road := Rect2(-6, 8, 22, 100)
+	var at := Manor.SPOT
+	for r in range(0, 64, 4):
+		var found := false
+		for k in (1 if r == 0 else 16):
+			var a := TAU * k / 16.0
+			m.position = (Manor.SPOT + Vector3(cos(a), 0, sin(a)) * r).round()
+			var f := m.world_footprint().grow(1.5)
+			if land.rect_open(f) and not f.intersects(road) and not builder.occupied.any(func(o: Rect2): return o.intersects(f)):
+				at = m.position
+				found = true
+				break
+		if found:
+			break
+	m.position = at
+	add_child(m)
+	builder.occupied.append(m.world_footprint())
 
 
 func _notification(what: int) -> void:
@@ -1069,7 +1130,7 @@ func _state() -> Dictionary:
 			buildings.append([n.get_script().resource_path, n.position.x, n.position.z, n.rotation_degrees.y, n.level, n.work_left, n.work_total, n.upgrading])
 			if n is Decor:
 				buildings[-1].append(n.kind)
-	return {saved_at = Time.get_unix_time_from_system(), yard = 2, money = builder.money, decor = {name = Decor.ranch_name, paint = Building.wall_paint}, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), weather = weather.to_save(), rival = rival.to_save(), ledger = ledger.to_save(), drive = drive.to_save(), delivery = delivery.to_save(), land = land.to_save(), goals = goals.to_save(), legacy = legacy.to_save(), horses = horses.to_save(), fair = fair.to_save(), festivals = festivals.to_save(), surprises = surprises.to_save(), wild = wild.to_save(), people = people.to_save(), league = league.to_save(), collection = collection.to_save(), bank = bank.to_save(), daily = daily.to_save(), away = away.to_save(), tutorial = tutorial.step if tutorial else 99}
+	return {saved_at = Time.get_unix_time_from_system(), yard = 2, money = builder.money, manor_box = Manor.box, decor = {name = Decor.ranch_name, paint = Building.wall_paint}, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), weather = weather.to_save(), rival = rival.to_save(), ledger = ledger.to_save(), drive = drive.to_save(), delivery = delivery.to_save(), land = land.to_save(), goals = goals.to_save(), legacy = legacy.to_save(), horses = horses.to_save(), fair = fair.to_save(), festivals = festivals.to_save(), surprises = surprises.to_save(), wild = wild.to_save(), people = people.to_save(), league = league.to_save(), collection = collection.to_save(), bank = bank.to_save(), daily = daily.to_save(), away = away.to_save(), tutorial = tutorial.step if tutorial else 99}
 
 
 # ---------- ground & grass ----------

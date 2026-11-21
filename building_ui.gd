@@ -105,6 +105,9 @@ func _entry(b: Building) -> Array:
 	if b is Decor:
 		var inf := Decor.info(b.kind)
 		return [inf.name, Decor, inf.price, "party" if inf.keep else "flower", inf.about]
+	if b is Manor:
+		return [Manor.NAMES[clampi(b.level - 1, 0, Manor.NAMES.size() - 1)], Manor, Manor.WORTH, "manor",
+			"خونه‌ی خودت، صاحب رنچ. با هر ارتقا یه خونه‌ی بهتر می‌شه و چیزهای بیشتری بهت می‌ده."]
 	for c in builder.CATALOG:
 		if c[1] == b.get_script():
 			return c
@@ -175,7 +178,9 @@ func _refresh() -> void:
 	if not _busy:
 		_add("جابه‌جا کن", "rotate", _move)
 	var back := _refund(_b)
-	if _b is Decor and Decor.info(_b.kind).keep:  # a keepsake goes back in the cupboard, to put out again
+	if _b is Manor:
+		pass  # your own house stays: it can be moved, not knocked down
+	elif _b is Decor and Decor.info(_b.kind).keep:  # a keepsake goes back in the cupboard, to put out again
 		_add("برش دار", "cancel", _knock_down)
 	elif _b is Decor:
 		_add("برش دار  %s+ دلار" % UiTheme.fa(back), "cancel", func():
@@ -214,6 +219,11 @@ func _status(b: Building) -> String:
 		var s := "زیبایی کل رنچ: %s از %s. هر روز صبح %s امتیاز شهرت میاره." % [DecorUI.num(minf(Decor.beauty(world), Decor.MAX_BEAUTY)),
 			UiTheme.fa(int(Decor.MAX_BEAUTY)), DecorUI.num(Decor.daily_rep(Decor.beauty(world)))]
 		return ("اسم رنچ: «%s»\n" % Decor.shown_name() if b.kind == "sign" else "") + s
+	if b is Manor:
+		var lv: int = b.level
+		var full: int = Manor.BOX[lv - 1] * Manor.BOX_DAYS
+		var s := "صندوق: %s دلار%s" % [Shop.group(Manor.box), "  (پره! خالیش کن)" if Manor.box >= full else ""]
+		return s + "\nخونه‌ت اینا رو بهت می‌ده: " + "، ".join(Manor.perks(lv))
 	if b is Barn:
 		var sleeping := herd.alive().filter(func(c): return c.get("inside", false) and herd._pens.size() > 0 and c.get("pen", -1) >= 0 and herd._pens[c.pen].distance_to(b.door()) < 0.5).size()
 		return "جای %s گاو برای شب و زمستون؛ الان %s تا توش خوابیدن.\n%s" % [UiTheme.fa(b.shelter_room()), UiTheme.fa(sleeping), _hay_line()]
@@ -256,6 +266,21 @@ func _actions(b: Building) -> Array:
 				close()
 				boards.decor.ask_name()]]
 		return [["تزئین رنچ", "flower", _open_board.bind("decor")]]
+	if b is Manor:
+		return [["صندوق رو خالی کن  %s+ دلار" % Shop.group(Manor.box), "coins", func():
+			if Manor.box <= 0:
+				return
+			builder.add_money(Manor.box, "prize")
+			Manor.box = 0
+			save.call()
+			_refresh(), Manor.box <= 0],
+			["خرید دلار", "coins", _open_board.bind("shop")],
+			["دفترچه‌ی حساب", "book", _open_board.bind("ledger")],
+			["دیوار خونواده", "people", func():
+				close()
+				if boards.has("family"):
+					boards.family.toggle_wall()],
+			["تزئین رنچ", "flower", _open_board.bind("decor")]]
 	var price: int = HerdUI.HAY_PRICE[day.season()]
 	if b is Silo or b is HayShed or b is Barn or b is Feedlot:
 		return [["یونجه بخر  %s دلار" % UiTheme.fa(price), "hay", func():

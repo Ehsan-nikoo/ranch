@@ -367,6 +367,8 @@ func place() -> void:
 
 ## Price of a building of this kind on the build board.
 func price_of(b: Building) -> int:
+	if b is Manor:
+		return Manor.WORTH
 	for c in CATALOG:
 		if c[1] == b.get_script():
 			return c[2]
@@ -379,7 +381,7 @@ func start_work(b: Building, up: bool) -> void:
 	var lv := b.level + (1 if up else 0)
 	b.upgrading = up
 	b.work_total = Building.work_hours(price_of(b), lv)
-	if not up and world.get_children().filter(func(n): return n is Building and not n is Decor and n != b).size() < QUICK:
+	if not up and world.get_children().filter(func(n): return n is Building and not n is Decor and not n is Manor and n != b).size() < QUICK:
 		b.work_total = Building.work_hours(0, 1)  # a new ranch's first few go up in the shortest time
 	b.work_left = b.work_total
 	if up:

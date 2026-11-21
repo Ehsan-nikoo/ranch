@@ -1,3 +1,4 @@
+import sys
 # Draws the wooden UI: a plank button with straw poking out around it, and burned-in style icons.
 # Output: ../ui/wood_button.png (9-slice, see ui_theme.gd for margins) and ../ui/icons/*.png
 import math
@@ -597,8 +598,34 @@ def rank(d, k):  # the league table: a three-step podium with a star over the to
     d.polygon(pts, fill=(200, 150, 40, 255), outline=INK)
 
 
-button()
-panel()
-for n, f in dict(land=land, market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place, vet=vet, vaccine=vaccine, worker=worker, star=star, stable=stable, smithy=smithy, rodeo=rodeo, pond=pond, kennel=kennel, tower=tower, feedlot=feedlot, saloon=saloon, train=train, corral=corral, horse=horse, gear=gear, arrow=arrow, gift=gift, trophy=trophy, book=book, party=party, flower=flower, brush=brush, sign=sign, people=people, rank=rank).items():
+def manor(d, k):  # the owner's manor: a two-storey house with a round tower and a flag
+    shape(d, [(6, 60), (6, 30), (40, 30), (40, 60)], k)
+    shape(d, [(2, 32), (23, 14), (44, 32)], k)
+    shape(d, [(40, 60), (40, 24), (58, 24), (58, 60)], k)
+    shape(d, [(37, 26), (49, 6), (61, 26)], k)
+    d.line([k(49), k(6), k(49), k(0)], fill=INK, width=k(2))
+    d.polygon([(k(49), k(0)), (k(59), k(2)), (k(49), k(5))], fill=(150, 50, 35, 255))
+    d.rectangle([k(18), k(46), k(27), k(60)], fill=INK)
+    for x in (10, 30):
+        d.rectangle([k(x), k(36), k(x + 6), k(42)], fill=INK)
+    d.rectangle([k(46), k(32), k(52), k(40)], fill=INK)
+    d.rectangle([k(46), k(46), k(52), k(54)], fill=INK)
+
+
+def coins(d, k):  # buying dollars: a stack of gold coins with a dollar note behind
+    d.polygon([(k(6), k(14)), (k(44), k(6)), (k(50), k(34)), (k(12), k(42))], fill=(110, 150, 80, 255), outline=INK)
+    d.ellipse([k(22), k(16), k(34), k(28)], outline=INK, width=k(2))
+    for i in range(4):
+        y = 54 - i * 8
+        d.ellipse([k(24), k(y - 6), k(60), k(y + 6)], fill=(225, 180, 80, 255), outline=INK, width=k(2))
+    d.line([k(42), k(23), k(42), k(35)], fill=INK, width=k(2))
+
+
+if len(sys.argv) == 1:
+    button()
+    panel()
+for n, f in dict(land=land, market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place, vet=vet, vaccine=vaccine, worker=worker, star=star, stable=stable, smithy=smithy, rodeo=rodeo, pond=pond, kennel=kennel, tower=tower, feedlot=feedlot, saloon=saloon, train=train, corral=corral, horse=horse, gear=gear, arrow=arrow, gift=gift, trophy=trophy, book=book, party=party, flower=flower, brush=brush, sign=sign, people=people, rank=rank, manor=manor, coins=coins).items():
+    if len(sys.argv) > 1 and n not in sys.argv[1:]:
+        continue
     icon(n, f)
 print("ok")

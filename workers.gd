@@ -81,7 +81,7 @@ func capacity() -> int:
 
 
 func wages() -> int:
-	return int(hired.reduce(func(a, w): return a + w.wage, 0) * maxf(0.5, 1.0 - 0.1 * Legacy.level("thrifty")))
+	return int(hired.reduce(func(a, w): return a + w.wage, 0) * maxf(0.5, 1.0 - 0.1 * Legacy.level("thrifty")) * (0.9 if world and Manor.level_in(world) >= 4 else 1.0))
 
 
 func hire(w: Dictionary) -> bool:
