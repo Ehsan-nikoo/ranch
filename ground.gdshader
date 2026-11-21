@@ -14,7 +14,8 @@ uniform vec3 lush_tint : source_color = vec3(0.52, 0.62, 0.36);
 uniform float snow = 0.0;
 uniform float boost = 1.0;  // brightens a darker green grass texture under the season tints
 uniform sampler2D plots : filter_nearest, repeat_disable;  // Land: 1 = owned plot
-uniform float land_half = 96.0;  // winter cover 0..1, set by main.gd per season
+uniform float land_half = 96.0;
+uniform sampler2D roads : filter_linear, repeat_disable;  // Roads: 1 = dirt road the player drew  // winter cover 0..1, set by main.gd per season
 
 varying vec3 wpos;
 
@@ -33,6 +34,11 @@ void fragment() {
 	vec3 d = texture(dirt_alb, uv * 1.3).rgb * vec3(1.05, 0.95, 0.85);
 	float k = smoothstep(0.3, 0.65, m.r * inside + (mac - 0.5) * 0.25);
 	k = max(k, smoothstep(0.7, 0.1, texture(grazed, muv).r) * inside * 0.75);  // grazed-out ground goes bare
+	vec2 ruv = (wpos.xz + land_half) / (2.0 * land_half);
+	float rd = texture(roads, ruv).r * step(0.0, ruv.x) * step(ruv.x, 1.0) * step(0.0, ruv.y) * step(ruv.y, 1.0);
+	float road = smoothstep(0.25, 0.6, rd + (mac - 0.5) * 0.3);
+	k = max(k, road);
+	d = mix(d, d * vec3(0.92, 0.84, 0.72), road * smoothstep(0.75, 1.0, rd));  // packed middle a shade darker
 	ALBEDO = mix(g, d, k);
 	NORMAL_MAP = mix(texture(grass_nrm, uv).rgb, texture(dirt_nrm, uv * 1.3).rgb, k);
 	ROUGHNESS = 0.95;

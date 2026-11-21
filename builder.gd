@@ -1,5 +1,6 @@
-## Build mode: pick a building, pan the camera so its ghost sits where you want it, rotate, place.
-## The ghost follows the screen center, so placing never fights the pan/zoom gestures.
+## Build mode: pick a building, drag its ghost with a finger to where you want it (a drag that
+## starts off the ghost pans the camera as usual), rotate, place. The ghost starts mid-screen, and the
+## camera follows it when it's dragged near the edge of the screen.
 class_name Builder
 extends CanvasLayer
 
@@ -35,10 +36,14 @@ var land: Land
 var occupied: Array[Rect2] = []
 var on_placed: Callable  # (world footprint) -> void
 var on_decor: Callable   # opens the decoration board
+var on_road: Callable    # starts drawing dirt roads (Roads)
 var level := 1           # reputation level, set by Progress
 var era := 0             # historical era, set by Progress
 
 var ghost: Building
+var _aim := Vector3.ZERO  # where the ghost is headed (the finger drags this)
+var _hint: PanelContainer   # «drag it with a finger», over the place bar
+var _finger := Vector2.INF  # where the finger holding the ghost is now
 var _moving: Building      # a building being moved instead of a new one
 var _from := Transform3D()
 var _cost := 0
@@ -100,6 +105,13 @@ func _ready() -> void:
 	_place_bar.add_child(_button(Button.new(), "لغو", cancel, "cancel"))
 	_place_bar.add_child(_button(_place_btn, "بساز", place, "place"))
 	_place_bar.visible = false
+	_hint = UiTheme.plank(24, Control.PRESET_CENTER_BOTTOM)
+	_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_hint.offset_top = -136
+	_hint.offset_bottom = -136
+	(_hint.get_child(0) as Label).text = "ساختمون رو با انگشت بگیر و بکش، هر جا خواستی بذارش"
+	_hint.visible = false
+	add_child(_hint)
 	_refresh()
 
 
@@ -127,9 +139,16 @@ func _build_panel() -> void:
 		_toggle_menu()
 		on_decor.call(), "flower")
 	decor.custom_minimum_size = Vector2(260, 84)
-	var head: Control = col.get_child(0)
-	head.add_child(decor)
-	head.move_child(decor, 1)
+	var road := _button(Button.new(), "جاده‌ی خاکی (مجانی)", func():
+		_toggle_menu()
+		on_road.call(), "road")
+	road.custom_minimum_size = Vector2(320, 84)
+	var extras := HBoxContainer.new()  # under the title: the things that aren't buildings
+	extras.alignment = BoxContainer.ALIGNMENT_CENTER
+	extras.add_theme_constant_override("separation", 24)
+	extras.add_child(decor)
+	extras.add_child(road)  # right of decor: the first thing a Persian reader sees
+	col.add_child(extras)
 
 	# more buildings than fit across the screen: the row scrolls sideways (drag on a phone)
 	var scroll := ScrollContainer.new()
@@ -254,6 +273,11 @@ func add_money(delta: int, why := "") -> void:
 	_refresh()
 
 
+## Hides the bottom bar while something else (drawing roads) has the screen.
+func hide_bar(on: bool) -> void:
+	_menu.visible = not on
+
+
 func _toggle_menu() -> void:
 	_panel.visible = not _panel.visible
 	_dim.visible = _panel.visible
@@ -286,7 +310,8 @@ func _refresh() -> void:
 func choose(i: int) -> void:
 	_cost = CATALOG[i][2]
 	ghost = CATALOG[i][1].new()
-	ghost.position = _snapped(rig.target)
+	_aim = _snapped(rig.target)
+	ghost.position = _aim
 	world.add_child(ghost)
 	_ghost_mode()
 
@@ -297,7 +322,8 @@ func choose_decor(k: String) -> void:
 	var d := Decor.new()
 	d.kind = k
 	ghost = d
-	ghost.position = _snapped(rig.target)
+	_aim = _snapped(rig.target)
+	ghost.position = _aim
 	world.add_child(ghost)
 	_ghost_mode()
 
@@ -309,6 +335,7 @@ func move(b: Building) -> void:
 	_from = b.transform
 	occupied.erase(b.world_footprint())
 	ghost = b
+	_aim = b.position
 	rig.target = b.position
 	_ghost_mode()
 
@@ -329,6 +356,50 @@ func _ghost_mode() -> void:
 	_place_bar.visible = true
 	_panel.visible = false
 	_dim.visible = false
+	rig.grab = _on_ghost
+	rig.drag = _drag_ghost
+	_hint.visible = true
+
+
+## Does a press at screen point `p` land on the ghost (or close by: small buildings are hard to hit)?
+func _on_ghost(p: Vector2) -> bool:
+	var g := rig.ground_at(p)
+	return ghost != null and g != Vector3.INF and ghost.world_footprint().grow(4.0).has_point(Vector2(g.x, g.z))
+
+
+## The finger moved from `a` to `b` holding the ghost: it moves with the ground under the finger.
+func _drag_ghost(a: Vector2, b: Vector2) -> void:
+	var ga := rig.ground_at(a)
+	var gb := rig.ground_at(b)
+	if ghost == null or ga == Vector3.INF or gb == Vector3.INF:
+		return
+	_aim += gb - ga
+	_aim.x = clampf(_aim.x, -Land.HALF, Land.HALF)
+	_aim.z = clampf(_aim.z, -Land.HALF, Land.HALF)
+	_finger = b
+
+
+## While the finger holds the ghost near the edge of the screen, the camera rolls that way and the
+## ghost goes with it, so it can be taken anywhere without letting go.
+func _edge_roll(delta: float) -> void:
+	if not rig._grabbed or _finger == Vector2.INF:
+		_finger = Vector2.INF
+		return
+	var vp := get_viewport().get_visible_rect().size
+	var edge := Vector2(vp.x * 0.15, vp.y * 0.18)
+	var push := Vector2(
+		-maxf(0.0, edge.x - _finger.x) / edge.x + maxf(0.0, _finger.x - (vp.x - edge.x)) / edge.x,
+		-maxf(0.0, edge.y - _finger.y) / edge.y + maxf(0.0, _finger.y - (vp.y - edge.y)) / edge.y)
+	if push == Vector2.ZERO:
+		return
+	var right := Vector3(cos(rig.yaw), 0, -sin(rig.yaw))
+	var fwd := Vector3(sin(rig.yaw), 0, cos(rig.yaw))
+	var step := (right * push.x + fwd * push.y) * rig.dist * 0.5 * delta
+	var was := _aim
+	_aim += step
+	_aim.x = clampf(_aim.x, -Land.HALF, Land.HALF)
+	_aim.z = clampf(_aim.z, -Land.HALF, Land.HALF)
+	rig.target += _aim - was
 
 
 func rotate_ghost() -> void:
@@ -354,6 +425,7 @@ func _drop_marker() -> void:
 func place() -> void:
 	if not _valid:
 		return
+	ghost.position = _snapped(_aim)
 	var r := ghost.world_footprint()
 	money -= _cost
 	money_moved.emit(-_cost, "decor" if ghost is Decor else "build")
@@ -453,6 +525,9 @@ func _finish(b: Building) -> void:
 
 func _end() -> void:
 	ghost = null
+	rig.grab = Callable()
+	rig.drag = Callable()
+	_hint.visible = false
 	_moving = null
 	_place_bar.visible = false
 	_menu.visible = true
@@ -467,8 +542,12 @@ func _process(delta: float) -> void:
 	_work(delta)
 	if ghost == null:
 		return
-	ghost.position = _snapped(rig.target)
+	_edge_roll(delta)
+	ghost.position = ghost.position.lerp(_aim, 1.0 - exp(-25.0 * delta))  # smooth, but right under the finger
+	var keep := ghost.position
+	ghost.position = _snapped(_aim)  # the check (and the placing) is on whole meters
 	var r := ghost.world_footprint()
+	ghost.position = keep
 	_valid = money >= _cost and land.rect_open(r) and not occupied.any(func(o): return o.intersects(r))
 	_marker_mat.albedo_color = Color(0.3, 0.95, 0.4, 0.38) if _valid else Color(1.0, 0.25, 0.2, 0.45)
 	_place_btn.disabled = not _valid

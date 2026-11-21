@@ -12,6 +12,7 @@ uniform vec3 tint = vec3(1.0);   // season color, set by main.gd
 uniform float snow = 0.0;        // winter: blades flattened and frosted
 uniform sampler2D plots : filter_nearest, repeat_disable;  // Land: 1 = owned plot
 uniform float land_half = 96.0;
+uniform sampler2D roads : filter_linear, repeat_disable;  // Roads: tufts on a road are gone
 
 varying float locked;
 
@@ -21,7 +22,8 @@ void vertex() {
 	float g = textureLod(grazed, root.xz / span + 0.5, 0.0).r;
 	vec2 puv = (root.xz + land_half) / (2.0 * land_half);
 	locked = (puv.x >= 0.0 && puv.y >= 0.0 && puv.x < 1.0 && puv.y < 1.0) ? 1.0 - textureLod(plots, puv, 0.0).r : 0.0;
-	VERTEX = root + (VERTEX - root) * vec3(1.0, mix(0.12, 1.0, g) * (1.0 - 0.35 * snow), 1.0);
+	float rd = (puv.x >= 0.0 && puv.y >= 0.0 && puv.x < 1.0 && puv.y < 1.0) ? textureLod(roads, puv, 0.0).r : 0.0;
+	VERTEX = root + (VERTEX - root) * vec3(1.0, mix(0.12, 1.0, g) * (1.0 - 0.35 * snow), 1.0) * (1.0 - smoothstep(0.2, 0.45, rd));
 	float h = max(VERTEX.y, 0.0);
 	float along = dot(VERTEX.xz, wind_dir);
 	float gust = sin(along * 0.12 - TIME * 1.4) * 0.5 + 0.5;

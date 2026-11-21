@@ -612,6 +612,17 @@ def manor(d, k):  # the owner's manor: a two-storey house with a round tower and
     d.rectangle([k(46), k(46), k(52), k(54)], fill=INK)
 
 
+def road(d, k):  # a dirt road: a winding track with wheel ruts, off into the distance
+    left = [(2, 62), (8, 48), (16, 36), (19, 22), (18, 6)]
+    right = [(54, 62), (46, 48), (36, 36), (31, 22), (27, 6)]
+    d.polygon([(k(x), k(y)) for x, y in left + right[::-1]], fill=(190, 140, 85, 255), outline=INK)
+    for a, b in ((0.3, 0.38), (0.7, 0.62)):
+        pts = [(k(l[0] + (r[0] - l[0]) * (a if i < 2 else b)), k(l[1])) for i, (l, r) in enumerate(zip(left, right))]
+        d.line(pts, fill=INK, width=k(2))
+    d.ellipse([k(46), k(6), k(60), k(20)], fill=(110, 150, 80, 255), outline=INK, width=k(2))
+    d.line([k(53), k(20), k(53), k(30)], fill=INK, width=k(3))
+
+
 def coins(d, k):  # buying dollars: a stack of gold coins with a dollar note behind
     d.polygon([(k(6), k(14)), (k(44), k(6)), (k(50), k(34)), (k(12), k(42))], fill=(110, 150, 80, 255), outline=INK)
     d.ellipse([k(22), k(16), k(34), k(28)], outline=INK, width=k(2))
@@ -624,7 +635,7 @@ def coins(d, k):  # buying dollars: a stack of gold coins with a dollar note beh
 if len(sys.argv) == 1:
     button()
     panel()
-for n, f in dict(land=land, market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place, vet=vet, vaccine=vaccine, worker=worker, star=star, stable=stable, smithy=smithy, rodeo=rodeo, pond=pond, kennel=kennel, tower=tower, feedlot=feedlot, saloon=saloon, train=train, corral=corral, horse=horse, gear=gear, arrow=arrow, gift=gift, trophy=trophy, book=book, party=party, flower=flower, brush=brush, sign=sign, people=people, rank=rank, manor=manor, coins=coins).items():
+for n, f in dict(land=land, market=market, hay=hay, cow=cow, barn=barn, house=house, silo=silo, windmill=windmill, build=build, rotate=rotate, cancel=cancel, place=place, vet=vet, vaccine=vaccine, worker=worker, star=star, stable=stable, smithy=smithy, rodeo=rodeo, pond=pond, kennel=kennel, tower=tower, feedlot=feedlot, saloon=saloon, train=train, corral=corral, horse=horse, gear=gear, arrow=arrow, gift=gift, trophy=trophy, book=book, party=party, flower=flower, brush=brush, sign=sign, people=people, rank=rank, manor=manor, coins=coins, road=road).items():
     if len(sys.argv) > 1 and n not in sys.argv[1:]:
         continue
     icon(n, f)

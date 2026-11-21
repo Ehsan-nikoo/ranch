@@ -39,6 +39,7 @@ var cow_ui := CowUI.new()
 var rival := Rival.new()
 var ledger := Ledger.new()
 var shop := Shop.new()
+var roads := Roads.new()
 var bank := Bank.new()
 var warnings := Warnings.new()
 var daily := Daily.new()
@@ -143,6 +144,7 @@ func _ready() -> void:
 	if not get_children().any(func(n): return n is Manor):  # every ranch has the owner's house, old saves too
 		_add_manor()
 	Manor.box = int(saved.get("manor_box", 0))
+	roads.from_save(str(saved.get("roads", "")))
 	if _arg("manor", "") != "":  # test: --manor=3 the owner's house at level 3, its strongbox half full
 		var old: Manor = get_children().filter(func(n): return n is Manor)[0]
 		var m := Manor.new()
@@ -682,8 +684,58 @@ func _ready() -> void:
 	buy.custom_minimum_size = Vector2(200, 84)
 	buy.add_theme_font_size_override("font_size", 24)
 	builder.add_child(buy)
+	builder.move_child(buy, 0)  # under the build board when that's open
 	building_ui.boards.shop = shop
 	building_ui.boards.ledger = ledger
+	roads.rig = rig
+	roads.land = land
+	roads.builder = builder
+	roads.save = _save
+	add_child(roads)
+	builder.on_road = roads.open
+	if _arg("road", "") != "":  # test: --road=1 a road drawn by "finger" from the barn to the gate, drawing mode on
+		roads.paint(Vector3(-6, 0, 30), Vector3(-20, 0, 14), true)
+		roads.paint(Vector3(-20, 0, 14), Vector3(-24, 0, -10), true)
+		roads.texture.update(roads.img)
+		roads.call_deferred("open")
+		if _arg("road", "") == "draw":  # --road=draw: and a mouse drag across the screen draws one more
+			get_tree().create_timer(1.0).timeout.connect(func():
+				var vp := get_viewport().get_visible_rect().size
+				var press := InputEventMouseButton.new()
+				press.button_index = MOUSE_BUTTON_LEFT
+				press.pressed = true
+				press.position = vp * Vector2(0.3, 0.5)
+				Input.parse_input_event(press)
+				for k in 30:
+					await get_tree().process_frame
+					var mv := InputEventMouseMotion.new()
+					mv.button_mask = MOUSE_BUTTON_MASK_LEFT
+					mv.relative = Vector2(vp.x * 0.015, -vp.y * 0.005)
+					mv.position = vp * Vector2(0.3 + 0.015 * (k + 1), 0.5 - 0.005 * (k + 1))
+					Input.parse_input_event(mv)
+				var up := InputEventMouseButton.new()
+				up.button_index = MOUSE_BUTTON_LEFT
+				up.position = vp * Vector2(0.75, 0.35)
+				Input.parse_input_event(up))
+	if _arg("drag", "") != "":  # test: --drag=1 pick a windmill and drag its ghost up the screen with the mouse
+		get_tree().create_timer(1.0).timeout.connect(func():
+			builder.choose(3)
+			var mid := get_viewport().get_visible_rect().size * 0.5
+			var start := builder.ghost.position
+			var press := InputEventMouseButton.new()
+			press.button_index = MOUSE_BUTTON_LEFT
+			press.pressed = true
+			press.position = mid
+			Input.parse_input_event(press)
+			for k in 20:
+				await get_tree().process_frame
+				var mv := InputEventMouseMotion.new()
+				mv.button_mask = MOUSE_BUTTON_MASK_LEFT
+				mv.relative = Vector2(0, -10)
+				mv.position = mid + Vector2(0, -10 * (k + 1))
+				Input.parse_input_event(mv)
+			await get_tree().create_timer(0.5).timeout
+			print("drag: ghost moved ", builder.ghost.position - start, " camera at ", rig.target))
 	if _arg("shop", "") != "":  # test: --shop=1 the board open
 		shop.call_deferred("toggle")
 	match _arg("people", ""):  # test: --people=1 the board; friends = some hearts and jobs; visit = the first chapter's visit
@@ -1130,7 +1182,7 @@ func _state() -> Dictionary:
 			buildings.append([n.get_script().resource_path, n.position.x, n.position.z, n.rotation_degrees.y, n.level, n.work_left, n.work_total, n.upgrading])
 			if n is Decor:
 				buildings[-1].append(n.kind)
-	return {saved_at = Time.get_unix_time_from_system(), yard = 2, money = builder.money, manor_box = Manor.box, decor = {name = Decor.ranch_name, paint = Building.wall_paint}, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), weather = weather.to_save(), rival = rival.to_save(), ledger = ledger.to_save(), drive = drive.to_save(), delivery = delivery.to_save(), land = land.to_save(), goals = goals.to_save(), legacy = legacy.to_save(), horses = horses.to_save(), fair = fair.to_save(), festivals = festivals.to_save(), surprises = surprises.to_save(), wild = wild.to_save(), people = people.to_save(), league = league.to_save(), collection = collection.to_save(), bank = bank.to_save(), daily = daily.to_save(), away = away.to_save(), tutorial = tutorial.step if tutorial else 99}
+	return {saved_at = Time.get_unix_time_from_system(), yard = 2, money = builder.money, manor_box = Manor.box, roads = roads.to_save(), decor = {name = Decor.ranch_name, paint = Building.wall_paint}, day = day.day, hour = day.hour, buildings = buildings, herd = herd.to_save(), market = market.to_save(), workers = workers.to_save(), progress = progress.to_save(), events = events.to_save(), weather = weather.to_save(), rival = rival.to_save(), ledger = ledger.to_save(), drive = drive.to_save(), delivery = delivery.to_save(), land = land.to_save(), goals = goals.to_save(), legacy = legacy.to_save(), horses = horses.to_save(), fair = fair.to_save(), festivals = festivals.to_save(), surprises = surprises.to_save(), wild = wild.to_save(), people = people.to_save(), league = league.to_save(), collection = collection.to_save(), bank = bank.to_save(), daily = daily.to_save(), away = away.to_save(), tutorial = tutorial.step if tutorial else 99}
 
 
 # ---------- ground & grass ----------
@@ -1151,6 +1203,7 @@ func _ground() -> void:
 	sm.set_shader_parameter("grazed", herd.grass_tex)
 	sm.set_shader_parameter("plots", land.texture)
 	sm.set_shader_parameter("land_half", Land.HALF)
+	sm.set_shader_parameter("roads", roads.texture)
 	var pm := PlaneMesh.new()
 	pm.size = Vector2(800, 800)
 	var mi := MeshInstance3D.new()
@@ -1188,6 +1241,7 @@ func _grass() -> void:
 	var mat := grass_mat
 	mat.shader = load("res://grass.gdshader")
 	mat.set_shader_parameter("grazed", herd.grass_tex)
+	mat.set_shader_parameter("roads", roads.texture)
 	mat.set_shader_parameter("plots", land.texture)
 	mat.set_shader_parameter("land_half", Land.HALF)
 	mat.set_shader_parameter("span", MASK_SPAN)

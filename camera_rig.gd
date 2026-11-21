@@ -18,6 +18,11 @@ var _dist := dist
 var _touches := {}  # index -> position
 var _pinch_len := 0.0
 var _pinch_ang := 0.0
+## A one-finger drag that starts where `grab` says yes (screen position -> bool) goes to `drag`
+## (from, to) instead of panning: the builder uses it to drag the building being placed.
+var grab: Callable
+var drag: Callable
+var _grabbed := false
 
 
 func _ready() -> void:
@@ -44,9 +49,13 @@ func _unhandled_input(e: InputEvent) -> void:
 		else:
 			_touches.erase(e.index)
 		_reset_pinch()
+		_grabbed = e.pressed and _touches.size() == 1 and grab.is_valid() and grab.call(e.position)
 	elif e is InputEventScreenDrag:
 		if _touches.size() == 1:
-			_pan(e.relative)
+			if _grabbed and drag.is_valid():
+				drag.call(_touches.get(e.index, e.position - e.relative), e.position)
+			else:
+				_pan(e.relative)
 		_touches[e.index] = e.position
 		if _touches.size() == 2:
 			var p: Array = _touches.values()
@@ -58,14 +67,28 @@ func _unhandled_input(e: InputEvent) -> void:
 			_pinch_ang = v.angle()
 	elif e is InputEventMouseMotion:
 		if e.button_mask & MOUSE_BUTTON_MASK_LEFT:
-			_pan(e.relative)
+			if _grabbed and drag.is_valid():
+				drag.call(e.position - e.relative, e.position)
+			else:
+				_pan(e.relative)
 		elif e.button_mask & MOUSE_BUTTON_MASK_RIGHT:
 			yaw -= e.relative.x * 0.006
+	elif e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+		_grabbed = e.pressed and grab.is_valid() and grab.call(e.position)
 	elif e is InputEventMouseButton and e.pressed:
 		if e.button_index == MOUSE_BUTTON_WHEEL_UP:
 			dist = maxf(dist * 0.9, MIN_DIST)
 		elif e.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			dist = minf(dist * 1.1, MAX_DIST)
+
+
+## Where the screen point `p` meets the ground, or Vector3.INF above the horizon.
+func ground_at(p: Vector2) -> Vector3:
+	var o := cam.project_ray_origin(p)
+	var d := cam.project_ray_normal(p)
+	if d.y >= -0.01:
+		return Vector3.INF
+	return o + d * (-o.y / d.y)
 
 
 func _reset_pinch() -> void:
